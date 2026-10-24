@@ -23,7 +23,7 @@ Faija
 
 
 Maya
-
+![alt text](<Cuplikan layar 2026-10-24 110259.png>)
 
 Dewi 
 
@@ -34,7 +34,7 @@ Faija
 
 
 Maya
-
+![alt text](<Cuplikan layar 2026-10-24 115911.png>)
 
 Dewi
 
