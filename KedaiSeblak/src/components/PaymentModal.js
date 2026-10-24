@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -29,76 +29,137 @@ export default function PaymentModal({
   const isLargeScreen = width >= 768;
   const { user, checkoutOrder } = useKasir();
 
-  // 1. Bayar Pake Apa (Metode Pembayaran)
   const [paymentMethod, setPaymentMethod] = useState('Tunai');
   const [selectedEwallet, setSelectedEwallet] = useState('GoPay');
+  const [cashInput, setCashInput] = useState('0');
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  // 2. Bayarnya Berapa (Nominal Uang yang Dibayar)
-  const [cashInput, setCashInput] = useState('');
+  // Ref digunakan untuk mencegah klik pembayaran berulang.
+  const processingRef = useRef(false);
 
-  const orderNumber = transactionData?.orderNo || '#001';
+  const orderNumber = transactionData?.orderNo || `TRX-${Date.now()}`;
   const tableNo = transactionData?.tableNo || 'Meja 2';
-  const orderTime = transactionData?.time || '09:45';
-  const dateStr = transactionData?.date || '16/10/2025';
+  const orderTime =
+    transactionData?.time ||
+    new Date().toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+  const dateStr =
+    transactionData?.date || new Date().toLocaleDateString('id-ID');
+
   const kuah = transactionData?.kuah || 'Original';
   const pedas = transactionData?.pedas ?? 3;
   const catatan = transactionData?.catatan || '';
 
-  const orderItems =
-    transactionData?.items && transactionData.items.length > 0
-      ? transactionData.items
-      : [
-          { name: 'Topping Lengkap', qty: 1, price: 28000 },
-          { name: 'Telur', qty: 1, price: 4000 },
-        ];
+  // Ambil hanya item asli dari dashboard. Tidak ada data contoh.
+  const orderItems = Array.isArray(transactionData?.items)
+    ? transactionData.items.map((item) => {
+        const qty = Number(item.qty ?? item.quantity ?? 1);
+        const price = Number(item.price ?? item.harga ?? 0);
+        const name = item.name || item.nama || 'Item';
 
-  // 3. Totalnya Berapa (Total Tagihan)
+        return {
+          ...item,
+          id: item.id,
+          name,
+          nama: name,
+          qty,
+          price,
+          harga: price,
+          subtotal: price * qty,
+        };
+      })
+    : [];
+
+  // Total utama dihitung dari item agar rincian dan total konsisten.
+  const calculatedTotal = orderItems.reduce(
+    (sum, item) => sum + item.price * item.qty,
+    0
+  );
+
+  const providedTotal = Number(transactionData?.total);
+
   const totalPrice =
-    transactionData?.total !== undefined
-      ? transactionData.total
-      : orderItems.reduce(
-          (acc, item) => acc + (item.price || 0) * (item.qty || 1),
-          0
-        );
+    Number.isFinite(providedTotal) && providedTotal > 0
+      ? providedTotal
+      : calculatedTotal;
 
   useEffect(() => {
     if (visible) {
-      setCashInput(totalPrice.toString());
+      setCashInput(String(totalPrice));
       setPaymentMethod('Tunai');
+      setSelectedEwallet('GoPay');
+      setIsProcessing(false);
+      processingRef.current = false;
     }
   }, [visible, totalPrice]);
 
-  const numericCash = parseInt(cashInput, 10) || 0;
+  const numericCash = Number.parseInt(cashInput, 10) || 0;
   const change = Math.max(0, numericCash - totalPrice);
 
-  const handleNumpad = (val) => {
-    if (val === 'DEL') {
-      setCashInput((prev) => {
-        const next = prev.slice(0, -1);
+  const handleNumpad = (value) => {
+    if (isProcessing) return;
+
+    if (value === 'DEL') {
+      setCashInput((previous) => {
+        const next = previous.slice(0, -1);
         return next === '' ? '0' : next;
       });
-    } else if (val === '00') {
-      setCashInput((prev) => {
-        if (prev === '0' || prev === '') return '0';
-        return prev + '00';
+      return;
+    }
+
+    if (value === '00') {
+      setCashInput((previous) => {
+        if (previous === '0' || previous === '') return '0';
+        return previous + '00';
       });
-    } else {
-      setCashInput((prev) => {
-        if (prev === '0') return val;
-        return prev + val;
-      });
+      return;
+    }
+
+    setCashInput((previous) => {
+      if (previous === '0' || previous === '') return value;
+      return previous + value;
+    });
+  };
+
+  const handleQuickAmount = (amount) => {
+    if (!isProcessing) {
+      setCashInput(String(amount));
     }
   };
 
-  const handleQuickAmount = (amt) => {
-    setCashInput(amt.toString());
-  };
-
   const handleProcessPayment = () => {
+    if (processingRef.current || isProcessing) return;
+
+    // Validasi keranjang.
+    if (orderItems.length === 0) {
+      Alert.alert(
+        'Pesanan Kosong',
+        'Tidak ada item pesanan yang dapat dibayar. Kembali ke dashboard dan pilih topping terlebih dahulu.'
+      );
+      return;
+    }
+
+    // Validasi total.
+    if (!Number.isFinite(totalPrice) || totalPrice <= 0) {
+      Alert.alert(
+        'Total Tidak Valid',
+        'Total pesanan tidak valid. Periksa kembali harga dan jumlah topping.'
+      );
+      return;
+    }
+
+    // Validasi uang tunai.
     if (paymentMethod === 'Tunai' && numericCash < totalPrice) {
       Alert.alert(
         'Uang Kurang',
-        `Uang tunai ${formatCurrency(numericCash)} kurang dari total tagihan ${formatCurrency(totalPrice)}. Silakan masukkan jumlah uang yang sesuai.`
+        `Uang tunai ${formatCurrency(
+          numericCash
+        )} kurang dari total tagihan ${formatCurrency(
+          totalPrice
+        )}. Silakan masukkan jumlah uang yang sesuai.`
       );
       return;
     }
@@ -110,40 +171,54 @@ export default function PaymentModal({
 
     const finalCashPaid =
       paymentMethod === 'Tunai' ? numericCash : totalPrice;
+
     const finalChange = paymentMethod === 'Tunai' ? change : 0;
 
-    // Simpan pesanan & transaksi ke sistem
-    checkoutOrder(finalMethodName, finalCashPaid, {
+    const transactionPayload = {
       orderNo: orderNumber,
       tableNo,
-      time: orderTime,
       date: dateStr,
-      items: orderItems,
-      total: totalPrice,
+      time: orderTime,
       kuah,
       pedas,
       catatan,
-    });
-
-    // Kirim payload lengkap ke modal Struk
-    const txPayload = {
-      orderNo: orderNumber,
-      tableNo: tableNo,
-      date: dateStr,
-      time: orderTime,
-      kuah: kuah,
-      pedas: pedas,
-      catatan: catatan,
       items: orderItems,
       total: totalPrice,
       method: finalMethodName,
       cashPaid: finalCashPaid,
       change: finalChange,
-      kasir: user?.name || 'Siti Aisyah',
+      kasir: user?.name || user?.nama || 'Kasir',
+      status: 'Lunas',
     };
 
-    if (onSuccessPayment) {
-      onSuccessPayment(txPayload);
+    processingRef.current = true;
+    setIsProcessing(true);
+
+    try {
+      // Simpan transaksi satu kali saja melalui context.
+      checkoutOrder(finalMethodName, finalCashPaid, transactionPayload);
+
+      // Dashboard menerima transaksi dan membuka ReceiptModal.
+      if (typeof onSuccessPayment === 'function') {
+        onSuccessPayment(transactionPayload);
+      } else {
+        Alert.alert(
+          'Callback Tidak Tersedia',
+          'Transaksi diproses, tetapi fungsi untuk menampilkan struk belum dipasang.'
+        );
+        processingRef.current = false;
+        setIsProcessing(false);
+      }
+    } catch (error) {
+      console.error('Gagal memproses pembayaran:', error);
+
+      processingRef.current = false;
+      setIsProcessing(false);
+
+      Alert.alert(
+        'Pembayaran Gagal',
+        'Transaksi tidak dapat diproses. Silakan periksa kembali dan coba lagi.'
+      );
     }
   };
 
@@ -177,12 +252,13 @@ export default function PaymentModal({
       onRequestClose={onClose}
     >
       <SafeAreaView style={styles.safeContainer}>
-        {/* Top Header Bar */}
+        {/* Header */}
         <View style={styles.topBar}>
           <TouchableOpacity
             onPress={onClose}
             style={styles.backButton}
             activeOpacity={0.7}
+            disabled={isProcessing}
           >
             <Ionicons name="arrow-back" size={22} color="#2C1810" />
             <Text style={styles.pageTitle}>Pembayaran Pesanan</Text>
@@ -192,16 +268,18 @@ export default function PaymentModal({
             <View style={styles.avatarCircle}>
               <Image source={avatarSource} style={styles.avatarImg} />
             </View>
+
             <View>
               <Text style={styles.profileName}>
-                {user?.name || 'Siti Aisyah'}
+                {user?.name || user?.nama || 'Kasir'}
               </Text>
-              <Text style={styles.profileRole}>{user?.role || 'Kasir'}</Text>
+              <Text style={styles.profileRole}>
+                {user?.role || 'Kasir'}
+              </Text>
             </View>
           </View>
         </View>
 
-        {/* Responsive Content */}
         <ScrollView
           style={styles.mainScrollView}
           contentContainerStyle={[
@@ -210,14 +288,14 @@ export default function PaymentModal({
           ]}
           showsVerticalScrollIndicator={false}
         >
-          {/* SISI KIRI: Ringkasan Pesanan, Totalnya Berapa, & Bayar Pake Apa */}
+          {/* Kolom kiri */}
           <View
             style={[
               styles.leftColumn,
               isLargeScreen && { flex: 1.15, marginRight: 20 },
             ]}
           >
-            {/* 1. KOTAK TOTAL TAGIHAN (TOTALNYA BERAPA) */}
+            {/* Total tagihan */}
             <View style={styles.totalHighlightCard}>
               <View style={styles.totalHeaderRow}>
                 <View>
@@ -226,6 +304,7 @@ export default function PaymentModal({
                     {formatCurrency(totalPrice)}
                   </Text>
                 </View>
+
                 <View style={styles.orderMetaBadge}>
                   <Text style={styles.orderMetaText}>{orderNumber}</Text>
                   <Text style={styles.orderMetaTable}>{tableNo}</Text>
@@ -234,8 +313,9 @@ export default function PaymentModal({
 
               <View style={styles.orderDetailSubRow}>
                 <Text style={styles.orderDetailSubText}>
-                  Waktu: {orderTime} • Kuah: {kuah} • Level Pedas: Lvl {pedas}
+                  Waktu: {orderTime} • Kuah: {kuah} • Level Pedas: {pedas}
                 </Text>
+
                 {catatan ? (
                   <Text style={styles.orderNotesText} numberOfLines={1}>
                     Catatan: {catatan}
@@ -244,84 +324,109 @@ export default function PaymentModal({
               </View>
             </View>
 
-            {/* RINCIAN ITEM TOPPING */}
+            {/* Rincian item */}
             <View style={[styles.cardBox, { marginTop: 14 }]}>
               <Text style={styles.boxTitle}>Rincian Topping Terpilih</Text>
 
               <View style={styles.tableHeader}>
-                <Text style={[styles.thText, { flex: 2 }]}>Nama Topping</Text>
-                <Text style={[styles.thText, { width: 50, textAlign: 'center' }]}>
+                <Text style={[styles.thText, { flex: 2 }]}>
+                  Nama Topping
+                </Text>
+                <Text
+                  style={[
+                    styles.thText,
+                    { width: 50, textAlign: 'center' },
+                  ]}
+                >
                   Qty
                 </Text>
-                <Text style={[styles.thText, { width: 85, textAlign: 'right' }]}>
+                <Text
+                  style={[
+                    styles.thText,
+                    { width: 85, textAlign: 'right' },
+                  ]}
+                >
                   Harga
                 </Text>
               </View>
 
-              {orderItems.map((item, idx) => (
-                <View key={idx} style={styles.tableRow}>
-                  <Text
-                    style={[styles.tdText, { flex: 2, fontWeight: '700' }]}
-                    numberOfLines={1}
-                  >
-                    {item.name || item.nama}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.tdText,
-                      { width: 50, textAlign: 'center', color: '#6F5C53' },
-                    ]}
-                  >
-                    {item.qty || 1}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.tdText,
-                      {
-                        width: 85,
-                        textAlign: 'right',
-                        fontWeight: '800',
-                        color: '#2C1810',
-                      },
-                    ]}
-                  >
-                    {formatCurrency(
-                      (item.price || item.harga || 0) * (item.qty || 1)
-                    )}
+              {orderItems.length === 0 ? (
+                <View style={styles.emptyItems}>
+                  <Ionicons
+                    name="cart-outline"
+                    size={28}
+                    color="#A09088"
+                  />
+                  <Text style={styles.emptyItemsText}>
+                    Belum ada item pesanan.
                   </Text>
                 </View>
-              ))}
+              ) : (
+                orderItems.map((item, index) => (
+                  <View
+                    key={item.id ?? `${item.name}-${index}`}
+                    style={styles.tableRow}
+                  >
+                    <Text
+                      style={[styles.tdText, styles.itemName]}
+                      numberOfLines={2}
+                    >
+                      {item.name}
+                    </Text>
+
+                    <Text
+                      style={[
+                        styles.tdText,
+                        styles.itemQty,
+                      ]}
+                    >
+                      {item.qty}
+                    </Text>
+
+                    <Text
+                      style={[
+                        styles.tdText,
+                        styles.itemPrice,
+                      ]}
+                    >
+                      {formatCurrency(item.subtotal)}
+                    </Text>
+                  </View>
+                ))
+              )}
             </View>
 
-            {/* 2. KOTAK METODE PEMBAYARAN (BAYAR PAKE APA) */}
+            {/* Metode pembayaran */}
             <View style={[styles.cardBox, { marginTop: 14 }]}>
               <View style={styles.sectionHeadingRow}>
-                <Text style={styles.boxTitle}>
-                  Metode Pembayaran (Bayar Pake Apa)
-                </Text>
+                <Text style={styles.boxTitle}>Metode Pembayaran</Text>
+
                 <Text style={styles.activeMethodIndicator}>
                   {paymentMethod === 'Tunai'
-                    ? '💵 Tunai (Cash)'
+                    ? '💵 Tunai'
                     : paymentMethod === 'QRIS'
-                    ? '📱 QRIS Digital'
-                    : `💳 E-Wallet (${selectedEwallet})`}
+                      ? '📱 QRIS'
+                      : `💳 ${selectedEwallet}`}
                 </Text>
               </View>
 
               <View style={styles.methodsRow}>
-                {/* Tunai */}
                 <TouchableOpacity
                   style={[
                     styles.methodButton,
-                    paymentMethod === 'Tunai' && styles.methodButtonActive,
+                    paymentMethod === 'Tunai' &&
+                      styles.methodButtonActive,
                   ]}
                   onPress={() => setPaymentMethod('Tunai')}
+                  disabled={isProcessing}
                   activeOpacity={0.75}
                 >
                   <MaterialIcons
                     name="payments"
                     size={24}
-                    color={paymentMethod === 'Tunai' ? '#FFFFFF' : '#8D7B70'}
+                    color={
+                      paymentMethod === 'Tunai' ? '#FFFFFF' : '#8D7B70'
+                    }
                   />
                   <Text
                     style={[
@@ -330,26 +435,26 @@ export default function PaymentModal({
                         styles.methodButtonTextActive,
                     ]}
                   >
-                    Tunai (Cash)
+                    Tunai
                   </Text>
                 </TouchableOpacity>
 
-                {/* QRIS */}
                 <TouchableOpacity
                   style={[
                     styles.methodButton,
-                    paymentMethod === 'QRIS' && styles.methodButtonActive,
+                    paymentMethod === 'QRIS' &&
+                      styles.methodButtonActive,
                   ]}
-                  onPress={() => {
-                    setPaymentMethod('QRIS');
-                    setCashInput(totalPrice.toString());
-                  }}
+                  onPress={() => setPaymentMethod('QRIS')}
+                  disabled={isProcessing}
                   activeOpacity={0.75}
                 >
                   <MaterialCommunityIcons
                     name="qrcode-scan"
                     size={24}
-                    color={paymentMethod === 'QRIS' ? '#FFFFFF' : '#8D7B70'}
+                    color={
+                      paymentMethod === 'QRIS' ? '#FFFFFF' : '#8D7B70'
+                    }
                   />
                   <Text
                     style={[
@@ -362,22 +467,24 @@ export default function PaymentModal({
                   </Text>
                 </TouchableOpacity>
 
-                {/* E-Wallet */}
                 <TouchableOpacity
                   style={[
                     styles.methodButton,
-                    paymentMethod === 'E-Wallet' && styles.methodButtonActive,
+                    paymentMethod === 'E-Wallet' &&
+                      styles.methodButtonActive,
                   ]}
-                  onPress={() => {
-                    setPaymentMethod('E-Wallet');
-                    setCashInput(totalPrice.toString());
-                  }}
+                  onPress={() => setPaymentMethod('E-Wallet')}
+                  disabled={isProcessing}
                   activeOpacity={0.75}
                 >
                   <Ionicons
                     name="wallet-outline"
                     size={24}
-                    color={paymentMethod === 'E-Wallet' ? '#FFFFFF' : '#8D7B70'}
+                    color={
+                      paymentMethod === 'E-Wallet'
+                        ? '#FFFFFF'
+                        : '#8D7B70'
+                    }
                   />
                   <Text
                     style={[
@@ -391,60 +498,76 @@ export default function PaymentModal({
                 </TouchableOpacity>
               </View>
 
-              {/* TAMPILAN DINAMIS PILIHAN METODE */}
               {paymentMethod === 'Tunai' ? (
                 <View style={styles.cashSummaryBanner}>
                   <Text style={styles.cashBannerHint}>
-                    Masukkan jumlah uang tunai yang diberikan pelanggan di numpad sebelah kanan:
+                    Masukkan jumlah uang tunai yang diberikan pelanggan
+                    menggunakan numpad di sebelah kanan.
                   </Text>
                 </View>
               ) : paymentMethod === 'QRIS' ? (
                 <View style={styles.qrisContainer}>
                   <View style={styles.qrisQrBox}>
-                    <Ionicons name="qr-code" size={100} color="#2C1810" />
+                    <Ionicons
+                      name="qr-code"
+                      size={100}
+                      color="#2C1810"
+                    />
                   </View>
+
                   <Text style={styles.qrisPromptTitle}>
-                    Pindai Kode QRIS di Meja Kasir
+                    Simulasi Pembayaran QRIS
                   </Text>
+
                   <Text style={styles.qrisPromptSub}>
-                    Mendukung BCA, Mandiri, GoPay, OVO, ShopeePay, DANA
+                    Tampilan QRIS ini masih berupa demo dan belum
+                    terhubung ke penyedia pembayaran.
                   </Text>
                 </View>
               ) : (
                 <View style={styles.ewalletContainer}>
                   <Text style={styles.ewalletHeading}>
-                    Pilih Layanan E-Wallet Pelanggan:
+                    Pilih layanan E-Wallet:
                   </Text>
+
                   <View style={styles.ewalletPillsRow}>
-                    {['GoPay', 'OVO', 'DANA', 'ShopeePay'].map((ew) => {
-                      const isSel = selectedEwallet === ew;
+                    {['GoPay', 'OVO', 'DANA', 'ShopeePay'].map((wallet) => {
+                      const selected = selectedEwallet === wallet;
+
                       return (
                         <TouchableOpacity
-                          key={ew}
+                          key={wallet}
                           style={[
                             styles.ewalletPill,
-                            isSel && styles.ewalletPillActive,
+                            selected && styles.ewalletPillActive,
                           ]}
-                          onPress={() => setSelectedEwallet(ew)}
+                          onPress={() => setSelectedEwallet(wallet)}
+                          disabled={isProcessing}
+                          activeOpacity={0.7}
                         >
                           <Text
                             style={[
                               styles.ewalletPillText,
-                              isSel && styles.ewalletPillTextActive,
+                              selected && styles.ewalletPillTextActive,
                             ]}
                           >
-                            {ew}
+                            {wallet}
                           </Text>
                         </TouchableOpacity>
                       );
                     })}
                   </View>
+
+                  <Text style={styles.qrisPromptSub}>
+                    E-Wallet masih berupa simulasi, belum terhubung ke
+                    penyedia pembayaran.
+                  </Text>
                 </View>
               )}
             </View>
           </View>
 
-          {/* SISI KANAN: 3. BAYARNYA BERAPA (INPUT / KEYPAD) & TOMBOL BAYAR */}
+          {/* Kolom kanan */}
           <View
             style={[
               styles.rightColumn,
@@ -453,19 +576,23 @@ export default function PaymentModal({
             ]}
           >
             <View style={styles.keypadCard}>
-              {/* STATUS JUMLAH BAYAR (BAYARNYA BERAPA) */}
               <View style={styles.amountDisplayBox}>
                 <Text style={styles.amountDisplayLabel}>
                   {paymentMethod === 'Tunai'
-                    ? 'Uang Tunai yang Dibayarkan (Bayarnya Berapa):'
-                    : 'Nominal Tagihan Pas (Bayarnya Berapa):'}
+                    ? 'Uang Tunai yang Dibayarkan'
+                    : 'Nominal Tagihan'}
                 </Text>
+
                 <Text style={styles.amountDisplayText}>
-                  {formatCurrency(paymentMethod === 'Tunai' ? numericCash : totalPrice)}
+                  {formatCurrency(
+                    paymentMethod === 'Tunai'
+                      ? numericCash
+                      : totalPrice
+                  )}
                 </Text>
               </View>
 
-              {/* BAR KEMBALIAN OTOMATIS */}
+              {/* Uang kembalian */}
               {paymentMethod === 'Tunai' ? (
                 <View
                   style={[
@@ -480,10 +607,13 @@ export default function PaymentModal({
                       ? 'Uang Kembalian:'
                       : 'Kekurangan Uang:'}
                   </Text>
+
                   <Text
                     style={[
                       styles.changeBoxValue,
-                      numericCash < totalPrice && { color: '#C62828' },
+                      numericCash < totalPrice && {
+                        color: '#C62828',
+                      },
                     ]}
                   >
                     {numericCash >= totalPrice
@@ -493,51 +623,62 @@ export default function PaymentModal({
                 </View>
               ) : (
                 <View style={styles.changeBoxDigital}>
-                  <Ionicons name="checkmark-circle" size={16} color="#2E7D32" />
+                  <Ionicons
+                    name="information-circle-outline"
+                    size={17}
+                    color="#8A6200"
+                  />
                   <Text style={styles.changeBoxDigitalText}>
-                    Pembayaran Pas Tanpa Kembalian (Lunas)
+                    Mode simulasi. Pastikan alur pembayaran demo sudah
+                    sesuai sebelum transaksi dikonfirmasi.
                   </Text>
                 </View>
               )}
 
-              {/* NUMPAD HANYA UNTUK TUNAI */}
+              {/* Numpad hanya untuk tunai */}
               {paymentMethod === 'Tunai' ? (
                 <>
-                  {/* Quick Cash Suggestions */}
                   <View style={styles.quickCashRow}>
                     <TouchableOpacity
                       style={styles.quickCashPill}
                       onPress={() => handleQuickAmount(totalPrice)}
+                      disabled={isProcessing}
                     >
                       <Text style={styles.quickCashText}>Uang Pas</Text>
                     </TouchableOpacity>
+
                     <TouchableOpacity
                       style={styles.quickCashPill}
                       onPress={() => handleQuickAmount(20000)}
+                      disabled={isProcessing}
                     >
                       <Text style={styles.quickCashText}>20k</Text>
                     </TouchableOpacity>
+
                     <TouchableOpacity
                       style={styles.quickCashPill}
                       onPress={() => handleQuickAmount(50000)}
+                      disabled={isProcessing}
                     >
                       <Text style={styles.quickCashText}>50k</Text>
                     </TouchableOpacity>
+
                     <TouchableOpacity
                       style={styles.quickCashPill}
                       onPress={() => handleQuickAmount(100000)}
+                      disabled={isProcessing}
                     >
                       <Text style={styles.quickCashText}>100k</Text>
                     </TouchableOpacity>
                   </View>
 
-                  {/* 3x4 Numpad Keypad */}
                   <View style={styles.numpadGrid}>
                     {numpadKeys.map((key) => (
                       <TouchableOpacity
                         key={key}
                         style={styles.numKey}
                         onPress={() => handleNumpad(key)}
+                        disabled={isProcessing}
                         activeOpacity={0.7}
                       >
                         {key === 'DEL' ? (
@@ -556,22 +697,32 @@ export default function PaymentModal({
               ) : (
                 <View style={styles.digitalInstructionBox}>
                   <Text style={styles.digitalInstructionTitle}>
-                    Konfirmasi Pembayaran Digital
+                    Konfirmasi Pembayaran Digital (Demo)
                   </Text>
+
                   <Text style={styles.digitalInstructionDesc}>
-                    Pastikan pelanggan telah menyelesaikan scan/transfer sebesar{' '}
-                    <Text style={{ fontWeight: '800', color: '#C62828' }}>
-                      {formatCurrency(totalPrice)}
-                    </Text>
-                    . Lalu tekan tombol Bayar di bawah untuk menerbitkan Struk Transaksi.
+                    Mode demo: tombol di bawah menyelesaikan simulasi
+                    pembayaran dan menampilkan struk. Pembayaran digital
+                    belum diverifikasi oleh penyedia pembayaran.
                   </Text>
                 </View>
               )}
 
-              {/* TOMBOL BAYAR -> LANGSUNG CETAK STRUK */}
+              {/* Tombol bayar */}
               <TouchableOpacity
-                style={styles.payButton}
+                style={[
+                  styles.payButton,
+                  (isProcessing ||
+                    orderItems.length === 0 ||
+                    totalPrice <= 0) &&
+                    styles.payButtonDisabled,
+                ]}
                 onPress={handleProcessPayment}
+                disabled={
+                  isProcessing ||
+                  orderItems.length === 0 ||
+                  totalPrice <= 0
+                }
                 activeOpacity={0.85}
               >
                 <MaterialCommunityIcons
@@ -579,8 +730,11 @@ export default function PaymentModal({
                   size={22}
                   color="#FFFFFF"
                 />
+
                 <Text style={styles.payButtonText}>
-                  Konfirmasi Bayar {formatCurrency(totalPrice)}
+                  {isProcessing
+                    ? 'Memproses...'
+                    : `Konfirmasi Bayar ${formatCurrency(totalPrice)}`}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -597,7 +751,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F5F2',
   },
   topBar: {
-    height: 60,
+    minHeight: 60,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#EDE5DF',
@@ -605,11 +759,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
+    gap: 10,
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flexShrink: 1,
   },
   pageTitle: {
     fontSize: 17,
@@ -672,6 +828,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
   },
   totalBadgeLabel: {
     color: '#FFD9D9',
@@ -783,6 +940,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#3D2820',
   },
+  itemName: {
+    flex: 2,
+    fontWeight: '700',
+    paddingRight: 6,
+  },
+  itemQty: {
+    width: 50,
+    textAlign: 'center',
+    color: '#6F5C53',
+  },
+  itemPrice: {
+    width: 85,
+    textAlign: 'right',
+    fontWeight: '800',
+    color: '#2C1810',
+  },
+  emptyItems: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    gap: 6,
+  },
+  emptyItemsText: {
+    color: '#8D7B70',
+    fontSize: 12,
+  },
   methodsRow: {
     flexDirection: 'row',
     gap: 8,
@@ -853,8 +1035,9 @@ const styles = StyleSheet.create({
   qrisPromptSub: {
     fontSize: 11,
     color: '#8D7B70',
-    marginTop: 2,
+    marginTop: 5,
     textAlign: 'center',
+    lineHeight: 16,
   },
   ewalletContainer: {
     paddingVertical: 12,
@@ -863,6 +1046,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EFE7E2',
     paddingHorizontal: 10,
+    gap: 8,
   },
   ewalletHeading: {
     fontSize: 11,
@@ -935,6 +1119,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     marginBottom: 10,
+    gap: 8,
   },
   changeBoxSuccess: {
     backgroundColor: '#E8F5E9',
@@ -958,18 +1143,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#FFF8E1',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#C8E6C9',
+    borderColor: '#FFE082',
     marginBottom: 12,
   },
   changeBoxDigitalText: {
+    flex: 1,
     fontSize: 11,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: '#8A6200',
+    lineHeight: 16,
   },
   quickCashRow: {
     flexDirection: 'row',
@@ -998,17 +1185,17 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   numKey: {
-    width: '31%',
-    height: 48,
-    borderRadius: 10,
+    width: '30%',
+    minHeight: 46,
+    borderRadius: 9,
     backgroundColor: '#FAF5F1',
     borderWidth: 1,
     borderColor: '#EDE5DF',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   numKeyText: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#2C1810',
   },
@@ -1044,6 +1231,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35,
     shadowRadius: 6,
+  },
+  payButtonDisabled: {
+    opacity: 0.55,
   },
   payButtonText: {
     color: '#FFFFFF',

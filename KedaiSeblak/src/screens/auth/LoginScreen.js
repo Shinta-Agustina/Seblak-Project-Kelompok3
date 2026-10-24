@@ -8,7 +8,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   TouchableOpacity,
   TextInput,
 } from 'react-native';
@@ -20,43 +19,92 @@ export default function LoginScreen({ onLogin }) {
   const isLargeScreen = width >= 768;
   const { login } = useKasir();
 
-  // 2 Roles: 'Kasir' atau 'Owner'
   const [role, setRole] = useState('Kasir');
-  const [username, setUsername] = useState('Siti Aisyah');
-  const [password, setPassword] = useState('kasir123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [focusedField, setFocusedField] = useState(null);
+  const [errors, setErrors] = useState({});
 
-  // Switch role handler
+  // Memilih role dan mengosongkan form
   const handleSelectRole = (newRole) => {
     setRole(newRole);
-    if (newRole === 'Kasir') {
-      setUsername('Siti Aisyah');
-      setPassword('kasir123');
-    } else {
-      setUsername('Dewi');
-      setPassword('owner123');
-    }
+    setUsername('');
+    setPassword('');
+    setErrors({});
+    setFocusedField(null);
   };
 
-  const handleLogin = (customUser = null, customRole = null) => {
-    const userToLogin = customUser || username.trim();
-    const roleToLogin = customRole || role;
+  // Mengisi akun demo tanpa langsung login
+  const fillDemoAccount = (demoRole) => {
+    setRole(demoRole);
+    setUsername(
+      demoRole === 'Kasir' ? 'Siti Aisyah' : 'Dewi'
+    );
+    setPassword(
+      demoRole === 'Kasir' ? 'kasir123' : 'owner123'
+    );
+    setErrors({});
+  };
 
-    if (!userToLogin) {
-      Alert.alert(
-        'Perhatian',
-        `Silakan masukkan username ${roleToLogin.toLowerCase()}.`
-      );
+  // Validasi form login
+  const handleLogin = () => {
+    if (loading) return;
+
+    const cleanUsername = username.trim();
+    const newErrors = {};
+
+    if (!cleanUsername) {
+      newErrors.username = 'Username wajib diisi.';
+    }
+
+    if (!password) {
+      newErrors.password = 'Password wajib diisi.';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
+    // Akun demo lokal untuk pengujian UI
+    const demoAccounts = {
+      Kasir: {
+        username: 'Siti Aisyah',
+        password: 'kasir123',
+      },
+      Owner: {
+        username: 'Dewi',
+        password: 'owner123',
+      },
+    };
+
+    const account = demoAccounts[role];
+
+    if (
+      !account ||
+      cleanUsername !== account.username ||
+      password !== account.password
+    ) {
+      setErrors({
+        form: 'Username atau password tidak sesuai.',
+      });
+      return;
+    }
+
+    setErrors({});
     setLoading(true);
+
     setTimeout(() => {
-      setLoading(false);
-      login(userToLogin, roleToLogin);
-      if (onLogin) {
-        onLogin(userToLogin, roleToLogin);
+      try {
+        login(cleanUsername, role);
+
+        if (onLogin) {
+          onLogin(cleanUsername, role);
+        }
+      } finally {
+        setLoading(false);
       }
     }, 300);
   };
@@ -66,12 +114,19 @@ export default function LoginScreen({ onLogin }) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={[styles.mainLayout, isLargeScreen && styles.rowLayout]}>
-        {/* Left Side (or Top Banner on Mobile): Hero Seblak Image */}
+      <View
+        style={[
+          styles.mainLayout,
+          isLargeScreen && styles.rowLayout,
+        ]}
+      >
+        {/* Banner Seblak */}
         <View
           style={[
             styles.heroSection,
-            isLargeScreen ? styles.heroLarge : styles.heroSmall,
+            isLargeScreen
+              ? styles.heroLarge
+              : styles.heroSmall,
           ]}
         >
           <Image
@@ -79,48 +134,66 @@ export default function LoginScreen({ onLogin }) {
             style={styles.heroImage}
             resizeMode="cover"
           />
+
           <View style={styles.heroOverlay}>
             <View style={styles.heroTopBrand}>
               <View style={styles.heroLogoRow}>
                 <View style={styles.heroLogoCircle}>
-                  <Text style={styles.heroLogoEmoji}>🍲</Text>
+                  <Text style={styles.heroLogoEmoji}>
+                    🍲
+                  </Text>
                 </View>
+
                 <View>
-                  <Text style={styles.heroBrandName}>Seblak Prasmanan</Text>
-                  <Text style={styles.heroBrandSub}>Sistem Kasir & Owner</Text>
+                  <Text style={styles.heroBrandName}>
+                    Seblak Prasmanan
+                  </Text>
+
+                  <Text style={styles.heroBrandSub}>
+                    Sistem Kasir & Owner
+                  </Text>
                 </View>
               </View>
             </View>
 
             <View style={styles.heroTaglineBox}>
               <Text style={styles.heroTagline}>
-                Rasa pedas,{"\n"}selalu jadi cerita! ❤️
+                Rasa pedas,{"\n"}
+                selalu jadi cerita! ❤️
               </Text>
             </View>
 
             <View style={styles.heroFooter}>
-              <Text style={styles.heroFooterText}>🍲 Seblak Prasmanan</Text>
+              <Text style={styles.heroFooterText}>
+                🍲 Seblak Prasmanan
+              </Text>
             </View>
           </View>
         </View>
 
-        {/* Right Side: Login Card */}
+        {/* Form Login */}
         <View
           style={[
             styles.formSection,
-            isLargeScreen ? styles.formLarge : styles.formSmall,
+            isLargeScreen
+              ? styles.formLarge
+              : styles.formSmall,
           ]}
         >
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
             <View style={styles.loginCard}>
-              {/* Header Card */}
+              {/* Judul */}
               <View style={styles.cardHeader}>
                 <Text style={styles.title}>
-                  {role === 'Kasir' ? 'Login Kasir' : 'Login Owner'}
+                  {role === 'Kasir'
+                    ? 'Login Kasir'
+                    : 'Login Owner'}
                 </Text>
+
                 <Text style={styles.subtitle}>
                   {role === 'Kasir'
                     ? 'Masuk untuk memulai sesi kerja kasir'
@@ -128,12 +201,13 @@ export default function LoginScreen({ onLogin }) {
                 </Text>
               </View>
 
-              {/* 2-Role Tab Selector: Kasir & Owner */}
+              {/* Pilihan Role */}
               <View style={styles.roleToggleContainer}>
                 <TouchableOpacity
                   style={[
                     styles.roleTab,
-                    role === 'Kasir' && styles.roleTabActive,
+                    role === 'Kasir' &&
+                      styles.roleTabActive,
                   ]}
                   onPress={() => handleSelectRole('Kasir')}
                   activeOpacity={0.8}
@@ -141,12 +215,18 @@ export default function LoginScreen({ onLogin }) {
                   <MaterialCommunityIcons
                     name="point-of-sale"
                     size={17}
-                    color={role === 'Kasir' ? '#FFFFFF' : '#8D7B70'}
+                    color={
+                      role === 'Kasir'
+                        ? '#FFFFFF'
+                        : '#8D7B70'
+                    }
                   />
+
                   <Text
                     style={[
                       styles.roleTabText,
-                      role === 'Kasir' && styles.roleTabTextActive,
+                      role === 'Kasir' &&
+                        styles.roleTabTextActive,
                     ]}
                   >
                     Kasir
@@ -156,7 +236,8 @@ export default function LoginScreen({ onLogin }) {
                 <TouchableOpacity
                   style={[
                     styles.roleTab,
-                    role === 'Owner' && styles.roleTabActive,
+                    role === 'Owner' &&
+                      styles.roleTabActive,
                   ]}
                   onPress={() => handleSelectRole('Owner')}
                   activeOpacity={0.8}
@@ -164,12 +245,18 @@ export default function LoginScreen({ onLogin }) {
                   <Ionicons
                     name="shield-checkmark-outline"
                     size={17}
-                    color={role === 'Owner' ? '#FFFFFF' : '#8D7B70'}
+                    color={
+                      role === 'Owner'
+                        ? '#FFFFFF'
+                        : '#8D7B70'
+                    }
                   />
+
                   <Text
                     style={[
                       styles.roleTabText,
-                      role === 'Owner' && styles.roleTabTextActive,
+                      role === 'Owner' &&
+                        styles.roleTabTextActive,
                     ]}
                   >
                     Owner
@@ -177,19 +264,39 @@ export default function LoginScreen({ onLogin }) {
                 </TouchableOpacity>
               </View>
 
-              {/* Form Input Group */}
+              {/* Form Input */}
               <View style={styles.formGroup}>
-                {/* Username Input */}
+                {/* Username */}
                 <Text style={styles.inputLabel}>
-                  {role === 'Kasir' ? 'Username Kasir' : 'Username Owner'}
+                  {role === 'Kasir'
+                    ? 'Username Kasir'
+                    : 'Username Owner'}
                 </Text>
-                <View style={styles.inputBox}>
+
+                <View
+                  style={[
+                    styles.inputBox,
+                    focusedField === 'username' &&
+                      styles.inputBoxFocused,
+                    errors.username &&
+                      styles.inputBoxError,
+                  ]}
+                >
                   <Ionicons
-                    name={role === 'Kasir' ? 'person-outline' : 'shield-outline'}
+                    name={
+                      role === 'Kasir'
+                        ? 'person-outline'
+                        : 'shield-outline'
+                    }
                     size={19}
-                    color="#8D7B70"
+                    color={
+                      focusedField === 'username'
+                        ? '#C62828'
+                        : '#8D7B70'
+                    }
                     style={styles.inputIcon}
                   />
+
                   <TextInput
                     style={styles.textInput}
                     placeholder={
@@ -199,49 +306,131 @@ export default function LoginScreen({ onLogin }) {
                     }
                     placeholderTextColor="#B0A097"
                     value={username}
-                    onChangeText={setUsername}
+                    onChangeText={(value) => {
+                      setUsername(value);
+                      setErrors((prev) => ({
+                        ...prev,
+                        username: '',
+                        form: '',
+                      }));
+                    }}
+                    onFocus={() =>
+                      setFocusedField('username')
+                    }
+                    onBlur={() =>
+                      setFocusedField(null)
+                    }
                     autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="next"
                   />
                 </View>
 
-                {/* Password Input */}
-                <Text style={[styles.inputLabel, { marginTop: 14 }]}>
+                {errors.username ? (
+                  <Text style={styles.errorText}>
+                    {errors.username}
+                  </Text>
+                ) : null}
+
+                {/* Password */}
+                <Text
+                  style={[
+                    styles.inputLabel,
+                    { marginTop: 14 },
+                  ]}
+                >
                   Password
                 </Text>
-                <View style={styles.inputBox}>
+
+                <View
+                  style={[
+                    styles.inputBox,
+                    focusedField === 'password' &&
+                      styles.inputBoxFocused,
+                    errors.password &&
+                      styles.inputBoxError,
+                  ]}
+                >
                   <Ionicons
                     name="lock-closed-outline"
                     size={19}
-                    color="#8D7B70"
+                    color={
+                      focusedField === 'password'
+                        ? '#C62828'
+                        : '#8D7B70'
+                    }
                     style={styles.inputIcon}
                   />
+
                   <TextInput
                     style={styles.textInput}
                     placeholder="Masukkan password"
                     placeholderTextColor="#B0A097"
                     value={password}
-                    onChangeText={setPassword}
+                    onChangeText={(value) => {
+                      setPassword(value);
+                      setErrors((prev) => ({
+                        ...prev,
+                        password: '',
+                        form: '',
+                      }));
+                    }}
+                    onFocus={() =>
+                      setFocusedField('password')
+                    }
+                    onBlur={() =>
+                      setFocusedField(null)
+                    }
                     secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                    onSubmitEditing={handleLogin}
                   />
+
                   <TouchableOpacity
-                    onPress={() => setShowPassword(!showPassword)}
+                    onPress={() =>
+                      setShowPassword((prev) => !prev)
+                    }
                     style={styles.eyeBtn}
+                    accessibilityLabel={
+                      showPassword
+                        ? 'Sembunyikan password'
+                        : 'Tampilkan password'
+                    }
                   >
                     <Ionicons
-                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      name={
+                        showPassword
+                          ? 'eye-off-outline'
+                          : 'eye-outline'
+                      }
                       size={19}
                       color="#8D7B70"
                     />
                   </TouchableOpacity>
                 </View>
 
-                {/* Submit Button */}
+                {errors.password ? (
+                  <Text style={styles.errorText}>
+                    {errors.password}
+                  </Text>
+                ) : null}
+
+                {errors.form ? (
+                  <Text style={styles.errorText}>
+                    {errors.form}
+                  </Text>
+                ) : null}
+
+                {/* Tombol Masuk */}
                 <TouchableOpacity
                   style={[
                     styles.submitButton,
-                    loading && styles.submitButtonDisabled,
+                    loading &&
+                      styles.submitButtonDisabled,
                   ]}
-                  onPress={() => handleLogin()}
+                  onPress={handleLogin}
                   activeOpacity={0.85}
                   disabled={loading}
                 >
@@ -249,18 +438,23 @@ export default function LoginScreen({ onLogin }) {
                     {loading
                       ? 'Memproses...'
                       : role === 'Kasir'
-                      ? 'Masuk'
-                      : 'Masuk sebagai Owner'}
+                        ? 'Masuk'
+                        : 'Masuk sebagai Owner'}
                   </Text>
                 </TouchableOpacity>
 
-                {/* Bottom Notice: Hanya untuk kasir / Akses Owner */}
+                {/* Informasi Akses */}
                 <View style={styles.noticeBox}>
                   <Ionicons
-                    name={role === 'Kasir' ? 'lock-closed' : 'shield-checkmark'}
+                    name={
+                      role === 'Kasir'
+                        ? 'lock-closed'
+                        : 'shield-checkmark'
+                    }
                     size={13}
                     color="#8D7B70"
                   />
+
                   <Text style={styles.noticeText}>
                     {role === 'Kasir'
                       ? 'Hanya untuk kasir'
@@ -268,23 +462,22 @@ export default function LoginScreen({ onLogin }) {
                   </Text>
                 </View>
 
-                {/* Quick 1-Click Access for Presentation Testing */}
+                {/* Akun Demo */}
                 <View style={styles.quickAccessSection}>
                   <Text style={styles.quickAccessTitle}>
                     Pilih Cepat untuk Pengujian:
                   </Text>
+
                   <View style={styles.quickBtnRow}>
                     <TouchableOpacity
                       style={[
                         styles.quickBtn,
-                        role === 'Kasir' && styles.quickBtnSelected,
+                        role === 'Kasir' &&
+                          styles.quickBtnSelected,
                       ]}
-                      onPress={() => {
-                        setRole('Kasir');
-                        setUsername('Siti Aisyah');
-                        setPassword('kasir123');
-                        handleLogin('Siti Aisyah', 'Kasir');
-                      }}
+                      onPress={() =>
+                        fillDemoAccount('Kasir')
+                      }
                       activeOpacity={0.8}
                     >
                       <Text style={styles.quickBtnText}>
@@ -296,14 +489,12 @@ export default function LoginScreen({ onLogin }) {
                       style={[
                         styles.quickBtn,
                         styles.quickBtnOwner,
-                        role === 'Owner' && styles.quickBtnOwnerSelected,
+                        role === 'Owner' &&
+                          styles.quickBtnOwnerSelected,
                       ]}
-                      onPress={() => {
-                        setRole('Owner');
-                        setUsername('Dewi');
-                        setPassword('owner123');
-                        handleLogin('Dewi', 'Owner');
-                      }}
+                      onPress={() =>
+                        fillDemoAccount('Owner')
+                      }
                       activeOpacity={0.8}
                     >
                       <Text
@@ -518,6 +709,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 48,
   },
+  inputBoxFocused: {
+    borderColor: '#C62828',
+    borderWidth: 2,
+    backgroundColor: '#FFFAF8',
+  },
+  inputBoxError: {
+    borderColor: '#D32F2F',
+    borderWidth: 1.5,
+  },
+  errorText: {
+    color: '#D32F2F',
+    fontSize: 12,
+    marginTop: 5,
+    marginLeft: 2,
+  },
   inputIcon: {
     marginRight: 10,
   },
@@ -525,7 +731,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: '#2C1810',
-    outlineStyle: 'none',
   },
   eyeBtn: {
     padding: 6,
