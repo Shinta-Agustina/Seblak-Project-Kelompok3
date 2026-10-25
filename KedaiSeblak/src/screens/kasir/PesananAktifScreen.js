@@ -22,7 +22,7 @@ const STATUS_CONFIG = {
 export default function PesananAktifScreen({ onOpenDetail }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
-  const { orders, updateOrderStatus } = useKasir();
+  const { orders, updateOrderStatus, setActiveTab: setNavTab } = useKasir();
 
   const [activeTab, setActiveTab] = useState('Semua');
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
@@ -462,6 +462,31 @@ const styles = StyleSheet.create({
   },
   headerSection: {
     marginBottom: 16,
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  addOrderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#C62828',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    elevation: 2,
+    shadowColor: '#C62828',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  addOrderBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
   title: {
     fontSize: 18,

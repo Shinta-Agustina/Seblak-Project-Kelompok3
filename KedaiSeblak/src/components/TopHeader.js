@@ -21,12 +21,12 @@ export default function TopHeader({ onToggleSidebar, isSidebarOpen }) {
     }
   };
 
-  const avatarSource =
-    typeof user?.avatar === 'string'
-      ? { uri: user.avatar }
-      : user?.avatar || (isOwner
-          ? { uri: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80' }
-          : require('../../assets/images/avatar-kasir.png'));
+  const defaultKasirAvatar = require('../../assets/images/avatar-kasir.png');
+  const defaultOwnerAvatar = {
+    uri: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
+  };
+
+  const avatarSource = isOwner ? defaultOwnerAvatar : defaultKasirAvatar;
 
   return (
     <View style={styles.container}>
@@ -54,6 +54,7 @@ export default function TopHeader({ onToggleSidebar, isSidebarOpen }) {
       <View style={[styles.profileChip, isOwner && styles.profileChipOwner]}>
         <View style={[styles.avatarContainer, isOwner && styles.avatarOwner]}>
           <Image
+            key={isOwner ? 'owner-avatar' : 'kasir-avatar-v2'}
             source={avatarSource}
             style={styles.avatarImg}
             resizeMode="cover"
@@ -125,24 +126,33 @@ const styles = StyleSheet.create({
   profileChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 9,
     paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: 20,
-    backgroundColor: '#FAF5F1',
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#EFE7E2',
+    borderColor: '#EAE1DC',
+    elevation: 1,
+    shadowColor: '#4A2A22',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
   },
   profileChipOwner: {
     backgroundColor: '#FFF8F0',
     borderColor: '#FFDEC2',
   },
   avatarContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     overflow: 'hidden',
-    backgroundColor: '#FFE0B2',
+    backgroundColor: '#F3ECE7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#F0E5DF',
   },
   avatarOwner: {
     borderWidth: 1.5,
@@ -156,22 +166,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   userName: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#2C1810',
+    color: '#1F140E',
+    lineHeight: 16,
   },
   roleBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
+    marginTop: 1,
   },
   roleIcon: {
     fontSize: 10,
   },
   userRole: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#8D7B70',
-    fontWeight: '600',
+    fontWeight: '500',
+    lineHeight: 14,
   },
   userRoleOwner: {
     color: '#E65100',

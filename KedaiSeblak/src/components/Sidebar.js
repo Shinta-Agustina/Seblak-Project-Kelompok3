@@ -51,6 +51,11 @@ export default function Sidebar({
       navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
     });
 
+  const orders = kasirContext.orders || [];
+  const diprosesCount = orders.filter(
+    (o) => o.status === 'Diproses' || o.status === 'Proses'
+  ).length;
+
   const menuItems = role === 'owner' ? MENU_OWNER : MENU_KASIR;
 
   const handleSelectTab = (tabId) => {
@@ -120,6 +125,24 @@ export default function Sidebar({
                   {item.label}
                 </Text>
               </View>
+
+              {item.id === 'Pesanan Aktif' && diprosesCount > 0 && (
+                <View
+                  style={[
+                    styles.countBadge,
+                    isActive && styles.countBadgeActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.countBadgeText,
+                      isActive && styles.countBadgeTextActive,
+                    ]}
+                  >
+                    {diprosesCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           );
         })}
@@ -247,6 +270,26 @@ const styles = StyleSheet.create({
   menuLabelActive: {
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  countBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderRadius: 10,
+    minWidth: 22,
+    height: 20,
+    paddingHorizontal: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  countBadgeActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  countBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  countBadgeTextActive: {
+    color: '#C62828',
   },
   footer: {
     padding: 16,

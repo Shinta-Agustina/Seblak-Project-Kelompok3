@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState } from 'react';
 import {
   INITIAL_ORDERS,
@@ -51,8 +50,8 @@ export function KasirProvider({ children }) {
       avatar:
         normalizedRole === 'Owner'
           ? {
-              uri: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
-            }
+            uri: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
+          }
           : require('../../assets/images/avatar-kasir.png'),
     });
 
@@ -94,9 +93,9 @@ export function KasirProvider({ children }) {
         return previousCart.map((cartItem) =>
           cartItem.id === item.id
             ? {
-                ...cartItem,
-                qty: Number(cartItem.qty || 1) + 1,
-              }
+              ...cartItem,
+              qty: Number(cartItem.qty || 1) + 1,
+            }
             : cartItem
         );
       }
@@ -211,7 +210,7 @@ export function KasirProvider({ children }) {
     // Ambil item dari payload Dashboard atau keranjang.
     const sourceItems =
       Array.isArray(customData?.items) &&
-      customData.items.length > 0
+        customData.items.length > 0
         ? customData.items
         : cart;
 
