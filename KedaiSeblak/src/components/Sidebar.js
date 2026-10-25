@@ -1,5 +1,13 @@
+
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useKasir } from '../context/KasirContext';
 
@@ -11,37 +19,71 @@ export default function Sidebar({
   setActiveTab: setActiveTabProp,
   onLogout,
 }) {
-  const { user, activeTab: contextActiveTab, setActiveTab: contextSetActiveTab, logout: contextLogout, orders } = useKasir();
-  const isOwner = role === 'owner' || role === 'Owner' || user?.role === 'Owner';
-  const activeTab = activeTabProp !== undefined ? activeTabProp : contextActiveTab;
-  const setActiveTab = setActiveTabProp || contextSetActiveTab;
-  const logout = onLogout || contextLogout;
+  const {
+    user,
+    activeTab: contextActiveTab,
+    setActiveTab: contextSetActiveTab,
+    logout: contextLogout,
+    orders,
+  } = useKasir();
 
-  const activeOrdersCount = orders ? orders.filter(
-    (o) => o.status === 'Diproses' || o.status === 'Siap Bayar'
-  ).length : 0;
+  const navigation = useNavigation();
+
+  const isOwner =
+    role === 'owner' ||
+    role === 'Owner' ||
+    user?.role === 'Owner';
+
+  const activeTab =
+    activeTabProp !== undefined
+      ? activeTabProp
+      : contextActiveTab;
+
+  const setActiveTab =
+    setActiveTabProp || contextSetActiveTab;
+
+  const logout =
+    onLogout ||
+    (() => {
+      if (contextLogout) {
+        contextLogout();
+      }
+
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      });
+    });
+
+  const activeOrdersCount = orders
+    ? orders.filter(
+        (order) =>
+          order.status === 'Diproses' ||
+          order.status === 'Siap Bayar'
+      ).length
+    : 0;
 
   const kasirMenuItems = [
     {
       id: 'Kasir',
       label: 'Kasir',
-      icon: (color) => <MaterialIcons name="storefront" size={20} color={color} />,
+      icon: 'point-of-sale',
     },
     {
       id: 'Pesanan Aktif',
       label: 'Pesanan Aktif',
-      icon: (color) => <MaterialIcons name="receipt-long" size={20} color={color} />,
+      icon: 'pending-actions',
       badge: activeOrdersCount > 0 ? activeOrdersCount : null,
     },
     {
       id: 'Riwayat Transaksi',
       label: 'Riwayat Transaksi',
-      icon: (color) => <Ionicons name="time-outline" size={20} color={color} />,
+      icon: 'receipt-long',
     },
     {
       id: 'Laporan',
       label: 'Laporan',
-      icon: (color) => <MaterialIcons name="bar-chart" size={20} color={color} />,
+      icon: 'bar-chart',
     },
   ];
 
@@ -49,54 +91,70 @@ export default function Sidebar({
     {
       id: 'dashboard',
       label: 'Dashboard',
-      icon: (color) => <MaterialIcons name="dashboard" size={20} color={color} />,
+      icon: 'dashboard',
     },
     {
       id: 'penjualan',
       label: 'Penjualan',
-      icon: (color) => <MaterialIcons name="trending-up" size={20} color={color} />,
+      icon: 'trending-up',
     },
     {
       id: 'stok',
       label: 'Stok Bahan',
-      icon: (color) => <MaterialIcons name="inventory-2" size={20} color={color} />,
+      icon: 'inventory-2',
     },
     {
       id: 'menu_harga',
       label: 'Menu & Harga',
-      icon: (color) => <MaterialIcons name="restaurant-menu" size={20} color={color} />,
+      icon: 'restaurant-menu',
     },
     {
       id: 'pengeluaran',
       label: 'Pengeluaran',
-      icon: (color) => <MaterialIcons name="receipt-long" size={20} color={color} />,
+      icon: 'receipt-long',
     },
     {
       id: 'laporan_keuangan',
       label: 'Laporan Keuangan',
-      icon: (color) => <MaterialIcons name="assessment" size={20} color={color} />,
+      icon: 'assessment',
     },
   ];
 
-  const menuItems = isOwner ? ownerMenuItems : kasirMenuItems;
+  const menuItems = isOwner
+    ? ownerMenuItems
+    : kasirMenuItems;
 
   const handleSelectTab = (tabId) => {
-    setActiveTab(tabId);
+    if (setActiveTab) {
+      setActiveTab(tabId);
+    }
+
     if (isMobile && onClose) {
       onClose();
     }
   };
 
   return (
-    <View style={[styles.container, isMobile && styles.mobileContainer]}>
-      {/* Brand Header */}
+    <View
+      style={[
+        styles.container,
+        isMobile && styles.mobileContainer,
+      ]}
+    >
       <View style={styles.brandContainer}>
         <View style={styles.logoRow}>
           <View style={styles.logoBadge}>
-            <Text style={styles.logoEmoji}>🍲</Text>
+            <Ionicons
+              name="flame"
+              size={22}
+              color="#FFFFFF"
+            />
           </View>
+
           <View style={styles.brandTextGroup}>
-            <Text style={styles.brandTitle}>Seblak Prasmanan</Text>
+            <Text style={styles.brandTitle}>
+              Seblak Prasmanan
+            </Text>
             <Text style={styles.brandSubtitle}>
               {isOwner ? 'Owner Dashboard' : 'Kasir'}
             </Text>
@@ -104,40 +162,61 @@ export default function Sidebar({
         </View>
 
         {isMobile && (
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <Ionicons name="close" size={22} color="#FFF" />
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.closeBtn}
+          >
+            <Ionicons
+              name="close"
+              size={22}
+              color="#FFF"
+            />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Role Pill Badge */}
       <View style={styles.roleBanner}>
-        <View style={[styles.rolePill, isOwner && styles.rolePillOwner]}>
+        <View
+          style={[
+            styles.rolePill,
+            isOwner && styles.rolePillOwner,
+          ]}
+        >
           <Text style={styles.rolePillText}>
-            {isOwner ? '👑 Mode Pemilik (Owner)' : '🏪 Mode Kasir (POS)'}
+            {isOwner
+              ? '👑 Mode Pemilik (Owner)'
+              : '🏪 Mode Kasir (POS)'}
           </Text>
         </View>
       </View>
 
-      {/* Menu List */}
-      <ScrollView style={styles.menuScroll} contentContainerStyle={styles.menuContent}>
+      <ScrollView
+        style={styles.menuScroll}
+        contentContainerStyle={styles.menuContent}
+      >
         {menuItems.map((item) => {
           const isActive = activeTab === item.id;
-          const iconColor = isActive ? '#FFFFFF' : '#DFB8BC';
+          const iconColor = isActive
+            ? '#FFFFFF'
+            : '#DFB8BC';
 
           return (
             <TouchableOpacity
               key={item.id}
-              style={[styles.menuItem, isActive && styles.menuItemActive]}
+              style={[
+                styles.menuItem,
+                isActive && styles.menuItemActive,
+              ]}
               onPress={() => handleSelectTab(item.id)}
               activeOpacity={0.7}
             >
               <View style={styles.menuLeft}>
-                {typeof item.icon === 'function' ? (
-                  item.icon(iconColor)
-                ) : (
-                  <MaterialIcons name={item.icon} size={20} color={iconColor} />
-                )}
+                <MaterialIcons
+                  name={item.icon}
+                  size={20}
+                  color={iconColor}
+                />
+
                 <Text
                   style={[
                     styles.menuLabel,
@@ -152,13 +231,17 @@ export default function Sidebar({
                 <View
                   style={[
                     styles.badge,
-                    isActive ? styles.badgeWhite : styles.badgeRed,
+                    isActive
+                      ? styles.badgeWhite
+                      : styles.badgeRed,
                   ]}
                 >
                   <Text
                     style={[
                       styles.badgeText,
-                      isActive ? styles.badgeTextRed : styles.badgeTextWhite,
+                      isActive
+                        ? styles.badgeTextRed
+                        : styles.badgeTextWhite,
                     ]}
                   >
                     {item.badge}
@@ -170,14 +253,17 @@ export default function Sidebar({
         })}
       </ScrollView>
 
-      {/* Logout button at bottom */}
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.logoutBtn}
           onPress={logout}
           activeOpacity={0.7}
         >
-          <Ionicons name="log-out-outline" size={20} color="#F2A5A5" />
+          <Ionicons
+            name="log-out-outline"
+            size={20}
+            color="#F2A5A5"
+          />
           <Text style={styles.logoutText}>
             Logout ({isOwner ? 'Owner' : 'Kasir'})
           </Text>
@@ -232,9 +318,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 10,
   },
-  logoEmoji: {
-    fontSize: 20,
-  },
   brandTextGroup: {
     justifyContent: 'center',
   },
@@ -260,7 +343,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   rolePill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 6,
     paddingVertical: 4,
     paddingHorizontal: 8,

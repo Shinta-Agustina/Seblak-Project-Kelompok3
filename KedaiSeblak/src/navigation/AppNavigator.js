@@ -1,9 +1,10 @@
+
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import DashboardKasirScreen from '../screens/kasir/DashboardKasirScreen';
-import DashboardOwnerScreen from '../screens/owner/DashboardOwnerScreen';
+import DashboardOwnerScreen from '../screens/owner/DashboardOwner';
 import MenuHargaScreen from '../screens/owner/MenuHargaScreen';
 import PengeluaranScreen from '../screens/owner/PengeluaranScreen';
 import LaporanKeuanganScreen from '../screens/owner/LaporanKeuanganScreen';
@@ -21,14 +22,22 @@ export default function AppNavigator() {
         <Stack.Screen name="Login" component={LoginScreen} />
       ) : isOwner ? (
         <>
-          <Stack.Screen name="DashboardOwner" component={DashboardOwnerScreen} />
+          <Stack.Screen
+            name="DashboardOwner"
+            component={DashboardOwnerScreen}
+          />
           <Stack.Screen name="MenuHarga" component={MenuHargaScreen} />
           <Stack.Screen name="Pengeluaran" component={PengeluaranScreen} />
-          <Stack.Screen name="Transaksi" component={PengeluaranScreen} />
-          <Stack.Screen name="LaporanKeuangan" component={LaporanKeuanganScreen} />
+          <Stack.Screen
+            name="LaporanKeuangan"
+            component={LaporanKeuanganScreen}
+          />
         </>
       ) : (
-        <Stack.Screen name="Dashboard" component={DashboardKasirScreen} />
+        <Stack.Screen
+          name="DashboardKasir"
+          component={DashboardKasirScreen}
+        />
       )}
     </Stack.Navigator>
   );
