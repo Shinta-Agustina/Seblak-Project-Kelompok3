@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   useWindowDimensions,
+  Modal,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useKasir } from '../../context/KasirContext';
@@ -13,9 +14,32 @@ import formatCurrency from '../../utils/formatCurrency';
 
 const STATUS_CONFIG = {
   Diproses: { bg: '#FFF3E0', text: '#E65100', border: '#FFE0B2' },
-  'Siap Bayar': { bg: '#E8F5E9', text: '#2E7D32', border: '#C8E6C9' },
-  Proses: { bg: '#E0F7FA', text: '#00838F', border: '#B2EBF2' },
-  Selesai: { bg: '#EDE7F6', text: '#4527A0', border: '#D1C4E9' },
+  Proses: { bg: '#FFF3E0', text: '#E65100', border: '#FFE0B2' },
+  Selesai: { bg: '#E8F5E9', text: '#2E7D32', border: '#C8E6C9' },
+};
+
+const normalizeStatus = (status) => {
+  if (status === 'Siap Bayar') return 'Diproses';
+  return status || 'Diproses';
+};
+
+const getFormattedToday = () => {
+  try {
+    return new Intl.DateTimeFormat('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(new Date());
+  } catch (e) {
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const months = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    const now = new Date();
+    return `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+  }
 };
 
 export default function PesananAktifScreen({ onOpenDetail }) {
@@ -24,36 +48,33 @@ export default function PesananAktifScreen({ onOpenDetail }) {
   const { orders, updateOrderStatus } = useKasir();
 
   const [activeTab, setActiveTab] = useState('Semua');
+  const [summaryModalVisible, setSummaryModalVisible] = useState(false);
 
   const countDiproses = orders.filter(
-    (o) => o.status === 'Diproses' || o.status === 'Proses'
+    (o) => normalizeStatus(o.status) === 'Diproses' || o.status === 'Proses'
   ).length;
-  const countSiapBayar = orders.filter((o) => o.status === 'Siap Bayar').length;
-  const countSelesai = orders.filter((o) => o.status === 'Selesai').length;
+  const countSelesai = orders.filter(
+    (o) => normalizeStatus(o.status) === 'Selesai'
+  ).length;
 
   const tabs = [
     { id: 'Semua', label: `Semua (${orders.length})` },
     { id: 'Diproses', label: `Diproses (${countDiproses})` },
-    { id: 'Siap Bayar', label: `Siap Bayar (${countSiapBayar})` },
     { id: 'Selesai', label: `Selesai (${countSelesai})` },
   ];
 
   const filteredOrders = orders.filter((o) => {
+    const current = normalizeStatus(o.status);
     if (activeTab === 'Semua') return true;
     if (activeTab === 'Diproses')
-      return o.status === 'Diproses' || o.status === 'Proses';
-    return o.status === activeTab;
+      return current === 'Diproses' || current === 'Proses';
+    return current === activeTab;
   });
 
   const handleCycleStatus = (order) => {
-    let nextStatus = 'Diproses';
-    if (order.status === 'Diproses' || order.status === 'Proses') {
-      nextStatus = 'Siap Bayar';
-    } else if (order.status === 'Siap Bayar') {
-      nextStatus = 'Selesai';
-    } else {
-      nextStatus = 'Diproses';
-    }
+    const current = normalizeStatus(order.status);
+    const nextStatus =
+      current === 'Diproses' || current === 'Proses' ? 'Selesai' : 'Diproses';
     updateOrderStatus(order.id, nextStatus);
   };
 
@@ -125,8 +146,9 @@ export default function PesananAktifScreen({ onOpenDetail }) {
               </View>
             ) : (
               filteredOrders.map((order, idx) => {
+                const currentStatus = normalizeStatus(order.status);
                 const cfg =
-                  STATUS_CONFIG[order.status] || STATUS_CONFIG['Diproses'];
+                  STATUS_CONFIG[currentStatus] || STATUS_CONFIG['Diproses'];
 
                 return (
                   <View
@@ -190,7 +212,7 @@ export default function PesananAktifScreen({ onOpenDetail }) {
                         accessibilityHint="Ketuk untuk mengubah status"
                       >
                         <Text style={[styles.statusText, { color: cfg.text }]}>
-                          {order.status}
+                          {currentStatus}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -204,7 +226,7 @@ export default function PesananAktifScreen({ onOpenDetail }) {
                           onOpenDetail({
                             orderNo: order.id,
                             tableNo: order.table,
-                            date: order.date || '16/10/2025',
+                            date: order.date || getFormattedToday(),
                             time: order.time || '09:45',
                             items: order.details || [
                               {
@@ -232,18 +254,151 @@ export default function PesananAktifScreen({ onOpenDetail }) {
 
       {/* Bottom Summary: Total Pesanan Hari Ini */}
       <View style={styles.footerSummaryCard}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.footerLabel}>Total Pesanan Hari Ini</Text>
-          <Text style={styles.footerNumber}>12</Text>
+          <Text style={styles.footerNumber}>{orders.length}</Text>
         </View>
-        <View style={styles.footerIconBox}>
+        <TouchableOpacity
+          style={styles.footerIconBox}
+          activeOpacity={0.7}
+          onPress={() => setSummaryModalVisible(true)}
+          accessibilityLabel="Tampilkan rincian ringkasan pesanan"
+        >
           <MaterialCommunityIcons
             name="receipt-text-outline"
             size={24}
             color="#C62828"
           />
-        </View>
+        </TouchableOpacity>
       </View>
+
+      {/* Modal Ringkasan Pesanan Hari Ini */}
+      <Modal
+        visible={summaryModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSummaryModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setSummaryModalVisible(false)}
+        >
+          <View
+            style={styles.modalContent}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={styles.modalHeaderIconBox}>
+                  <MaterialCommunityIcons
+                    name="receipt-text-outline"
+                    size={20}
+                    color="#C62828"
+                  />
+                </View>
+                <Text style={styles.modalTitle}>Ringkasan Pesanan Hari Ini</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setSummaryModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={20} color="#8D7B70" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSubtitle}>
+              Statistik akumulasi pesanan yang sedang aktif dan berjalan:
+            </Text>
+
+            <View style={styles.summaryList}>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryRowLabel}>Total Pesanan</Text>
+                <Text style={styles.summaryRowVal}>{orders.length} Pesanan</Text>
+              </View>
+
+              <View style={styles.summaryRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View
+                    style={[
+                      styles.statusDot,
+                      { backgroundColor: '#E65100' },
+                    ]}
+                  />
+                  <Text style={styles.summaryRowLabel}>Sedang Diproses</Text>
+                </View>
+                <Text
+                  style={[
+                    styles.summaryRowVal,
+                    { color: '#E65100', fontWeight: '800' },
+                  ]}
+                >
+                  {countDiproses}
+                </Text>
+              </View>
+
+              <View style={styles.summaryRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View
+                    style={[
+                      styles.statusDot,
+                      { backgroundColor: '#2E7D32' },
+                    ]}
+                  />
+                  <Text style={styles.summaryRowLabel}>Selesai Disajikan</Text>
+                </View>
+                <Text
+                  style={[
+                    styles.summaryRowVal,
+                    { color: '#2E7D32', fontWeight: '800' },
+                  ]}
+                >
+                  {countSelesai}
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.summaryRow,
+                  {
+                    backgroundColor: '#FFF5F4',
+                    borderTopWidth: 1,
+                    borderColor: '#FFD6D6',
+                    marginTop: 4,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.summaryRowLabel,
+                    { fontWeight: '800', color: '#2C1810' },
+                  ]}
+                >
+                  Total Nilai Pesanan
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryRowVal,
+                    { color: '#C62828', fontWeight: '900', fontSize: 14 },
+                  ]}
+                >
+                  {formatCurrency(
+                    orders.reduce((acc, o) => acc + (o.total || 0), 0)
+                  )}
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setSummaryModalVisible(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalCloseBtnText}>Tutup Ringkasan</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </ScrollView>
   );
 }
@@ -381,14 +536,14 @@ const styles = StyleSheet.create({
   footerSummaryCard: {
     marginTop: 20,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 14,
+    padding: 18,
     borderWidth: 1,
     borderColor: '#EDE5DF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    maxWidth: 220,
+    width: '100%',
     elevation: 2,
     shadowColor: '#4A2A22',
     shadowOffset: { width: 0, height: 2 },
@@ -406,12 +561,107 @@ const styles = StyleSheet.create({
     color: '#2C1810',
     marginTop: 2,
   },
+  footerSubText: {
+    fontSize: 10,
+    color: '#A09088',
+    marginTop: 4,
+    fontWeight: '500',
+  },
   footerIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: '#FDECEC',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#F8D7DA',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(44, 24, 16, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 420,
+    borderWidth: 1,
+    borderColor: '#EDE5DF',
+    elevation: 6,
+    shadowColor: '#2C1810',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0E8E2',
+  },
+  modalHeaderIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#FDECEC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#2C1810',
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: '#8D7B70',
+    marginBottom: 14,
+  },
+  summaryList: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#FAF7F5',
+    borderRadius: 10,
+  },
+  summaryRowLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#3D2820',
+  },
+  summaryRowVal: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#2C1810',
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  modalCloseBtn: {
+    backgroundColor: '#C62828',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalCloseBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

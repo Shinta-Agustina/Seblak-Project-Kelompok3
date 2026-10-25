@@ -207,7 +207,7 @@ export default function LoginScreen({ onLogin }) {
                   style={[
                     styles.roleTab,
                     role === 'Kasir' &&
-                      styles.roleTabActive,
+                    styles.roleTabActive,
                   ]}
                   onPress={() => handleSelectRole('Kasir')}
                   activeOpacity={0.8}
@@ -226,7 +226,7 @@ export default function LoginScreen({ onLogin }) {
                     style={[
                       styles.roleTabText,
                       role === 'Kasir' &&
-                        styles.roleTabTextActive,
+                      styles.roleTabTextActive,
                     ]}
                   >
                     Kasir
@@ -237,7 +237,7 @@ export default function LoginScreen({ onLogin }) {
                   style={[
                     styles.roleTab,
                     role === 'Owner' &&
-                      styles.roleTabActive,
+                    styles.roleTabActive,
                   ]}
                   onPress={() => handleSelectRole('Owner')}
                   activeOpacity={0.8}
@@ -256,7 +256,7 @@ export default function LoginScreen({ onLogin }) {
                     style={[
                       styles.roleTabText,
                       role === 'Owner' &&
-                        styles.roleTabTextActive,
+                      styles.roleTabTextActive,
                     ]}
                   >
                     Owner
@@ -277,9 +277,9 @@ export default function LoginScreen({ onLogin }) {
                   style={[
                     styles.inputBox,
                     focusedField === 'username' &&
-                      styles.inputBoxFocused,
+                    styles.inputBoxFocused,
                     errors.username &&
-                      styles.inputBoxError,
+                    styles.inputBoxError,
                   ]}
                 >
                   <Ionicons
@@ -346,9 +346,9 @@ export default function LoginScreen({ onLogin }) {
                   style={[
                     styles.inputBox,
                     focusedField === 'password' &&
-                      styles.inputBoxFocused,
+                    styles.inputBoxFocused,
                     errors.password &&
-                      styles.inputBoxError,
+                    styles.inputBoxError,
                   ]}
                 >
                   <Ionicons
@@ -428,7 +428,7 @@ export default function LoginScreen({ onLogin }) {
                   style={[
                     styles.submitButton,
                     loading &&
-                      styles.submitButtonDisabled,
+                    styles.submitButtonDisabled,
                   ]}
                   onPress={handleLogin}
                   activeOpacity={0.85}
@@ -473,7 +473,7 @@ export default function LoginScreen({ onLogin }) {
                       style={[
                         styles.quickBtn,
                         role === 'Kasir' &&
-                          styles.quickBtnSelected,
+                        styles.quickBtnSelected,
                       ]}
                       onPress={() =>
                         fillDemoAccount('Kasir')
@@ -490,7 +490,7 @@ export default function LoginScreen({ onLogin }) {
                         styles.quickBtn,
                         styles.quickBtnOwner,
                         role === 'Owner' &&
-                          styles.quickBtnOwnerSelected,
+                        styles.quickBtnOwnerSelected,
                       ]}
                       onPress={() =>
                         fillDemoAccount('Owner')

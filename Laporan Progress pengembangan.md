@@ -94,6 +94,7 @@ Berdasarkan hasil analisis dan rancangan kebutuhan, sistem **Seblak Prasmanan PO
 
 
 2. Maya : Screen Pesanan Aktif (Filter Status & No. Meja),Screen Riwayat Transaksi & Laporan Penjualan
+![alt text](iPhone-14-PRO-MAX-localhost-j6uszu3xki-e3d.gif)
 
 3. Faija : Sreen Laporan 
 

@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   useWindowDimensions,
+  Modal,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useKasir } from '../../context/KasirContext';
@@ -13,13 +14,58 @@ import formatCurrency from '../../utils/formatCurrency';
 
 const METHOD_TABS = ['Semua', 'Tunai', 'Non Tunai'];
 
+const getFormattedToday = () => {
+  try {
+    return new Intl.DateTimeFormat('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(new Date());
+  } catch (e) {
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const months = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    ];
+    const now = new Date();
+    return `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+  }
+};
+
+const getFormattedYesterday = () => {
+  try {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return new Intl.DateTimeFormat('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(yesterday);
+  } catch (e) {
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const months = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    ];
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return `${days[yesterday.getDay()]}, ${yesterday.getDate()} ${months[yesterday.getMonth()]} ${yesterday.getFullYear()}`;
+  }
+};
+
 export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const { transactions } = useKasir();
 
+  const todayFormatted = getFormattedToday();
+  const yesterdayFormatted = getFormattedYesterday();
   const [activeMethod, setActiveMethod] = useState('Semua');
   const [currentPage, setCurrentPage] = useState(1);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [dateFilterMode, setDateFilterMode] = useState('today');
   const pageSize = 5;
 
   // Filter transactions
@@ -61,11 +107,31 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         <Text style={styles.title}>Riwayat Transaksi</Text>
 
         <View style={styles.dateFilterRow}>
-          <View style={styles.dateRangeBox}>
-            <Ionicons name="calendar-outline" size={15} color="#8D7B70" />
-            <Text style={styles.dateRangeText}>16/10/2025 - 16/10/2025</Text>
-          </View>
-          <TouchableOpacity style={styles.filterBtn} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.dateRangeBox}
+            activeOpacity={0.8}
+            onPress={() => setFilterModalVisible(true)}
+          >
+            <Ionicons name="calendar-outline" size={16} color="#C62828" />
+            <Text style={styles.dateRangeText}>
+              {dateFilterMode === 'today'
+                ? todayFormatted
+                : dateFilterMode === 'yesterday'
+                ? 'Kemarin'
+                : 'Semua Riwayat'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.filterBtn}
+            activeOpacity={0.8}
+            onPress={() => setFilterModalVisible(true)}
+          >
+            <Ionicons
+              name="filter-outline"
+              size={13}
+              color="#FFFFFF"
+              style={{ marginRight: 4 }}
+            />
             <Text style={styles.filterBtnText}>Filter</Text>
           </TouchableOpacity>
         </View>
@@ -224,7 +290,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
                       onOpenReceipt({
                         orderNo: trx.no,
                         tableNo: trx.meja,
-                        date: trx.date || '16/10/2025',
+                        date: trx.date || todayFormatted,
                         time: trx.waktu,
                         items: [
                           {
@@ -290,6 +356,150 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
           <Ionicons name="chevron-forward" size={14} color="#6F5C53" />
         </TouchableOpacity>
       </View>
+
+      {/* Modal Filter Tanggal */}
+      <Modal
+        visible={filterModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setFilterModalVisible(false)}
+        >
+          <View
+            style={styles.modalContent}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="calendar-outline" size={18} color="#C62828" />
+                <Text style={styles.modalTitle}>Filter Riwayat Transaksi</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setFilterModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={20} color="#8D7B70" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSubtitle}>
+              Pilih rentang waktu transaksi yang ingin ditampilkan:
+            </Text>
+
+            {/* Opsi 1: Hari Ini */}
+            <TouchableOpacity
+              style={[
+                styles.filterOptionBtn,
+                dateFilterMode === 'today' && styles.filterOptionBtnActive,
+              ]}
+              onPress={() => {
+                setDateFilterMode('today');
+                setCurrentPage(1);
+                setFilterModalVisible(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text
+                    style={[
+                      styles.optionTitle,
+                      dateFilterMode === 'today' && styles.optionTitleActive,
+                    ]}
+                  >
+                    Hari Ini (Harian)
+                  </Text>
+                  <View style={styles.badgeHarian}>
+                    <Text style={styles.badgeHarianText}>Otomatis</Text>
+                  </View>
+                </View>
+                <Text style={styles.optionSub}>{todayFormatted}</Text>
+              </View>
+              {dateFilterMode === 'today' && (
+                <Ionicons name="checkmark-circle" size={20} color="#C62828" />
+              )}
+            </TouchableOpacity>
+
+            {/* Opsi 2: Kemarin */}
+            <TouchableOpacity
+              style={[
+                styles.filterOptionBtn,
+                dateFilterMode === 'yesterday' && styles.filterOptionBtnActive,
+              ]}
+              onPress={() => {
+                setDateFilterMode('yesterday');
+                setCurrentPage(1);
+                setFilterModalVisible(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text
+                    style={[
+                      styles.optionTitle,
+                      dateFilterMode === 'yesterday' && styles.optionTitleActive,
+                    ]}
+                  >
+                    Kemarin
+                  </Text>
+                  <View
+                    style={[
+                      styles.badgeHarian,
+                      { backgroundColor: '#E3F2FD', borderColor: '#BBDEFB' },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.badgeHarianText, { color: '#1565C0' }]}
+                    >
+                      Otomatis
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.optionSub}>{yesterdayFormatted}</Text>
+              </View>
+              {dateFilterMode === 'yesterday' && (
+                <Ionicons name="checkmark-circle" size={20} color="#C62828" />
+              )}
+            </TouchableOpacity>
+
+            {/* Opsi 3: Semua Riwayat Tanggal */}
+            <TouchableOpacity
+              style={[
+                styles.filterOptionBtn,
+                dateFilterMode === 'all' && styles.filterOptionBtnActive,
+              ]}
+              onPress={() => {
+                setDateFilterMode('all');
+                setCurrentPage(1);
+                setFilterModalVisible(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.optionTitle,
+                    dateFilterMode === 'all' && styles.optionTitleActive,
+                  ]}
+                >
+                  Semua Riwayat Tanggal
+                </Text>
+                <Text style={styles.optionSub}>
+                  Tampilkan seluruh riwayat transaksi yang pernah dicatat
+                </Text>
+              </View>
+              {dateFilterMode === 'all' && (
+                <Ionicons name="checkmark-circle" size={20} color="#C62828" />
+              )}
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </ScrollView>
   );
 }
@@ -519,5 +729,86 @@ const styles = StyleSheet.create({
   },
   pageBtnTextActive: {
     color: '#FFFFFF',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(44, 24, 16, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 420,
+    borderWidth: 1,
+    borderColor: '#EDE5DF',
+    elevation: 6,
+    shadowColor: '#2C1810',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0E8E2',
+  },
+  modalTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#2C1810',
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: '#8D7B70',
+    marginBottom: 14,
+  },
+  filterOptionBtn: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E8DCD4',
+    marginBottom: 10,
+    backgroundColor: '#FAFAF8',
+  },
+  filterOptionBtnActive: {
+    borderColor: '#C62828',
+    backgroundColor: '#FDF4F4',
+  },
+  optionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2C1810',
+  },
+  optionTitleActive: {
+    color: '#C62828',
+  },
+  optionSub: {
+    fontSize: 11,
+    color: '#8D7B70',
+    marginTop: 2,
+  },
+  badgeHarian: {
+    backgroundColor: '#E8F5E9',
+    paddingVertical: 2,
+    paddingHorizontal: 7,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+  },
+  badgeHarianText: {
+    fontSize: 10,
+    color: '#2E7D32',
+    fontWeight: '800',
   },
 });
