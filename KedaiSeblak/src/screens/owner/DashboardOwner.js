@@ -195,7 +195,10 @@ export default function DashboardOwnerScreen() {
 
         <ScrollView
           style={styles.scrollArea}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isMobile && styles.scrollContentMobile,
+          ]}
           showsVerticalScrollIndicator={false}
         >
           {/* FITUR 1: DASHBOARD KEDAI */}
@@ -266,5 +269,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 1200,
     alignSelf: 'center',
+  },
+  scrollContentMobile: {
+    padding: 14,
+    paddingBottom: 40,
   },
 });
