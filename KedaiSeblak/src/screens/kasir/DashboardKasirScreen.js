@@ -30,7 +30,7 @@ import ReceiptModal from '../../components/ReceiptModal';
 
 import PesananAktifScreen from './PesananAktifScreen';
 import RiwayatTransaksiScreen from './RiwayatTransaksiScreen';
-import LaporanScreen from './LaporanScreen';
+import LaporanScreen from './LaporanPenjualanHarianScreen';
 
 export default function DashboardKasirScreen() {
   const { width } = useWindowDimensions();
@@ -40,6 +40,7 @@ export default function DashboardKasirScreen() {
 
   const {
     activeTab,
+    setActiveTab,
     cart,
     addToCart,
     updateCartQty,
@@ -303,6 +304,19 @@ export default function DashboardKasirScreen() {
     setReceiptVisible(false);
     setLastTransaction(null);
     setCurrentOrderPayload(null);
+  };
+
+  /**
+   * Pesanan Baru dari struk: reset keranjang dan arahkan ke tab Kasir
+   */
+  const handleNewOrder = () => {
+    setReceiptVisible(false);
+    setLastTransaction(null);
+    setCurrentOrderPayload(null);
+    resetCart();
+    if (setActiveTab) {
+      setActiveTab('Kasir');
+    }
   };
 
   /**
@@ -887,6 +901,7 @@ export default function DashboardKasirScreen() {
         visible={receiptVisible}
         transactionData={lastTransaction}
         onClose={handleCloseReceipt}
+        onNewOrder={handleNewOrder}
       />
     </View>
   );

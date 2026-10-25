@@ -319,6 +319,7 @@ const styles = StyleSheet.create({
   },
   infoRowCard: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
     backgroundColor: '#F8F5F2',
     padding: 12,
@@ -326,7 +327,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   infoItem: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 200,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,

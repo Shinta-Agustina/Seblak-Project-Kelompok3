@@ -6,7 +6,6 @@ export const TOPPING_CATEGORIES = [
   'Mie & Bihun',
   'Telur & Tahu',
   'Sayur & Jamur',
-  'Extra & Taburan',
 ];
 
 export const TOPPING_ITEMS = [

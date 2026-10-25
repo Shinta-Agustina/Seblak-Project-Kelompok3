@@ -56,21 +56,21 @@ export default function PaymentModal({
   // Ambil hanya item asli dari dashboard. Tidak ada data contoh.
   const orderItems = Array.isArray(transactionData?.items)
     ? transactionData.items.map((item) => {
-        const qty = Number(item.qty ?? item.quantity ?? 1);
-        const price = Number(item.price ?? item.harga ?? 0);
-        const name = item.name || item.nama || 'Item';
+      const qty = Number(item.qty ?? item.quantity ?? 1);
+      const price = Number(item.price ?? item.harga ?? 0);
+      const name = item.name || item.nama || 'Item';
 
-        return {
-          ...item,
-          id: item.id,
-          name,
-          nama: name,
-          qty,
-          price,
-          harga: price,
-          subtotal: price * qty,
-        };
-      })
+      return {
+        ...item,
+        id: item.id,
+        name,
+        nama: name,
+        qty,
+        price,
+        harga: price,
+        subtotal: price * qty,
+      };
+    })
     : [];
 
   // Total utama dihitung dari item agar rincian dan total konsisten.
@@ -241,8 +241,8 @@ export default function PaymentModal({
     typeof user?.avatar === 'string'
       ? { uri: user.avatar }
       : user?.avatar || {
-          uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80',
-        };
+        uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80',
+      };
 
   return (
     <Modal
@@ -415,7 +415,7 @@ export default function PaymentModal({
                   style={[
                     styles.methodButton,
                     paymentMethod === 'Tunai' &&
-                      styles.methodButtonActive,
+                    styles.methodButtonActive,
                   ]}
                   onPress={() => setPaymentMethod('Tunai')}
                   disabled={isProcessing}
@@ -432,7 +432,7 @@ export default function PaymentModal({
                     style={[
                       styles.methodButtonText,
                       paymentMethod === 'Tunai' &&
-                        styles.methodButtonTextActive,
+                      styles.methodButtonTextActive,
                     ]}
                   >
                     Tunai
@@ -443,7 +443,7 @@ export default function PaymentModal({
                   style={[
                     styles.methodButton,
                     paymentMethod === 'QRIS' &&
-                      styles.methodButtonActive,
+                    styles.methodButtonActive,
                   ]}
                   onPress={() => setPaymentMethod('QRIS')}
                   disabled={isProcessing}
@@ -460,7 +460,7 @@ export default function PaymentModal({
                     style={[
                       styles.methodButtonText,
                       paymentMethod === 'QRIS' &&
-                        styles.methodButtonTextActive,
+                      styles.methodButtonTextActive,
                     ]}
                   >
                     QRIS
@@ -471,7 +471,7 @@ export default function PaymentModal({
                   style={[
                     styles.methodButton,
                     paymentMethod === 'E-Wallet' &&
-                      styles.methodButtonActive,
+                    styles.methodButtonActive,
                   ]}
                   onPress={() => setPaymentMethod('E-Wallet')}
                   disabled={isProcessing}
@@ -490,7 +490,7 @@ export default function PaymentModal({
                     style={[
                       styles.methodButtonText,
                       paymentMethod === 'E-Wallet' &&
-                        styles.methodButtonTextActive,
+                      styles.methodButtonTextActive,
                     ]}
                   >
                     E-Wallet
@@ -715,7 +715,7 @@ export default function PaymentModal({
                   (isProcessing ||
                     orderItems.length === 0 ||
                     totalPrice <= 0) &&
-                    styles.payButtonDisabled,
+                  styles.payButtonDisabled,
                 ]}
                 onPress={handleProcessPayment}
                 disabled={

@@ -17,6 +17,7 @@ export default function ReceiptModal({
   onClose,
   transactionData,
   onPrint,
+  onNewOrder,
 }) {
   const orderNumber = transactionData?.orderNo || '#001';
   const tableNo = transactionData?.tableNo || 'Meja 2';
@@ -34,18 +35,18 @@ export default function ReceiptModal({
     transactionData?.items && transactionData.items.length > 0
       ? transactionData.items
       : [
-          { name: 'Topping Lengkap', qty: 1, price: 28000 },
-          { name: 'Telur', qty: 1, price: 4000 },
-        ];
+        { name: 'Topping Lengkap', qty: 1, price: 28000 },
+        { name: 'Telur', qty: 1, price: 4000 },
+      ];
 
   const totalPrice =
     transactionData?.total !== undefined
       ? transactionData.total
       : items.reduce(
-          (acc, item) =>
-            acc + (item.price || item.harga || 0) * (item.qty || 1),
-          0
-        );
+        (acc, item) =>
+          acc + (item.price || item.harga || 0) * (item.qty || 1),
+        0
+      );
 
   const handlePrint = () => {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && window.print) {
@@ -248,7 +249,7 @@ export default function ReceiptModal({
 
             <TouchableOpacity
               style={styles.doneBtn}
-              onPress={onClose}
+              onPress={onNewOrder || onClose}
               activeOpacity={0.8}
             >
               <Ionicons name="add-circle-outline" size={16} color="#6F5C53" />
