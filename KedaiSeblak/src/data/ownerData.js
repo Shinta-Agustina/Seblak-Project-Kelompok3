@@ -1,5 +1,6 @@
+import { TOPPING_ITEMS } from './mockData';
+
 // Data dummy komprehensif khas Kedai Seblak Prasmanan untuk Owner Portal
-// Dirancang dengan data realistis UMKM kuliner nusantara
 
 export const WARNA_SEBLAK = {
   merahCabe: '#C62828',
@@ -155,203 +156,148 @@ export const RECENT_TRANSACTIONS_PREVIEW = [
   { id: 'TRX-084', waktu: '18:15 WIB', meja: 'Meja 2', menu: 'Seblak Original Kencur (Sosis + Bakso)', total: 26000, metode: 'E-Wallet', status: 'Lunas' },
 ];
 
-export const INITIAL_STOCK_ITEMS = [
+// ======================================================
+// DATA STOK
+// ======================================================
+
+// Tentukan satuan berdasarkan jenis bahan.
+// Ini merupakan nilai awal yang dapat disesuaikan dengan cara pembelian.
+const tentukanSatuanStok = (nama = '', kategori = '') => {
+  const teks = `${nama} ${kategori}`.toLowerCase();
+
+  if (/telur/.test(teks)) return 'butir';
+
+  if (/enoki|pack|kemasan/.test(teks)) return 'pack';
+
+  if (
+    /kerupuk|makaroni|cabai|cabe|kencur|bawang|sawi|sayur|jamur/.test(teks)
+  ) {
+    return 'kg';
+  }
+
+  if (
+    /dumpling|chikuwa|crabstick|sosis|bakso|cuanki|fish roll|otak-otak|ceker/.test(teks)
+  ) {
+    return 'pcs';
+  }
+
+  return 'pcs';
+};
+
+// Data stok topping mengikuti sumber data halaman kasir.
+const STOCK_TOPPING_ITEMS = TOPPING_ITEMS.map((topping) => ({
+  id: `STK-${topping.id}`,
+  toppingId: topping.id,
+  nama: topping.nama,
+  kategori: topping.kategori,
+  sisa: 0,
+  minimum: 1,
+  satuan: tentukanSatuanStok(topping.nama, topping.kategori),
+  stokAwal: 0,
+  terpakaiHariIni: 0,
+  estimasiHabisHari: 0,
+  supplier: '',
+  hargaBeli: 0,
+
+  // Ambil foto dari mockData.js.
+  foto: topping.image || null,
+
+  riwayatRestok: [],
+}));
+
+// Foto bahan dasar
+const FOTO_BAHAN_DASAR = {
+  'Penyedap': require('../../assets/bahan-dasar/penyedap.png'),
+  'Cabai Rawit': require('../../assets/bahan-dasar/cabai-rawit.png'),
+  'Kencur': require('../../assets/bahan-dasar/kencur.png'),
+  'Bawang Putih': require('../../assets/bahan-dasar/bawang-putih.png'),
+  'Bawang Daun': require('../../assets/bahan-dasar/daun-bawang.png'),
+};
+
+
+// Bahan dasar yang tidak terdaftar sebagai topping kasir.
+const STOCK_BAHAN_DASAR = [
   {
-    id: 'STK-001',
-    nama: 'Kerupuk Mawar Kuning',
-    kategori: 'Kerupuk & Makaroni',
-    sisa: 2.5,
-    minimum: 5.0,
-    satuan: 'kg',
-    stokAwal: 8.0,
-    terpakaiHariIni: 5.5,
-    estimasiHabisHari: 0.8,
-    supplier: 'Juragan Kerupuk Barokah',
-    hargaBeli: 22000,
-    riwayatRestok: [
-      { tanggal: '22 Okt 2026', jumlah: 15, supplier: 'Juragan Kerupuk Barokah', hargaBeli: 22000, pic: 'Dewi (Owner)' },
-      { tanggal: '16 Okt 2026', jumlah: 20, supplier: 'Juragan Kerupuk Barokah', hargaBeli: 21500, pic: 'Dewi (Owner)' },
-    ],
-  },
-  {
-    id: 'STK-002',
-    nama: 'Ceker Ayam Bersih',
-    kategori: 'Frozen & Daging',
+    id: 'STK-BAHAN-KUAH',
+    nama: 'Penyedap',
+    kategori: 'Bumbu',
     sisa: 0,
-    minimum: 4.0,
-    satuan: 'kg',
-    stokAwal: 6.0,
-    terpakaiHariIni: 6.0,
+    minimum: 1,
+    satuan: 'gr',
+    stokAwal: 0,
+    terpakaiHariIni: 0,
     estimasiHabisHari: 0,
-    supplier: 'Rumah Potong Berkah',
-    hargaBeli: 28000,
-    riwayatRestok: [
-      { tanggal: '23 Okt 2026', jumlah: 8, supplier: 'Rumah Potong Berkah', hargaBeli: 28000, pic: 'Dewi (Owner)' },
-      { tanggal: '20 Okt 2026', jumlah: 10, supplier: 'Rumah Potong Berkah', hargaBeli: 27500, pic: 'Dewi (Owner)' },
-    ],
+    supplier: '',
+    hargaBeli: 0,
+    foto: FOTO_BAHAN_DASAR['Penyedap'],
+    riwayatRestok: [],
   },
   {
-    id: 'STK-003',
-    nama: 'Telur Ayam Negeri',
-    kategori: 'Telur',
-    sisa: 8,
-    minimum: 20,
-    satuan: 'butir',
-    stokAwal: 60,
-    terpakaiHariIni: 52,
-    estimasiHabisHari: 0.5,
-    supplier: 'Peternakan Ayam Subur',
-    hargaBeli: 2200,
-    riwayatRestok: [
-      { tanggal: '21 Okt 2026', jumlah: 120, supplier: 'Peternakan Ayam Subur', hargaBeli: 2200, pic: 'Dewi (Owner)' },
-    ],
-  },
-  {
-    id: 'STK-004',
-    nama: 'Cabe Rawit Merah (Jeletot)',
-    kategori: 'Bumbu & Sayur',
-    sisa: 1.2,
-    minimum: 3.0,
+    id: 'STK-BAHAN-CABAI',
+    nama: 'Cabai Rawit',
+    kategori: 'Bumbu',
+    sisa: 0,
+    minimum: 0.5,
     satuan: 'kg',
-    stokAwal: 4.5,
-    terpakaiHariIni: 3.3,
-    estimasiHabisHari: 0.6,
-    supplier: 'Pasar Induk Kramat Jati',
-    hargaBeli: 65000,
-    riwayatRestok: [
-      { tanggal: '22 Okt 2026', jumlah: 5, supplier: 'Pasar Induk Kramat Jati', hargaBeli: 65000, pic: 'Dewi (Owner)' },
-    ],
+    stokAwal: 0,
+    terpakaiHariIni: 0,
+    estimasiHabisHari: 0,
+    supplier: '',
+    hargaBeli: 0,
+    foto: FOTO_BAHAN_DASAR['Cabai Rawit'],
+    riwayatRestok: [],
   },
   {
-    id: 'STK-005',
-    nama: 'Makaroni Spiral Super',
-    kategori: 'Kerupuk & Makaroni',
-    sisa: 7.0,
-    minimum: 4.0,
+    id: 'STK-BAHAN-KENCUR',
+    nama: 'Kencur',
+    kategori: 'Bumbu',
+    sisa: 0,
+    minimum: 0.25,
     satuan: 'kg',
-    stokAwal: 10.0,
-    terpakaiHariIni: 3.0,
-    estimasiHabisHari: 3.2,
-    supplier: 'Agen Makaroni Mentah Subur',
-    hargaBeli: 18000,
-    riwayatRestok: [
-      { tanggal: '20 Okt 2026', jumlah: 15, supplier: 'Agen Makaroni Mentah Subur', hargaBeli: 18000, pic: 'Dewi (Owner)' },
-    ],
+    stokAwal: 0,
+    terpakaiHariIni: 0,
+    estimasiHabisHari: 0,
+    supplier: '',
+    hargaBeli: 0,
+    foto: FOTO_BAHAN_DASAR['Kencur'],
+    riwayatRestok: [],
   },
   {
-    id: 'STK-006',
-    nama: 'Sosis Sapi Cocktail',
-    kategori: 'Frozen & Daging',
-    sisa: 6.5,
-    minimum: 3.5,
+    id: 'STK-BAHAN-BAWANG',
+    nama: 'Bawang Putih',
+    kategori: 'Bumbu',
+    sisa: 0,
+    minimum: 0.25,
     satuan: 'kg',
-    stokAwal: 9.5,
-    terpakaiHariIni: 3.0,
-    estimasiHabisHari: 2.8,
-    supplier: 'Sumber Rezeki Frozen',
-    hargaBeli: 48000,
-    riwayatRestok: [
-      { tanggal: '19 Okt 2026', jumlah: 12, supplier: 'Sumber Rezeki Frozen', hargaBeli: 48000, pic: 'Dewi (Owner)' },
-    ],
+    stokAwal: 0,
+    terpakaiHariIni: 0,
+    estimasiHabisHari: 0,
+    supplier: '',
+    hargaBeli: 0,
+    foto: FOTO_BAHAN_DASAR['Bawang Putih'],
+    riwayatRestok: [],
   },
   {
-    id: 'STK-007',
-    nama: 'Bakso Urat Sapi Jumbo',
-    kategori: 'Frozen & Daging',
-    sisa: 5.0,
-    minimum: 3.0,
-    satuan: 'kg',
-    stokAwal: 8.0,
-    terpakaiHariIni: 3.0,
-    estimasiHabisHari: 2.5,
-    supplier: 'Sumber Rezeki Frozen',
-    hargaBeli: 52000,
-    riwayatRestok: [
-      { tanggal: '19 Okt 2026', jumlah: 10, supplier: 'Sumber Rezeki Frozen', hargaBeli: 52000, pic: 'Dewi (Owner)' },
-    ],
-  },
-  {
-    id: 'STK-008',
-    nama: 'Dumpling Keju Mozzarella',
-    kategori: 'Frozen & Daging',
-    sisa: 60,
-    minimum: 25,
-    satuan: 'pcs',
-    stokAwal: 90,
-    terpakaiHariIni: 30,
-    estimasiHabisHari: 3.0,
-    supplier: 'CV Boga Sejahtera Food',
-    hargaBeli: 1600,
-    riwayatRestok: [
-      { tanggal: '21 Okt 2026', jumlah: 100, supplier: 'CV Boga Sejahtera Food', hargaBeli: 1600, pic: 'Dewi (Owner)' },
-    ],
-  },
-  {
-    id: 'STK-009',
-    nama: 'Cuanki Lidah Khas Garut',
-    kategori: 'Kerupuk & Makaroni',
-    sisa: 80,
-    minimum: 30,
-    satuan: 'pcs',
-    stokAwal: 120,
-    terpakaiHariIni: 40,
-    estimasiHabisHari: 2.9,
-    supplier: 'Sentra Cuanki Garut',
-    hargaBeli: 1000,
-    riwayatRestok: [
-      { tanggal: '18 Okt 2026', jumlah: 200, supplier: 'Sentra Cuanki Garut', hargaBeli: 1000, pic: 'Dewi (Owner)' },
-    ],
-  },
-  {
-    id: 'STK-010',
-    nama: 'Jamur Enoki Segar',
-    kategori: 'Bumbu & Sayur',
-    sisa: 15,
-    minimum: 10,
-    satuan: 'pack',
-    stokAwal: 25,
-    terpakaiHariIni: 10,
-    estimasiHabisHari: 2.1,
-    supplier: 'Pasar Induk Kramat Jati',
-    hargaBeli: 6500,
-    riwayatRestok: [
-      { tanggal: '23 Okt 2026', jumlah: 30, supplier: 'Pasar Induk Kramat Jati', hargaBeli: 6500, pic: 'Dewi (Owner)' },
-    ],
-  },
-  {
-    id: 'STK-011',
-    nama: 'Bumbu Kencur & Bawang Giling',
-    kategori: 'Bumbu & Sayur',
-    sisa: 3.5,
-    minimum: 2.0,
-    satuan: 'kg',
-    stokAwal: 5.0,
-    terpakaiHariIni: 1.5,
-    estimasiHabisHari: 3.5,
-    supplier: 'Kios Giling Mang Asep',
-    hargaBeli: 35000,
-    riwayatRestok: [
-      { tanggal: '22 Okt 2026', jumlah: 6, supplier: 'Kios Giling Mang Asep', hargaBeli: 35000, pic: 'Dewi (Owner)' },
-    ],
-  },
-  {
-    id: 'STK-012',
-    nama: 'Sawi Hijau & Pakcoy',
-    kategori: 'Bumbu & Sayur',
-    sisa: 4.0,
-    minimum: 2.5,
-    satuan: 'kg',
-    stokAwal: 7.0,
-    terpakaiHariIni: 3.0,
-    estimasiHabisHari: 1.8,
-    supplier: 'Petani Sayur Lembang',
-    hargaBeli: 12000,
-    riwayatRestok: [
-      { tanggal: '24 Okt 2026', jumlah: 8, supplier: 'Petani Sayur Lembang', hargaBeli: 12000, pic: 'Dewi (Owner)' },
-    ],
+    id: 'STK-BAHAN-DAUN',
+    nama: 'Bawang Daun',
+    kategori: 'Sayur & Jamur',
+    sisa: 0,
+    minimum: 1,
+    satuan: 'ikat',
+    stokAwal: 0,
+    terpakaiHariIni: 0,
+    estimasiHabisHari: 0,
+    supplier: '',
+    hargaBeli: 0,
+    foto: FOTO_BAHAN_DASAR['Bawang Daun'],
+    riwayatRestok: [],
   },
 ];
-// Menambahkan data pengeluaran realistis kedai seblak
+
+export const INITIAL_STOCK_ITEMS = [
+  ...STOCK_TOPPING_ITEMS,
+  ...STOCK_BAHAN_DASAR,
+];
 
 export const INITIAL_EXPENSES = [
   {

@@ -1,4 +1,5 @@
 ﻿import React, { useMemo } from 'react';
+import { buatDataPenjualanDummy } from '../../../data/ownerSalesSimulation';
 import {
   View,
   Text,
@@ -9,10 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import StatCard from '../StatCard';
 import StatusBadge from '../StatusBadge';
-import {
-  DASHBOARD_METRICS,
-  WEEKLY_SALES_DATA,
-} from '../../../data/ownerData';
+
 
 export default function TabDashboard({
   setActiveTab,
@@ -26,31 +24,88 @@ export default function TabDashboard({
     .sort((a, b) => (a.sisa / a.minimum) - (b.sisa / b.minimum))
     .slice(0, 3);
 
-  // Top 3 topping hari ini
-  const topToppings = [
-    { rank: 1, nama: 'Kerupuk Mawar Pedas', porsi: 142, proporsi: 100 },
-    { rank: 2, nama: 'Dumpling Keju Mozzarella', porsi: 98, proporsi: 69 },
-    { rank: 3, nama: 'Ceker Jeletot Mercon', porsi: 85, proporsi: 60 },
-  ];
+  // Dashboard memakai sumber data simulasi yang sama dengan halaman Penjualan.
+  // Data simulasi tidak masuk ke transaksi kasir dan bukan laporan keuangan resmi.
+  const dummyTransactions = useMemo(() => buatDataPenjualanDummy(), []);
+  const now = new Date();
+  const startToday = new Date(now);
+  startToday.setHours(0, 0, 0, 0);
 
-  const totalOmzet7Hari = WEEKLY_SALES_DATA.reduce((acc, curr) => acc + curr.omzet, 0);
+  const parseDate = (value) => {
+    if (!value) return null;
+    const text = String(value).trim();
+    const match = text.match(/^(\d{1,2})[\/ -](\d{1,2}|[A-Za-z]+)[\/ -](\d{4})$/);
+    if (match) {
+      const months = { jan: 0, januari: 0, feb: 1, februari: 1, mar: 2, maret: 2, apr: 3, april: 3, mei: 4, may: 4, jun: 5, juni: 5, jul: 6, juli: 6, agu: 7, agustus: 7, sep: 8, september: 8, okt: 9, oktober: 9, nov: 10, november: 10, des: 11, desember: 11 };
+      const month = Number.isFinite(Number(match[2])) ? Number(match[2]) - 1 : months[match[2].toLowerCase()];
+      if (month !== undefined && month >= 0 && month <= 11) return new Date(Number(match[3]), month, Number(match[1]));
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
 
-  // 1. Pemasukan Kasir (Penjualan Hari Ini)
-  const pemasukanKasir = DASHBOARD_METRICS.omzetHariIni.nilai; // Rp 2.450.000
+  const transactionsToday = dummyTransactions.filter((trx) => {
+    const date = parseDate(trx.date);
+    if (!date || trx.status !== 'Lunas') return false;
+    date.setHours(0, 0, 0, 0);
+    return date.getTime() === startToday.getTime();
+  });
+  const pemasukanSimulasiHariIni = transactionsToday.reduce((sum, trx) => sum + Number(trx.total || 0), 0);
+  const previousDay = new Date(startToday);
+  previousDay.setDate(previousDay.getDate() - 1);
+  const transactionsYesterday = dummyTransactions.filter((trx) => {
+    const date = parseDate(trx.date);
+    if (!date || trx.status !== 'Lunas') return false;
+    date.setHours(0, 0, 0, 0);
+    return date.getTime() === previousDay.getTime();
+  });
+  const omzetYesterday = transactionsYesterday.reduce((sum, trx) => sum + Number(trx.total || 0), 0);
+  const persenOmzet = omzetYesterday > 0 ? Math.round((pemasukanSimulasiHariIni - omzetYesterday) / omzetYesterday * 100) : 0;
 
-  // 2. Pengeluaran Owner (Modal Belanja Topping & Bahan Hari Ini)
-  const pengeluaranModalHariIni = useMemo(() => {
-    return expenses
-      .filter((e) => e.tanggal === '24 Okt 2026')
-      .reduce((sum, e) => sum + (e.nominal || 0), 0);
-  }, [expenses]);
+  const last7Days = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(startToday);
+    date.setDate(date.getDate() - (6 - index));
+    return date;
+  });
+  const WEEKLY_SALES_DATA = last7Days.map((date) => {
+    const dayTransactions = dummyTransactions.filter((trx) => {
+      const d = parseDate(trx.date);
+      if (!d || trx.status !== 'Lunas') return false;
+      d.setHours(0, 0, 0, 0);
+      return d.getTime() === date.getTime();
+    });
+    return {
+      hari: date.toLocaleDateString('id-ID', { weekday: 'short' }),
+      omzet: dayTransactions.reduce((sum, trx) => sum + Number(trx.total || 0), 0),
+      peak: false,
+      persenMax: 0,
+    };
+  });
+  const maxOmzet = Math.max(1, ...WEEKLY_SALES_DATA.map((item) => item.omzet));
+  WEEKLY_SALES_DATA.forEach((item) => {
+    item.persenMax = Math.round((item.omzet / maxOmzet) * 100);
+    item.peak = item.omzet === maxOmzet && item.omzet > 0;
+  });
+  const totalOmzet7Hari = WEEKLY_SALES_DATA.reduce((sum, item) => sum + item.omzet, 0);
+  const peakDay = WEEKLY_SALES_DATA.find((item) => item.peak)?.hari || '-';
 
-  // 3. Laba Bersih Hari Ini = Pemasukan (Kasir) - Pengeluaran Modal (Owner)
-  const labaBersihHariIni = pemasukanKasir - pengeluaranModalHariIni;
-  const persentaseMargin = pemasukanKasir > 0 ? Math.round((labaBersihHariIni / pemasukanKasir) * 100) : 0;
+  const toppingMap = {};
+  transactionsToday.forEach((trx) => (trx.items || []).forEach((item) => {
+    const nama = item.name || item.nama || 'Item';
+    const kategori = String(item.kategori || item.category || '').toLowerCase();
+    if (kategori !== 'topping' && !/kerupuk|makaroni|sosis|bakso|ceker|seafood|dumpling|crab stick|fish roll|chikuwa|telur|tahu|cuanki|siomay|otak-otak|kwetiau|mie|sawi|jamur/i.test(nama)) return;
+    const qty = Number(item.qty || 0);
+    if (!toppingMap[nama]) toppingMap[nama] = { nama, porsi: 0 };
+    toppingMap[nama].porsi += qty;
+  }));
+  const topToppingsRaw = Object.values(toppingMap).sort((a, b) => b.porsi - a.porsi).slice(0, 3);
+  const maxTop = Math.max(1, ...topToppingsRaw.map((item) => item.porsi));
+  const topToppings = topToppingsRaw.map((item, index) => ({ ...item, rank: index + 1, proporsi: Math.round((item.porsi / maxTop) * 100) }));
 
-  // 3 Catatan Pengeluaran Modal Terbaru
+  // Pengeluaran mengikuti catatan di fitur Pengeluaran Owner; tidak diambil dari kasir.
+  const totalPengeluaranTercatat = (expenses || []).reduce((sum, expense) => sum + Number(expense.nominal || 0), 0);
   const recentExpenses = (expenses || []).slice(0, 3);
+
 
   return (
     <View style={styles.container}>
@@ -63,39 +118,39 @@ export default function TabDashboard({
           </View>
           <Text style={styles.welcomeTitle}>Kondisi Kedai Hari Ini</Text>
           <Text style={styles.welcomeSubtitle}>
-            Sabtu, 24 Oktober 2026 · Evaluasi kesehatan kedai, pemasukan, modal bahan, dan laba
+            {`${now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · Ringkasan simulasi penjualan, catatan pengeluaran, dan persediaan`}
           </Text>
         </View>
 
         <View style={styles.statusLivePill}>
           <View style={styles.pulseDot} />
-          <Text style={styles.statusLiveText}>Kedai Buka</Text>
+          <Text style={styles.statusLiveText}>Ringkasan Owner</Text>
         </View>
       </View>
 
       {/* 4 KARTU ANGKA UTAMA (STAT CARDS) */}
       <View style={styles.statCardsGrid}>
-        {/* 1. Pemasukan Kasir (Omzet) */}
+        {/* 1. Omzet simulasi dari sumber laporan Penjualan */}
         <StatCard
-          title="Pemasukan Kasir (Omzet)"
-          value={`Rp ${pemasukanKasir.toLocaleString('id-ID')}`}
-          trend={`+${DASHBOARD_METRICS.omzetHariIni.persenKemarin}%`}
+          title="Omzet Simulasi Hari Ini"
+          value={`Rp ${pemasukanSimulasiHariIni.toLocaleString('id-ID')}`}
+          trend={`${persenOmzet >= 0 ? '+' : ''}${persenOmzet}%`}
           trendPositive={true}
-          subtitle="86 transaksi pembeli"
+          subtitle={`${transactionsToday.length} transaksi simulasi`}
           iconName="cash-outline"
           iconColor="#168653"
           iconBg="#DCFCE7"
-          badgeText="Kasir"
+          badgeText="Simulasi"
           onPress={() => setActiveTab('penjualan')}
         />
 
-        {/* 2. Pengeluaran Modal Belanja Bahan (Topping) */}
+        {/* 2. Total pengeluaran dari fitur Owner */}
         <StatCard
-          title="Modal Belanja Topping"
-          value={`Rp ${pengeluaranModalHariIni.toLocaleString('id-ID')}`}
+          title="Total Pengeluaran Tercatat"
+          value={`Rp ${totalPengeluaranTercatat.toLocaleString('id-ID')}`}
           trend="Uang Modal"
           trendPositive={false}
-          subtitle={`${recentExpenses.length} nota belanja bahan`}
+          subtitle={`${(expenses || []).length} catatan di fitur Pengeluaran`}
           iconName="cart-outline"
           iconColor="#DC2626"
           iconBg="#FEE2E2"
@@ -103,17 +158,17 @@ export default function TabDashboard({
           onPress={() => setActiveTab('pengeluaran')}
         />
 
-        {/* 3. Laba Bersih Hari Ini (Pemasukan - Modal) */}
+        {/* 3. Pengeluaran hari ini dari catatan Owner */}
         <StatCard
-          title="Laba Bersih Hari Ini"
-          value={`Rp ${labaBersihHariIni.toLocaleString('id-ID')}`}
-          trend={`Margin ${persentaseMargin}%`}
+          title="Catatan Pengeluaran"
+          value={`${(expenses || []).length} Catatan`}
+          trend="Owner"
           trendPositive={true}
-          subtitle="Pemasukan minus modal bahan"
-          iconName="trending-up-outline"
+          subtitle="Semua catatan pada fitur Pengeluaran"
+          iconName="receipt-outline"
           iconColor="#0284C7"
           iconBg="#E0F2FE"
-          badgeText="Laba"
+          badgeText="Pengeluaran"
           onPress={() => setActiveTab('pengeluaran')}
         />
 
@@ -123,7 +178,7 @@ export default function TabDashboard({
           value={`${lowStockItems.length} Bahan`}
           trend={lowStockItems.length > 0 ? "Perhatian" : "Aman"}
           trendPositive={lowStockItems.length === 0}
-          subtitle={lowStockItems.length > 0 ? "1 habis, 2 menipis" : "Semua stok aman"}
+          subtitle={lowStockItems.length > 0 ? `${lowStockItems.filter((item) => item.sisa <= 0).length} habis, ${lowStockItems.filter((item) => item.sisa > 0).length} menipis` : "Semua stok aman"}
           iconName="alert-circle-outline"
           iconColor="#C62828"
           iconBg="#FBEAEC"
@@ -137,29 +192,29 @@ export default function TabDashboard({
         <View style={styles.profitHeaderRow}>
           <View style={styles.profitHeaderLeft}>
             <Ionicons name="calculator" size={20} color="#166534" />
-            <Text style={styles.profitTitle}>Kalkulasi Kesehatan Keuangan Hari Ini</Text>
+            <Text style={styles.profitTitle}>Ringkasan Penjualan & Pengeluaran</Text>
           </View>
           <View style={styles.healthyPill}>
-            <Text style={styles.healthyPillText}>Kedai Sangat Sehat</Text>
+            <Text style={styles.healthyPillText}>Data Terpisah</Text>
           </View>
         </View>
 
         <View style={styles.profitCalculationBody}>
           <View style={styles.calcRow}>
             <Text style={styles.calcLabel}>
-              (+) Total Pemasukan Kasir <Text style={styles.calcDesc}>(Transaksi Pembeli)</Text>
+              Omzet simulasi hari ini <Text style={styles.calcDesc}>(Halaman Penjualan)</Text>
             </Text>
             <Text style={[styles.calcValue, { color: '#168653' }]}>
-              Rp {pemasukanKasir.toLocaleString('id-ID')}
+              Rp {pemasukanSimulasiHariIni.toLocaleString('id-ID')}
             </Text>
           </View>
 
           <View style={styles.calcRow}>
             <Text style={styles.calcLabel}>
-              (-) Modal Belanja Bahan Baku <Text style={styles.calcDesc}>(Restok Topping & Bumbu)</Text>
+              Total pengeluaran tercatat <Text style={styles.calcDesc}>(Fitur Pengeluaran Owner)</Text>
             </Text>
             <Text style={[styles.calcValue, { color: '#DC2626' }]}>
-              -Rp {pengeluaranModalHariIni.toLocaleString('id-ID')}
+              Rp {totalPengeluaranTercatat.toLocaleString('id-ID')}
             </Text>
           </View>
 
@@ -167,11 +222,11 @@ export default function TabDashboard({
 
           <View style={styles.calcRowTotal}>
             <View style={styles.calcTotalLeft}>
-              <Text style={styles.calcTotalLabel}>(=) Estimasi Keuntungan Bersih</Text>
-              <Text style={styles.calcTotalSub}>Uang bersih yang masuk ke kas pemilik</Text>
+              <Text style={styles.calcTotalLabel}>Catatan ringkasan</Text>
+              <Text style={styles.calcTotalSub}>Penjualan simulasi dan pengeluaran ditampilkan terpisah</Text>
             </View>
             <Text style={styles.calcTotalValue}>
-              Rp {labaBersihHariIni.toLocaleString('id-ID')}
+              {transactionsToday.length} transaksi
             </Text>
           </View>
         </View>
@@ -259,7 +314,7 @@ export default function TabDashboard({
 
           <View style={styles.peakIndicatorBadge}>
             <Ionicons name="flame" size={13} color="#C62828" />
-            <Text style={styles.peakBadgeText}>Sabtu Paling Ramai</Text>
+            <Text style={styles.peakBadgeText}>{peakDay === '-' ? 'Belum ada data' : `${peakDay} tertinggi`}</Text>
           </View>
         </View>
 
@@ -295,8 +350,8 @@ export default function TabDashboard({
       <View style={styles.sectionCard}>
         <View style={styles.cardHeaderRow}>
           <View style={styles.cardHeaderText}>
-            <Text style={styles.cardTitle}>Top 3 Topping Terlaris Hari Ini</Text>
-            <Text style={styles.cardSubtitle}>Pilihan favorit pelanggan seblak prasmanan</Text>
+            <Text style={styles.cardTitle}>Top 3 Topping Terlaris</Text>
+            <Text style={styles.cardSubtitle}>Berdasarkan data simulasi pada laporan penjualan</Text>
           </View>
 
           <TouchableOpacity
@@ -309,7 +364,9 @@ export default function TabDashboard({
         </View>
 
         <View style={styles.topToppingsList}>
-          {topToppings.map((item) => {
+          {topToppings.length === 0 ? (
+            <Text style={styles.stockAllGoodText}>Belum ada data topping simulasi untuk hari ini.</Text>
+          ) : topToppings.map((item) => {
             const medalColors = ['#F59E0B', '#94A3B8', '#D97706'];
             return (
               <View key={item.rank} style={styles.toppingItem}>
@@ -345,8 +402,8 @@ export default function TabDashboard({
       <View style={styles.sectionCard}>
         <View style={styles.cardHeaderRow}>
           <View style={styles.cardHeaderText}>
-            <Text style={styles.cardTitle}>Modal Belanja Topping Hari Ini</Text>
-            <Text style={styles.cardSubtitle}>Riwayat uang keluar owner untuk restok bahan baku seblak</Text>
+            <Text style={styles.cardTitle}>Pengeluaran Terbaru</Text>
+            <Text style={styles.cardSubtitle}>Mengikuti catatan pada fitur Pengeluaran Owner</Text>
           </View>
 
           <TouchableOpacity
@@ -354,12 +411,14 @@ export default function TabDashboard({
             onPress={() => setActiveTab('pengeluaran')}
             activeOpacity={0.7}
           >
-            <Text style={styles.textLink}>Lihat Semua Belanja Bahan →</Text>
+            <Text style={styles.textLink}>Lihat Semua Pengeluaran →</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.recentExpensesList}>
-          {recentExpenses.map((exp) => (
+          {recentExpenses.length === 0 ? (
+            <Text style={styles.stockAllGoodText}>Belum ada catatan pengeluaran.</Text>
+          ) : recentExpenses.map((exp) => (
             <View key={exp.id} style={styles.expenseRow}>
               <View style={styles.expenseLeft}>
                 <View style={styles.expenseBadgeRow}>
