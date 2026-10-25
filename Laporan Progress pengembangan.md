@@ -98,7 +98,16 @@ Berdasarkan hasil analisis dan rancangan kebutuhan, sistem **Seblak Prasmanan PO
 
 3. Faija : Sreen Laporan 
 
-4. Dewi : Dashboard Owner
+4. Dewi : Dashboard Owner, Penjualan dan Stok
+
+Fitur Dashboard Owner
+![alt text](dashboard.gif)
+
+Fitur Penjualan
+![alt text](penjualan.gif)
+
+Fitur Stok Bahan
+![alt text](stok.gif)
 
 ## Bukti Membangun Layer 
 Bukti Wawancara:
