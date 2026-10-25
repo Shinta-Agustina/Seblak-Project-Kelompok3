@@ -46,13 +46,13 @@ export const DASHBOARD_METRICS = {
 };
 
 export const WEEKLY_SALES_DATA = [
-  { hari: 'Sen 18', omzet: 1650000, porsi: 58, persenMax: 52 },
-  { hari: 'Sel 19', omzet: 1820000, porsi: 64, persenMax: 58 },
-  { hari: 'Rab 20', omzet: 1740000, porsi: 61, persenMax: 55 },
-  { hari: 'Kam 21', omzet: 1950000, porsi: 68, persenMax: 62 },
-  { hari: 'Jum 22', omzet: 2300000, porsi: 80, persenMax: 73 },
-  { hari: 'Sab 23', omzet: 3150000, porsi: 110, persenMax: 100, peak: true },
-  { hari: 'Min 24', omzet: 2850000, porsi: 99, persenMax: 90 },
+  { hari: 'Min 18', omzet: 1550000, porsi: 54, persenMax: 63 },
+  { hari: 'Sen 19', omzet: 1680000, porsi: 59, persenMax: 69 },
+  { hari: 'Sel 20', omzet: 1620000, porsi: 57, persenMax: 66 },
+  { hari: 'Rab 21', omzet: 1800000, porsi: 63, persenMax: 73 },
+  { hari: 'Kam 22', omzet: 1950000, porsi: 68, persenMax: 80 },
+  { hari: 'Jum 23', omzet: 2145000, porsi: 75, persenMax: 88 },
+  { hari: 'Sab 24', omzet: 2450000, porsi: 86, persenMax: 100, peak: true },
 ];
 
 export const HOURLY_SALES_DATA = [
@@ -73,10 +73,10 @@ export const PERIOD_SUMMARY = {
     labelPeriode: '24 Oktober 2026',
   },
   '7 Hari': {
-    omzet: 15460000,
+    omzet: 13195000,
     porsi: 1240,
     transaksi: 540,
-    rataRata: 28629,
+    rataRata: 24435,
     labelPeriode: '18 – 24 Oktober 2026',
   },
   'Bulan ini': {

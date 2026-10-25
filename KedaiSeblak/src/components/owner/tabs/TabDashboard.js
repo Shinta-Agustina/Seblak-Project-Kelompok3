@@ -166,7 +166,7 @@ export default function TabDashboard({
           <View style={styles.calcDivider} />
 
           <View style={styles.calcRowTotal}>
-            <View>
+            <View style={styles.calcTotalLeft}>
               <Text style={styles.calcTotalLabel}>(=) Estimasi Keuntungan Bersih</Text>
               <Text style={styles.calcTotalSub}>Uang bersih yang masuk ke kas pemilik</Text>
             </View>
@@ -184,7 +184,7 @@ export default function TabDashboard({
             <View style={styles.alertIconCircle}>
               <Ionicons name="warning" size={20} color="#D97706" />
             </View>
-            <View>
+            <View style={styles.alertTextWrap}>
               <Text style={styles.alertTitle}>Peringatan Stok Bahan</Text>
               <Text style={styles.alertSubtitle}>
                 {lowStockItems.length} bahan mendesak perlu modal restok sebelum jam ramai
@@ -249,7 +249,7 @@ export default function TabDashboard({
       {/* GRAFIK OMZET 7 HARI TERAKHIR */}
       <View style={styles.sectionCard}>
         <View style={styles.cardHeaderRow}>
-          <View>
+          <View style={styles.cardHeaderText}>
             <Text style={styles.cardTitle}>Grafik Pemasukan 7 Hari Terakhir</Text>
             <Text style={styles.cardSubtitle}>
               Total Periode: Rp {totalOmzet7Hari.toLocaleString('id-ID')} · Rata-rata: Rp{' '}
@@ -294,7 +294,7 @@ export default function TabDashboard({
       {/* TOP 3 TOPPING HARI INI */}
       <View style={styles.sectionCard}>
         <View style={styles.cardHeaderRow}>
-          <View>
+          <View style={styles.cardHeaderText}>
             <Text style={styles.cardTitle}>Top 3 Topping Terlaris Hari Ini</Text>
             <Text style={styles.cardSubtitle}>Pilihan favorit pelanggan seblak prasmanan</Text>
           </View>
@@ -344,7 +344,7 @@ export default function TabDashboard({
       {/* CATATAN PENGELUARAN MODAL BELANJA HARI INI */}
       <View style={styles.sectionCard}>
         <View style={styles.cardHeaderRow}>
-          <View>
+          <View style={styles.cardHeaderText}>
             <Text style={styles.cardTitle}>Modal Belanja Topping Hari Ini</Text>
             <Text style={styles.cardSubtitle}>Riwayat uang keluar owner untuk restok bahan baku seblak</Text>
           </View>
@@ -396,11 +396,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    flexWrap: 'wrap',
     marginBottom: 20,
     gap: 12,
   },
   greetingTextGroup: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 200,
+    minWidth: 0,
   },
   badgeStore: {
     flexDirection: 'row',
@@ -469,14 +473,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
     marginBottom: 14,
+    gap: 8,
   },
   profitHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 1,
+    minWidth: 0,
   },
   profitTitle: {
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: '800',
     color: '#166534',
@@ -498,9 +507,12 @@ const styles = StyleSheet.create({
   calcRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: 10,
   },
   calcLabel: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 13,
     color: '#2C1810',
     fontWeight: '600',
@@ -511,6 +523,8 @@ const styles = StyleSheet.create({
     fontWeight: 'normal',
   },
   calcValue: {
+    flexShrink: 0,
+    textAlign: 'right',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -524,6 +538,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingTop: 4,
+    gap: 10,
+  },
+  calcTotalLeft: {
+    flex: 1,
+    minWidth: 0,
   },
   calcTotalLabel: {
     fontSize: 14,
@@ -535,6 +554,7 @@ const styles = StyleSheet.create({
     color: '#15803D',
   },
   calcTotalValue: {
+    flexShrink: 0,
     fontSize: 20,
     fontWeight: '900',
     color: '#166534',
@@ -551,11 +571,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
     marginBottom: 14,
     gap: 10,
   },
   alertTitleRow: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 220,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -567,6 +591,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3C7',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  alertTextWrap: {
+    flex: 1,
+    minWidth: 0,
   },
   alertTitle: {
     fontSize: 15,
@@ -652,8 +680,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    flexWrap: 'wrap',
     marginBottom: 16,
     gap: 8,
+  },
+  cardHeaderText: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 200,
+    minWidth: 0,
   },
   cardTitle: {
     fontSize: 16,
@@ -688,7 +723,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   chartDayText: {
-    width: 54,
+    width: 50,
+    flexShrink: 0,
     fontSize: 12,
     fontWeight: '600',
     color: '#78665E',
@@ -709,7 +745,8 @@ const styles = StyleSheet.create({
     borderRadius: 7,
   },
   chartValueText: {
-    width: 68,
+    width: 76,
+    flexShrink: 0,
     fontSize: 11,
     fontWeight: '700',
     color: '#523C34',
@@ -752,13 +789,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
+    gap: 8,
   },
   toppingName: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 13,
     fontWeight: '700',
     color: '#2C1810',
   },
   toppingQty: {
+    flexShrink: 0,
     fontSize: 12,
     color: '#78665E',
     fontWeight: '600',
@@ -786,6 +827,7 @@ const styles = StyleSheet.create({
   },
   expenseLeft: {
     flex: 1,
+    minWidth: 0,
     marginRight: 12,
   },
   expenseBadgeRow: {
@@ -818,6 +860,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   expenseRight: {
+    flexShrink: 0,
     alignItems: 'flex-end',
     gap: 2,
   },
