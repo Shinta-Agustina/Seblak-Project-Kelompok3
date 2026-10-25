@@ -96,7 +96,16 @@ Berdasarkan hasil analisis dan rancangan kebutuhan, sistem **Seblak Prasmanan PO
 2. Maya : Screen Pesanan Aktif (Filter Status & No. Meja),Screen Riwayat Transaksi & Laporan Penjualan
 ![alt text](iPhone-14-PRO-MAX-localhost-j6uszu3xki-e3d.gif)
 
-3. Faija : Sreen Laporan 
+3. Faija : Screen Menu dan Harga, Pengeluaran dan Laporan Keuangan
+
+Fitur Menu dan Harga
+![alt text](<fitur menu dan harga (1).gif>)
+
+Fitur Pengeluaran
+![alt text](<fitur pengeluaran.gif>)
+
+Fitur Laporan Keuangan
+![alt text](<fitur laporan keuangan.gif>)
 
 4. Dewi : Dashboard Owner, Penjualan dan Stok
 
