@@ -97,7 +97,7 @@ export default function TabPenjualan() {
       {/* PENJUALAN PER JAM & JAM RAMAI (PEAK HOUR) */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <View>
+          <View style={styles.cardHeaderText}>
             <Text style={styles.cardTitle}>Penjualan per Jam Buka Kedai</Text>
             <Text style={styles.cardSubtitle}>
               Distribusi transaksi dari jam 10.00 hingga kedai tutup (22.00)
@@ -111,7 +111,12 @@ export default function TabPenjualan() {
         </View>
 
         {/* Bar Chart Jam Buka */}
-        <View style={styles.hourlyChartContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.hourlyScroll}
+          contentContainerStyle={styles.hourlyChartContainer}
+        >
           {HOURLY_SALES_DATA.map((item) => {
             const heightPercent = Math.round((item.jumlah / maxHourlyCount) * 100);
             return (
@@ -145,7 +150,7 @@ export default function TabPenjualan() {
               </View>
             );
           })}
-        </View>
+        </ScrollView>
 
         <View style={styles.chartTipBox}>
           <Ionicons name="bulb-outline" size={16} color="#B45309" />
@@ -160,7 +165,7 @@ export default function TabPenjualan() {
       {/* PRODUK TERLARIS (DENGAN FILTER KATEGORI) */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <View>
+          <View style={styles.cardHeaderText}>
             <Text style={styles.cardTitle}>Peringkat Produk Terlaris</Text>
             <Text style={styles.cardSubtitle}>
               Urutan menu paling diminati pelanggan seblak pada periode {selectedPeriod.toLowerCase()}
@@ -243,9 +248,9 @@ export default function TabPenjualan() {
       {/* 2 GRID: METODE PEMBAYARAN & TIPE PESANAN */}
       <View style={styles.twoColumnGrid}>
         {/* Metode Pembayaran */}
-        <View style={[styles.card, { flex: 1, minWidth: 280 }]}>
+        <View style={[styles.card, { flexGrow: 1, flexShrink: 1, flexBasis: 260, minWidth: 0 }]}>
           <View style={styles.cardHeader}>
-            <View>
+            <View style={styles.cardHeaderText}>
               <Text style={styles.cardTitle}>Metode Pembayaran</Text>
               <Text style={styles.cardSubtitle}>Tunai, QRIS, dan E-Wallet</Text>
             </View>
@@ -283,9 +288,9 @@ export default function TabPenjualan() {
         </View>
 
         {/* Tipe Pesanan: Dine-in vs Bungkus */}
-        <View style={[styles.card, { flex: 1, minWidth: 280 }]}>
+        <View style={[styles.card, { flexGrow: 1, flexShrink: 1, flexBasis: 260, minWidth: 0 }]}>
           <View style={styles.cardHeader}>
-            <View>
+            <View style={styles.cardHeaderText}>
               <Text style={styles.cardTitle}>Tipe Pesanan</Text>
               <Text style={styles.cardSubtitle}>Makan di tempat vs Bungkus</Text>
             </View>
@@ -330,7 +335,7 @@ export default function TabPenjualan() {
       {/* KHAS SEBLAK: KUAH & LEVEL PEDAS FAVORIT */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <View>
+          <View style={styles.cardHeaderText}>
             <View style={styles.seblakBrandBadge}>
               <Ionicons name="flame" size={13} color="#C62828" />
               <Text style={styles.seblakBrandBadgeText}>Karakter Kuliner Nusantara</Text>
@@ -345,7 +350,10 @@ export default function TabPenjualan() {
         <View style={styles.preferencesGrid}>
           {/* Kuah Favorit */}
           <View style={styles.prefSection}>
-            <Text style={styles.prefSectionTitle}>🥣 Varian Kuah Favorit Pelanggan</Text>
+            <View style={styles.prefTitleRow}>
+              <Ionicons name="restaurant-outline" size={16} color="#C62828" />
+              <Text style={styles.prefTitleText}>Varian Kuah Favorit Pelanggan</Text>
+            </View>
             <View style={styles.prefList}>
               {SEBLAK_PREFERENCES.kuah.map((k) => (
                 <View key={k.nama} style={styles.prefItem}>
@@ -369,7 +377,10 @@ export default function TabPenjualan() {
 
           {/* Level Pedas Favorit */}
           <View style={styles.prefSection}>
-            <Text style={styles.prefSectionTitle}>🌶️ Sebaran Level Kepedasan</Text>
+            <View style={styles.prefTitleRow}>
+              <Ionicons name="flame-outline" size={16} color="#C62828" />
+              <Text style={styles.prefTitleText}>Sebaran Level Kepedasan</Text>
+            </View>
             <View style={styles.pedasList}>
               {SEBLAK_PREFERENCES.pedas.map((p) => (
                 <View key={p.level} style={styles.pedasItem}>
@@ -457,8 +468,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    flexWrap: 'wrap',
     marginBottom: 16,
     gap: 8,
+  },
+  cardHeaderText: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 200,
+    minWidth: 0,
   },
   cardTitle: {
     fontSize: 16,
@@ -484,19 +502,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#C62828',
   },
+  hourlyScroll: {
+    flexGrow: 0,
+    marginBottom: 14,
+  },
   hourlyChartContainer: {
+    flexGrow: 1,
     flexDirection: 'row',
     alignItems: 'flex-end',
-    justifyContent: 'space-around',
     height: 180,
     paddingTop: 20,
     paddingBottom: 6,
     borderBottomWidth: 1,
     borderBottomColor: '#EFE7E2',
-    marginBottom: 14,
   },
   barColumn: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 56,
+    minWidth: 56,
     alignItems: 'center',
     justifyContent: 'flex-end',
     height: '100%',
@@ -611,8 +634,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
+    gap: 8,
   },
   productName: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 13,
     fontWeight: '700',
     color: '#2C1810',
@@ -643,6 +669,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
   },
   productCategoryLabel: {
     fontSize: 11,
@@ -668,8 +696,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
   },
   pmLeft: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -781,8 +812,22 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   prefSection: {
-    flex: 1,
-    minWidth: 260,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 240,
+    minWidth: 0,
+  },
+  prefTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  prefTitleText: {
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#2C1810',
   },
   prefSectionTitle: {
     fontSize: 13,

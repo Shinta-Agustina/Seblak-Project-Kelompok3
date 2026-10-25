@@ -2,11 +2,12 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useKasir } from '../context/KasirContext';
 
-export default function TopHeader({ onToggleSidebar, isSidebarOpen }) {
+export default function TopHeader({ onToggleSidebar, isSidebarOpen, title, role }) {
   const { user, activeTab } = useKasir();
-  const isOwner = user?.role === 'Owner';
+  const isOwner = role === 'Owner' || user?.role === 'Owner';
 
   const getPageTitle = () => {
+    if (title) return title;
     switch (activeTab) {
       case 'Kasir':
         return isOwner ? 'Simulasi Kasir - POS' : 'Kasir - Point of Sale';
@@ -16,17 +17,22 @@ export default function TopHeader({ onToggleSidebar, isSidebarOpen }) {
         return 'Riwayat Transaksi';
       case 'Laporan':
         return isOwner ? 'Dashboard Owner - Laporan Penjualan' : 'Laporan Penjualan';
+      case 'laporan_keuangan':
+        return 'Owner Portal · Laporan Keuangan';
       default:
         return 'Kasir - Point of Sale';
     }
   };
 
-  const defaultKasirAvatar = require('../../assets/images/avatar-kasir.png');
-  const defaultOwnerAvatar = {
-    uri: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
-  };
+  const displayRole = role || user?.role || 'Kasir';
+  const displayName = user?.name || (displayRole === 'Owner' ? 'Dewi (Owner)' : 'Siti Aisyah');
 
-  const avatarSource = isOwner ? defaultOwnerAvatar : defaultKasirAvatar;
+  const avatarSource =
+    typeof user?.avatar === 'string'
+      ? { uri: user.avatar }
+      : user?.avatar || (isOwner
+          ? { uri: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80' }
+          : require('../../assets/images/avatar-kasir.png'));
 
   return (
     <View style={styles.container}>
@@ -54,18 +60,17 @@ export default function TopHeader({ onToggleSidebar, isSidebarOpen }) {
       <View style={[styles.profileChip, isOwner && styles.profileChipOwner]}>
         <View style={[styles.avatarContainer, isOwner && styles.avatarOwner]}>
           <Image
-            key={isOwner ? 'owner-avatar' : 'kasir-avatar-v2'}
             source={avatarSource}
             style={styles.avatarImg}
             resizeMode="cover"
           />
         </View>
         <View style={styles.profileText}>
-          <Text style={styles.userName}>{user?.name || (isOwner ? 'Dewi' : 'Siti Aisyah')}</Text>
+          <Text style={styles.userName}>{displayName}</Text>
           <View style={styles.roleBadgeRow}>
             {isOwner && <Text style={styles.roleIcon}>👑</Text>}
             <Text style={[styles.userRole, isOwner && styles.userRoleOwner]}>
-              {user?.role || 'Kasir'}
+              {displayRole}
             </Text>
           </View>
         </View>
@@ -126,33 +131,24 @@ const styles = StyleSheet.create({
   profileChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
+    gap: 8,
     paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    backgroundColor: '#FAF5F1',
     borderWidth: 1,
-    borderColor: '#EAE1DC',
-    elevation: 1,
-    shadowColor: '#4A2A22',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    borderColor: '#EFE7E2',
   },
   profileChipOwner: {
     backgroundColor: '#FFF8F0',
     borderColor: '#FFDEC2',
   },
   avatarContainer: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#F3ECE7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#F0E5DF',
+    backgroundColor: '#FFE0B2',
   },
   avatarOwner: {
     borderWidth: 1.5,
@@ -166,25 +162,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   userName: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#1F140E',
-    lineHeight: 16,
+    color: '#2C1810',
   },
   roleBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    marginTop: 1,
   },
   roleIcon: {
     fontSize: 10,
   },
   userRole: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#8D7B70',
-    fontWeight: '500',
-    lineHeight: 14,
+    fontWeight: '600',
   },
   userRoleOwner: {
     color: '#E65100',

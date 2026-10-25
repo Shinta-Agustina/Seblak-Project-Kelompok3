@@ -12,7 +12,9 @@ import TopHeader from '../../components/TopHeader';
 import TabDashboard from '../../components/owner/tabs/TabDashboard';
 import TabPenjualan from '../../components/owner/tabs/TabPenjualan';
 import TabStok from '../../components/owner/tabs/TabStok';
-import TabPengeluaran from '../../components/owner/tabs/TabPengeluaran';
+import MenuHargaScreen from './MenuHargaScreen';
+import PengeluaranScreen from './PengeluaranScreen';
+import LaporanKeuanganScreen from './LaporanKeuanganScreen';
 import { INITIAL_STOCK_ITEMS, INITIAL_EXPENSES } from '../../data/ownerData';
 
 const WARNA = {
@@ -195,7 +197,10 @@ export default function DashboardOwnerScreen() {
 
         <ScrollView
           style={styles.scrollArea}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isMobile && styles.scrollContentMobile,
+          ]}
           showsVerticalScrollIndicator={false}
         >
           {/* FITUR 1: DASHBOARD KEDAI */}
@@ -223,14 +228,23 @@ export default function DashboardOwnerScreen() {
             />
           )}
 
-          {/* FITUR 4: MODAL BELANJA BAHAN BAKU (PENGELUARAN OWNER) */}
+          
+       
+          {/* FITUR 4: PENGELUARAN MODAL BELANJA */}
           {activeTab === 'pengeluaran' && (
-            <TabPengeluaran
-              expenses={expenses}
-              onAddExpense={handleAddExpense}
-              onDeleteExpense={handleDeleteExpense}
-            />
+            <PengeluaranScreen isEmbedded={true} />
           )}
+
+
+          {activeTab === 'menu_harga' && (
+            <MenuHargaScreen isEmbedded />
+          )}
+
+          {activeTab === 'laporan_keuangan' && (
+            <LaporanKeuanganScreen isEmbedded />
+          )}
+
+
         </ScrollView>
       </View>
     </View>
@@ -266,5 +280,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 1200,
     alignSelf: 'center',
+  },
+  scrollContentMobile: {
+    padding: 14,
+    paddingBottom: 40,
   },
 });

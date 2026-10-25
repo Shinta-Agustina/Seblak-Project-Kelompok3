@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState } from 'react';
 import {
   INITIAL_ORDERS,
   INITIAL_TRANSACTIONS,
+  INITIAL_MENU_ITEMS,
 } from '../data/mockData';
 
 const KasirContext = createContext(null);
@@ -17,10 +18,19 @@ export function KasirProvider({ children }) {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('Kasir');
 
+  // Owner Menu & Harga state
+  const [menuItems, setMenuItems] = useState(INITIAL_MENU_ITEMS);
+
   // =========================
   // KERANJANG DAN PILIHAN MENU
   // =========================
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState([
+    { id: 'top-1', nama: 'Kerupuk', harga: 1000, berat: '100 gr', emoji: '≡ƒìÿ', qty: 1 },
+    { id: 'top-2', nama: 'Makaroni', harga: 500,  berat: '50 gr',  emoji: '≡ƒì¥', qty: 1 },
+    { id: 'top-3', nama: 'Sosis',    harga: 1000, berat: '50 gr',  emoji: '≡ƒî¡', qty: 1 },
+    { id: 'top-4', nama: 'Bakso',    harga: 1000, berat: '50 gr',  emoji: '≡ƒºå', qty: 1 },
+    { id: 'top-5', nama: 'Ceker',    harga: 1000, berat: '50 gr',  emoji: '≡ƒìù', qty: 1 },
+  ]);
   const [selectedKuah, setSelectedKuah] = useState(DEFAULT_KUAH);
   const [selectedLevel, setSelectedLevel] = useState(DEFAULT_LEVEL);
   const [selectedMeja, setSelectedMeja] = useState(DEFAULT_MEJA);
@@ -372,6 +382,53 @@ export function KasirProvider({ children }) {
   // =========================
   // CONTEXT PROVIDER
   // =========================
+  // Menu CRUD actions (Owner)
+  const addMenuItem = (menuData) => {
+    const newItem = {
+      id: `menu-${Date.now()}`,
+      nama: (menuData.nama || '').trim(),
+      harga: Number(menuData.harga) || 0,
+      stok: Number(menuData.stok) || 0,
+      status: menuData.status || 'Aktif',
+      kategori: menuData.kategori || 'Topping',
+      emoji: menuData.emoji || '≡ƒìÿ',
+      image: menuData.image || null,
+      createdAt: new Date().toISOString(),
+    };
+
+    setMenuItems((prev) => [newItem, ...prev]);
+    return newItem;
+  };
+
+  const updateMenuItem = (id, updatedData) => {
+    setMenuItems((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          return {
+            ...item,
+            ...updatedData,
+            nama: updatedData.nama !== undefined ? updatedData.nama.trim() : item.nama,
+            harga: updatedData.harga !== undefined ? Number(updatedData.harga) : item.harga,
+            stok: updatedData.stok !== undefined ? Number(updatedData.stok) : item.stok,
+            status: updatedData.status !== undefined ? updatedData.status : item.status,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return item;
+      })
+    );
+  };
+
+  const deleteMenuItem = (id) => {
+    setMenuItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const resetMenuItems = () => {
+    setMenuItems(INITIAL_MENU_ITEMS);
+  };
+
+
+
   return (
     <KasirContext.Provider
       value={{
@@ -381,6 +438,12 @@ export function KasirProvider({ children }) {
         logout,
         activeTab,
         setActiveTab,
+        menuItems,
+        setMenuItems,
+        addMenuItem,
+        updateMenuItem,
+        deleteMenuItem,
+        resetMenuItems,
 
         // Keranjang
         cart,

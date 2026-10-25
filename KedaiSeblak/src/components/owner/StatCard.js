@@ -40,7 +40,12 @@ export default function StatCard({
         </View>
       </View>
 
-      <Text style={styles.value} numberOfLines={1}>
+      <Text
+        style={styles.value}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+      >
         {value}
       </Text>
 
@@ -69,7 +74,7 @@ export default function StatCard({
         )}
 
         {subtitle && (
-          <Text style={styles.subtitle} numberOfLines={1}>
+          <Text style={styles.subtitle} numberOfLines={2}>
             {subtitle}
           </Text>
         )}
@@ -94,8 +99,10 @@ const styles = StyleSheet.create({
     padding: 18,
     borderWidth: 1,
     borderColor: '#EFE7E2',
-    minWidth: 155,
-    flex: 1,
+    minWidth: 140,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 150,
     shadowColor: '#3D2922',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
