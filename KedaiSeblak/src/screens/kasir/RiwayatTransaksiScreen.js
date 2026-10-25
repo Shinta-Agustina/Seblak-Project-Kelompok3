@@ -117,8 +117,8 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
               {dateFilterMode === 'today'
                 ? todayFormatted
                 : dateFilterMode === 'yesterday'
-                ? 'Kemarin'
-                : 'Semua Riwayat'}
+                  ? 'Kemarin'
+                  : 'Semua Riwayat'}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -812,3 +812,4 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
+;
