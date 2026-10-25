@@ -14,21 +14,18 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import CustomButton from './CustomButton';
 import formatCurrency from '../utils/formatCurrency';
+import { getCategoryBadge } from '../screens/owner/MenuHargaScreen';
 
-const TOPPING_OPTIONS = [
-  'Kerupuk',
-  'Sosis',
-  'Bakso',
-  'Ceker',
-  'Tahu',
-  'Makaroni',
-  'Jamur Enoki',
-  'Dumpling Keju',
-  'Cuanki',
-  'Telur',
+const KATEGORI_OPTIONS = [
+  'Kerupuk & Makaroni',
+  'Seafood & Olahan',
+  'Daging & Jeroan',
+  'Mie & Bihun',
+  'Telur & Tahu',
+  'Sayur & Jamur',
 ];
 
-const SATUAN_OPTIONS = ['kg', 'pcs', 'pack'];
+const EXPENSE_SATUAN_OPTIONS = ['kg', 'pack'];
 const WARNA_PRIMARY = '#52141D'; // Deep Maroon Project
 
 export default function ExpenseFormModal({
@@ -43,8 +40,11 @@ export default function ExpenseFormModal({
   const [tanggal, setTanggal] = useState(selectedDateStr);
   const [waktu, setWaktu] = useState('08:30');
   const [keterangan, setKeterangan] = useState(''); // Jenis Topping
+  const [kategori, setKategori] = useState('Seafood & Olahan');
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [jumlah, setJumlah] = useState('');
   const [satuan, setSatuan] = useState('kg');
+  const [satuanDropdownOpen, setSatuanDropdownOpen] = useState(false);
   const [total, setTotal] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const totalInputRef = useRef(null);
@@ -55,8 +55,19 @@ export default function ExpenseFormModal({
         setTanggal(initialData.tanggalStr || selectedDateStr);
         setWaktu(initialData.waktu || '08:30');
         setKeterangan(initialData.keterangan || '');
+        const autoBadge = getCategoryBadge(initialData.kategori, initialData.keterangan);
+        const mapBadgeToCat = {
+          'Seafood': 'Seafood & Olahan',
+          'Kerupuk': 'Kerupuk & Makaroni',
+          'Daging': 'Daging & Jeroan',
+          'Telur & Tahu': 'Telur & Tahu',
+          'Sayur & Jamur': 'Sayur & Jamur',
+          'Mie & Bihun': 'Mie & Bihun',
+        };
+        setKategori(initialData.kategori || mapBadgeToCat[autoBadge.label] || 'Seafood & Olahan');
         setJumlah(initialData.jumlah ? String(initialData.jumlah) : '');
-        setSatuan(initialData.satuan || 'kg');
+        const rawSat = (initialData.satuan || 'kg').toLowerCase();
+        setSatuan(rawSat === 'pack' ? 'pack' : 'kg');
         setTotal(initialData.total ? Number(initialData.total).toLocaleString('id-ID') : '');
       } else {
         const now = new Date();
@@ -65,10 +76,13 @@ export default function ExpenseFormModal({
         setTanggal(selectedDateStr);
         setWaktu(`${hh}:${mm}`);
         setKeterangan('');
+        setKategori('Seafood & Olahan');
         setJumlah('');
         setSatuan('kg');
         setTotal('');
       }
+      setCategoryDropdownOpen(false);
+      setSatuanDropdownOpen(false);
       setErrorMsg('');
     }
   }, [visible, initialData, selectedDateStr]);
@@ -99,6 +113,7 @@ export default function ExpenseFormModal({
       tanggalStr: tanggal.trim(),
       waktu: waktu.trim() || '08:00',
       keterangan: keterangan.trim(),
+      kategori: kategori,
       jumlah: parsedJumlah,
       satuan: satuan,
       total: parsedTotal,
@@ -160,7 +175,8 @@ export default function ExpenseFormModal({
 
                 <ScrollView
                   style={styles.formScroll}
-                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.formScrollContent}
+                  showsVerticalScrollIndicator={true}
                   keyboardShouldPersistTaps="handled"
                 >
                   {/* Field 1: Tanggal & Waktu (Tanggal sekarang bisa dipilih & diedit) */}
@@ -204,7 +220,7 @@ export default function ExpenseFormModal({
                     </View>
                   </View>
 
-                  {/* Field 2: Jenis Topping (Pengganti Keterangan Pengeluaran) */}
+                  {/* Field 2: Jenis Topping */}
                   <View style={styles.fieldGroup}>
                     <Text style={styles.fieldLabel}>Jenis Topping *</Text>
                     <View style={styles.inputWrapper}>
@@ -216,7 +232,7 @@ export default function ExpenseFormModal({
                       />
                       <TextInput
                         style={styles.textInput}
-                        placeholder="Ketik atau pilih jenis topping (misal: Bakso)"
+                        placeholder="Ketik jenis topping (misal: Dumpling Keju)"
                         placeholderTextColor="#A69A90"
                         value={keterangan}
                         onChangeText={setKeterangan}
@@ -224,14 +240,85 @@ export default function ExpenseFormModal({
                     </View>
                   </View>
 
-                  {/* Field 3: Jumlah & Satuan */}
+                  {/* Field Kategori Topping Sesuai Kasir (Dropdown) */}
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.fieldLabel}>Kategori Topping *</Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.dropdownTrigger,
+                        categoryDropdownOpen && styles.dropdownTriggerActive,
+                      ]}
+                      onPress={() => {
+                        setCategoryDropdownOpen((prev) => !prev);
+                        setSatuanDropdownOpen(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.dropdownTriggerLeft}>
+                        <Ionicons
+                          name="grid-outline"
+                          size={16}
+                          color="#78665E"
+                          style={{ marginRight: 8 }}
+                        />
+                        <Text style={styles.dropdownSelectedText}>
+                          {kategori || 'Pilih Kategori'}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name={categoryDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                        size={18}
+                        color="#78665E"
+                      />
+                    </TouchableOpacity>
+
+                    {categoryDropdownOpen && (
+                      <View style={styles.dropdownMenu}>
+                        {KATEGORI_OPTIONS.map((cat) => {
+                          const isSelected = kategori === cat;
+                          return (
+                            <TouchableOpacity
+                              key={cat}
+                              style={[
+                                styles.dropdownItem,
+                                isSelected && styles.dropdownItemActive,
+                              ]}
+                              onPress={() => {
+                                setKategori(cat);
+                                setCategoryDropdownOpen(false);
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              <Text
+                                style={[
+                                  styles.dropdownItemText,
+                                  isSelected && styles.dropdownItemTextActive,
+                                ]}
+                              >
+                                {cat}
+                              </Text>
+                              {isSelected && (
+                                <Ionicons
+                                  name="checkmark-circle"
+                                  size={18}
+                                  color={WARNA_PRIMARY}
+                                />
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Field 3: Jumlah & Satuan (Dropdown) */}
                   <View style={styles.rowTwoCols}>
                     <View style={styles.colFlex}>
-                      <Text style={styles.fieldLabel}>Jumlah (kg) *</Text>
+                      <Text style={styles.fieldLabel}>Jumlah *</Text>
                       <View style={styles.inputWrapper}>
                         <TextInput
                           style={styles.textInput}
-                          placeholder="Contoh: 2"
+                          placeholder="Contoh: 2 atau 5"
                           placeholderTextColor="#A69A90"
                           value={jumlah}
                           onChangeText={setJumlah}
@@ -242,44 +329,66 @@ export default function ExpenseFormModal({
                       </View>
                     </View>
 
-                    <View style={[styles.colFlex, { maxWidth: 120 }]}>
-                      <Text style={styles.fieldLabel}>Satuan</Text>
-                      <View style={styles.inputWrapper}>
-                        <TextInput
-                          style={styles.textInput}
-                          placeholder="kg"
-                          placeholderTextColor="#A69A90"
-                          value={satuan}
-                          onChangeText={setSatuan}
+                    <View style={[styles.colFlex, { maxWidth: 130 }]}>
+                      <Text style={styles.fieldLabel}>Satuan *</Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.dropdownTrigger,
+                          satuanDropdownOpen && styles.dropdownTriggerActive,
+                        ]}
+                        onPress={() => {
+                          setSatuanDropdownOpen((prev) => !prev);
+                          setCategoryDropdownOpen(false);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.dropdownSelectedText}>{satuan}</Text>
+                        <Ionicons
+                          name={satuanDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                          size={18}
+                          color="#78665E"
                         />
-                      </View>
+                      </TouchableOpacity>
                     </View>
                   </View>
 
-                  {/* Quick Satuan Chips */}
-                  <View style={styles.satuanChipRow}>
-                    {SATUAN_OPTIONS.map((item) => (
-                      <TouchableOpacity
-                        key={item}
-                        style={[
-                          styles.satuanChip,
-                          satuan.toLowerCase() === item && styles.satuanChipActive,
-                        ]}
-                        onPress={() => setSatuan(item)}
-                        activeOpacity={0.7}
-                      >
-                        <Text
-                          style={[
-                            styles.satuanChipText,
-                            satuan.toLowerCase() === item &&
-                              styles.satuanChipTextActive,
-                          ]}
-                        >
-                          {item}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                  {satuanDropdownOpen && (
+                    <View style={[styles.dropdownMenu, { marginTop: -6, marginBottom: 14 }]}>
+                      {EXPENSE_SATUAN_OPTIONS.map((item) => {
+                        const isSelected = satuan.toLowerCase() === item;
+                        return (
+                          <TouchableOpacity
+                            key={item}
+                            style={[
+                              styles.dropdownItem,
+                              isSelected && styles.dropdownItemActive,
+                            ]}
+                            onPress={() => {
+                              setSatuan(item);
+                              setSatuanDropdownOpen(false);
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Text
+                              style={[
+                                styles.dropdownItemText,
+                                isSelected && styles.dropdownItemTextActive,
+                              ]}
+                            >
+                              {item}
+                            </Text>
+                            {isSelected && (
+                              <Ionicons
+                                name="checkmark-circle"
+                                size={18}
+                                color={WARNA_PRIMARY}
+                              />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
 
                   {/* Field 4: Nominal / Total Pembelian Topping */}
                   
@@ -352,18 +461,22 @@ const styles = StyleSheet.create({
   },
   keyboardAvoid: {
     width: '100%',
-    maxWidth: 480,
+    maxWidth: 500,
+    maxHeight: '92%',
   },
   modalCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    maxHeight: '92%',
+    width: '100%',
+    maxHeight: '100%',
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 14,
     elevation: 8,
+    display: 'flex',
+    flexDirection: 'column',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -419,8 +532,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   formScroll: {
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  formScrollContent: {
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingTop: 14,
+    paddingBottom: 24,
   },
   fieldGroup: {
     marginBottom: 14,
@@ -460,63 +578,63 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}),
   },
-  chipsHelperText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#78665E',
-    marginTop: 8,
-    marginBottom: 6,
-  },
-  toppingChipsRow: {
+  dropdownTrigger: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  toppingChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    backgroundColor: '#F8F5F2',
-    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
     borderColor: '#E8DCD4',
-  },
-  toppingChipActive: {
-    backgroundColor: WARNA_PRIMARY,
-    borderColor: WARNA_PRIMARY,
-  },
-  toppingChipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#55453E',
-  },
-  toppingChipTextActive: {
-    color: '#FFFFFF',
-  },
-  satuanChipRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginTop: -6,
-    marginBottom: 14,
-  },
-  satuanChip: {
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: '#F8F5F2',
-    borderWidth: 1,
-    borderColor: '#E8DCD4',
+    height: 44,
   },
-  satuanChipActive: {
-    backgroundColor: WARNA_PRIMARY,
+  dropdownTriggerActive: {
     borderColor: WARNA_PRIMARY,
   },
-  satuanChipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#78665E',
+  dropdownTriggerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
-  satuanChipTextActive: {
-    color: '#FFFFFF',
+  dropdownSelectedText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2C1810',
+  },
+  dropdownMenu: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E8DCD4',
+    borderRadius: 10,
+    marginTop: 6,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8F5F2',
+  },
+  dropdownItemActive: {
+    backgroundColor: '#FAF7F5',
+  },
+  dropdownItemText: {
+    fontSize: 13,
+    color: '#55453E',
+    fontWeight: '600',
+  },
+  dropdownItemTextActive: {
+    color: WARNA_PRIMARY,
+    fontWeight: '800',
   },
   moneyInputWrapper: {
     borderColor: '#C62828',

@@ -27,6 +27,17 @@ const PRESET_PHOTOS = [
   { nama: 'Telur', uri: 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=300&auto=format&fit=crop&q=80' },
 ];
 
+const KATEGORI_OPTIONS = [
+  'Kerupuk & Makaroni',
+  'Seafood & Olahan',
+  'Daging & Jeroan',
+  'Mie & Bihun',
+  'Telur & Tahu',
+  'Sayur & Jamur',
+];
+
+const MENU_SATUAN_OPTIONS = ['pcs', 'butir', 'gr', 'lembar', 'keping'];
+
 export default function MenuFormModal({
   visible,
   onClose,
@@ -37,6 +48,11 @@ export default function MenuFormModal({
   const isEdit = Boolean(initialData);
 
   const [nama, setNama] = useState('');
+  const [kategori, setKategori] = useState('Seafood & Olahan');
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [jumlahSatuan, setJumlahSatuan] = useState('1');
+  const [satuanUnit, setSatuanUnit] = useState('pcs');
+  const [satuanDropdownOpen, setSatuanDropdownOpen] = useState(false);
   const [harga, setHarga] = useState('');
   const [stok, setStok] = useState('');
   const [status, setStatus] = useState('Aktif');
@@ -47,6 +63,20 @@ export default function MenuFormModal({
   useEffect(() => {
     if (initialData) {
       setNama(initialData.nama || '');
+      setKategori(initialData.kategori || 'Seafood & Olahan');
+      const rawBerat = (initialData.berat || '1 pcs').trim();
+      const match = rawBerat.match(/^(\d+(?:[.,]\d+)?)\s*(.*)$/);
+      if (match) {
+        setJumlahSatuan(match[1]);
+        const matchedUnit = match[2].trim().toLowerCase();
+        const validUnit = MENU_SATUAN_OPTIONS.find((u) => u.toLowerCase() === matchedUnit);
+        setSatuanUnit(validUnit || 'pcs');
+      } else {
+        setJumlahSatuan('1');
+        setSatuanUnit('pcs');
+      }
+      setCategoryDropdownOpen(false);
+      setSatuanDropdownOpen(false);
       setHarga(initialData.harga !== undefined ? String(initialData.harga) : '');
       setStok(initialData.stok !== undefined ? String(initialData.stok) : '');
       setStatus(initialData.status || 'Aktif');
@@ -60,6 +90,11 @@ export default function MenuFormModal({
 
   const resetForm = () => {
     setNama('');
+    setKategori('Seafood & Olahan');
+    setCategoryDropdownOpen(false);
+    setJumlahSatuan('1');
+    setSatuanUnit('pcs');
+    setSatuanDropdownOpen(false);
     setHarga('');
     setStok('');
     setStatus('Aktif');
@@ -138,13 +173,16 @@ export default function MenuFormModal({
   const handleSave = () => {
     if (!validate()) return;
 
+    const finalBerat = `${(jumlahSatuan || '1').trim()} ${satuanUnit}`;
+
     onSubmit({
       nama: nama.trim(),
       harga: Number(harga),
       stok: Number(stok),
       status: status,
       image: image.trim(),
-      kategori: 'Topping',
+      kategori: kategori || 'Seafood & Olahan',
+      berat: finalBerat,
     });
   };
 
@@ -160,70 +198,234 @@ export default function MenuFormModal({
           <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
             <KeyboardAvoidingView
               behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-              style={styles.modalSheet}
+              style={styles.keyboardAvoid}
             >
-              {/* Handle Bar Sesuai Wireframe */}
-              <View style={styles.handleBarWrapper}>
-                <View style={styles.handleBar} />
-              </View>
-
-              {/* Modal Header: Judul & Tombol Close X */}
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
-                  {isEdit ? 'Edit Menu' : 'Tambah Menu'}
-                </Text>
-                <TouchableOpacity
-                  onPress={onClose}
-                  style={styles.closeBtn}
-                  activeOpacity={0.7}
-                  accessibilityLabel="Tutup formulir"
-                >
-                  <Ionicons name="close" size={22} color="#2C1810" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Form Content Scrollable */}
-              <ScrollView
-                style={styles.formScroll}
-                contentContainerStyle={styles.formContent}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-              >
-                {/* 1. Field Nama Menu */}
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>
-                    Nama Menu <Text style={styles.requiredAsterisk}>*</Text>
-                  </Text>
-                  <View
-                    style={[
-                      styles.inputContainer,
-                      errors.nama && styles.inputErrorBorder,
-                    ]}
-                  >
-                    <Ionicons
-                      name="restaurant-outline"
-                      size={18}
-                      color="#78665E"
-                      style={styles.inputLeftIcon}
-                    />
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="Masukkan nama menu"
-                      placeholderTextColor="#A69A90"
-                      value={nama}
-                      onChangeText={(text) => {
-                        setNama(text);
-                        if (errors.nama) {
-                          setErrors((prev) => ({ ...prev, nama: null }));
-                        }
-                      }}
-                      autoCapitalize="words"
-                    />
-                  </View>
-                  {errors.nama && (
-                    <Text style={styles.errorText}>{errors.nama}</Text>
-                  )}
+              <View style={styles.modalSheet}>
+                {/* Handle Bar Sesuai Wireframe */}
+                <View style={styles.handleBarWrapper}>
+                  <View style={styles.handleBar} />
                 </View>
+
+                {/* Modal Header: Judul & Tombol Close X */}
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>
+                    {isEdit ? 'Edit Menu' : 'Tambah Menu'}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={onClose}
+                    style={styles.closeBtn}
+                    activeOpacity={0.7}
+                    accessibilityLabel="Tutup formulir"
+                  >
+                    <Ionicons name="close" size={22} color="#2C1810" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Form Content Scrollable */}
+                <ScrollView
+                  style={styles.formScroll}
+                  contentContainerStyle={styles.formContent}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                >
+                  {/* 1. Field Nama Menu */}
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.fieldLabel}>
+                      Nama Menu <Text style={styles.requiredAsterisk}>*</Text>
+                    </Text>
+                    <View
+                      style={[
+                        styles.inputContainer,
+                        errors.nama && styles.inputErrorBorder,
+                      ]}
+                    >
+                      <Ionicons
+                        name="restaurant-outline"
+                        size={18}
+                        color="#78665E"
+                        style={styles.inputLeftIcon}
+                      />
+                      <TextInput
+                        style={styles.textInput}
+                        placeholder="Masukkan nama menu"
+                        placeholderTextColor="#A69A90"
+                        value={nama}
+                        onChangeText={(text) => {
+                          setNama(text);
+                          if (errors.nama) {
+                            setErrors((prev) => ({ ...prev, nama: null }));
+                          }
+                        }}
+                        autoCapitalize="words"
+                      />
+                    </View>
+                    {errors.nama && (
+                      <Text style={styles.errorText}>{errors.nama}</Text>
+                    )}
+                  </View>
+
+                  {/* Field Kategori Topping Sesuai Kasir (Dropdown) */}
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.fieldLabel}>
+                      Kategori Topping <Text style={styles.requiredAsterisk}>*</Text>
+                    </Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.dropdownTrigger,
+                        categoryDropdownOpen && styles.dropdownTriggerActive,
+                      ]}
+                      onPress={() => {
+                        setCategoryDropdownOpen((prev) => !prev);
+                        setSatuanDropdownOpen(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.dropdownTriggerLeft}>
+                        <Ionicons
+                          name="grid-outline"
+                          size={17}
+                          color="#78665E"
+                          style={{ marginRight: 8 }}
+                        />
+                        <Text style={styles.dropdownSelectedText}>
+                          {kategori || 'Pilih Kategori'}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name={categoryDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                        size={18}
+                        color="#78665E"
+                      />
+                    </TouchableOpacity>
+
+                    {categoryDropdownOpen && (
+                      <View style={styles.dropdownMenu}>
+                        {KATEGORI_OPTIONS.map((cat) => {
+                          const isSelected = kategori === cat;
+                          return (
+                            <TouchableOpacity
+                              key={cat}
+                              style={[
+                                styles.dropdownItem,
+                                isSelected && styles.dropdownItemActive,
+                              ]}
+                              onPress={() => {
+                                setKategori(cat);
+                                setCategoryDropdownOpen(false);
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              <Text
+                                style={[
+                                  styles.dropdownItemText,
+                                  isSelected && styles.dropdownItemTextActive,
+                                ]}
+                              >
+                                {cat}
+                              </Text>
+                              {isSelected && (
+                                <Ionicons
+                                  name="checkmark-circle"
+                                  size={18}
+                                  color="#52141D"
+                                />
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Field Satuan: Input Jumlah & Dropdown Satuan */}
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.fieldLabel}>
+                      Satuan <Text style={styles.requiredAsterisk}>*</Text>
+                    </Text>
+                    <View style={styles.rowTwoCols}>
+                      {/* Input Jumlah Satuan */}
+                      <View style={{ flex: 1 }}>
+                        <View style={styles.inputContainer}>
+                          <Ionicons
+                            name="scale-outline"
+                            size={18}
+                            color="#78665E"
+                            style={styles.inputLeftIcon}
+                          />
+                          <TextInput
+                            style={styles.textInput}
+                            placeholder="Jumlah (misal: 1, 50)"
+                            placeholderTextColor="#A69A90"
+                            value={jumlahSatuan}
+                            onChangeText={setJumlahSatuan}
+                            keyboardType={Platform.OS === 'web' ? 'default' : 'numeric'}
+                          />
+                        </View>
+                      </View>
+
+                      {/* Dropdown Satuan */}
+                      <View style={{ flex: 1.1 }}>
+                        <TouchableOpacity
+                          style={[
+                            styles.dropdownTrigger,
+                            satuanDropdownOpen && styles.dropdownTriggerActive,
+                          ]}
+                          onPress={() => {
+                            setSatuanDropdownOpen((prev) => !prev);
+                            setCategoryDropdownOpen(false);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.dropdownSelectedText}>
+                            {satuanUnit}
+                          </Text>
+                          <Ionicons
+                            name={satuanDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                            size={18}
+                            color="#78665E"
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {satuanDropdownOpen && (
+                      <View style={styles.dropdownMenu}>
+                        {MENU_SATUAN_OPTIONS.map((unit) => {
+                          const isSelected = satuanUnit === unit;
+                          return (
+                            <TouchableOpacity
+                              key={unit}
+                              style={[
+                                styles.dropdownItem,
+                                isSelected && styles.dropdownItemActive,
+                              ]}
+                              onPress={() => {
+                                setSatuanUnit(unit);
+                                setSatuanDropdownOpen(false);
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              <Text
+                                style={[
+                                  styles.dropdownItemText,
+                                  isSelected && styles.dropdownItemTextActive,
+                                ]}
+                              >
+                                {unit}
+                              </Text>
+                              {isSelected && (
+                                <Ionicons
+                                  name="checkmark-circle"
+                                  size={18}
+                                  color="#52141D"
+                                />
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
 
                 {/* 2. Field Harga (dengan Suffix Rp) */}
                 <View style={styles.fieldGroup}>
@@ -432,11 +634,12 @@ export default function MenuFormModal({
                   style={[styles.footerBtn, styles.saveBtn]}
                 />
               </View>
-            </KeyboardAvoidingView>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
+            </View>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
+      </View>
+    </TouchableWithoutFeedback>
+  </Modal>
   );
 }
 
@@ -446,30 +649,42 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'flex-end',
     alignItems: 'center',
+    padding: 0,
+  },
+  keyboardAvoid: {
+    width: '100%',
+    maxWidth: 600,
+    maxHeight: '90%',
+    justifyContent: 'flex-end',
   },
   modalSheet: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     width: '100%',
-    maxWidth: 580,
-    maxHeight: '92%',
-    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
+    maxHeight: '100%',
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.18,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowRadius: 16,
+    elevation: 12,
+    display: 'flex',
+    flexDirection: 'column',
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
   },
   handleBarWrapper: {
     alignItems: 'center',
     paddingTop: 10,
     paddingBottom: 6,
+    backgroundColor: '#FFFFFF',
   },
   handleBar: {
     width: 44,
-    height: 4,
-    borderRadius: 2,
+    height: 4.5,
+    borderRadius: 3,
     backgroundColor: '#D1C7C1',
   },
   modalHeader: {
@@ -477,10 +692,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 22,
-    paddingTop: 8,
+    paddingTop: 6,
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F0EAE6',
+    backgroundColor: '#FFFFFF',
   },
   modalTitle: {
     fontSize: 18,
@@ -494,20 +710,89 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F5F2',
   },
   formScroll: {
-    maxHeight: 460,
+    flexGrow: 1,
+    flexShrink: 1,
   },
   formContent: {
     paddingHorizontal: 22,
-    paddingVertical: 18,
+    paddingVertical: 14,
+    paddingBottom: 24,
   },
   fieldGroup: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#2C1810',
     marginBottom: 6,
+  },
+  rowTwoCols: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  dropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E8DCD4',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  dropdownTriggerActive: {
+    borderColor: '#52141D',
+  },
+  dropdownTriggerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  dropdownSelectedText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2C1810',
+  },
+  dropdownMenu: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E8DCD4',
+    borderRadius: 10,
+    marginTop: 6,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8F5F2',
+  },
+  dropdownItemActive: {
+    backgroundColor: '#FAF7F5',
+  },
+  dropdownItemText: {
+    fontSize: 13,
+    color: '#55453E',
+    fontWeight: '600',
+  },
+  dropdownItemTextActive: {
+    color: '#52141D',
+    fontWeight: '800',
+  },
+  presetChipTextSmall: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#55453E',
   },
   requiredAsterisk: {
     color: '#C62828',
