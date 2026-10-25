@@ -3,13 +3,23 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useKasir } from '../context/KasirContext';
 
-export default function Sidebar({ onClose, isMobile = false }) {
-  const { user, activeTab, setActiveTab, logout, orders } = useKasir();
-  const isOwner = user?.role === 'Owner';
+export default function Sidebar({
+  onClose,
+  isMobile = false,
+  role = 'kasir',
+  activeTab: activeTabProp,
+  setActiveTab: setActiveTabProp,
+  onLogout,
+}) {
+  const { user, activeTab: contextActiveTab, setActiveTab: contextSetActiveTab, logout: contextLogout, orders } = useKasir();
+  const isOwner = role === 'owner' || role === 'Owner' || user?.role === 'Owner';
+  const activeTab = activeTabProp !== undefined ? activeTabProp : contextActiveTab;
+  const setActiveTab = setActiveTabProp || contextSetActiveTab;
+  const logout = onLogout || contextLogout;
 
-  const activeOrdersCount = orders.filter(
+  const activeOrdersCount = orders ? orders.filter(
     (o) => o.status === 'Diproses' || o.status === 'Siap Bayar'
-  ).length;
+  ).length : 0;
 
   const kasirMenuItems = [
     {
@@ -37,25 +47,34 @@ export default function Sidebar({ onClose, isMobile = false }) {
 
   const ownerMenuItems = [
     {
-      id: 'Laporan',
-      label: 'Laporan & Omzet',
-      icon: (color) => <MaterialIcons name="bar-chart" size={20} color={color} />,
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: (color) => <MaterialIcons name="dashboard" size={20} color={color} />,
     },
     {
-      id: 'Riwayat Transaksi',
-      label: 'Riwayat Transaksi',
-      icon: (color) => <Ionicons name="time-outline" size={20} color={color} />,
+      id: 'penjualan',
+      label: 'Penjualan',
+      icon: (color) => <MaterialIcons name="trending-up" size={20} color={color} />,
     },
     {
-      id: 'Pesanan Aktif',
-      label: 'Monitoring Pesanan',
+      id: 'stok',
+      label: 'Stok Bahan',
+      icon: (color) => <MaterialIcons name="inventory-2" size={20} color={color} />,
+    },
+    {
+      id: 'menu_harga',
+      label: 'Menu & Harga',
+      icon: (color) => <MaterialIcons name="restaurant-menu" size={20} color={color} />,
+    },
+    {
+      id: 'pengeluaran',
+      label: 'Pengeluaran',
       icon: (color) => <MaterialIcons name="receipt-long" size={20} color={color} />,
-      badge: activeOrdersCount > 0 ? activeOrdersCount : null,
     },
     {
-      id: 'Kasir',
-      label: 'Katalog Menu & POS',
-      icon: (color) => <MaterialIcons name="storefront" size={20} color={color} />,
+      id: 'laporan_keuangan',
+      label: 'Laporan Keuangan',
+      icon: (color) => <MaterialIcons name="assessment" size={20} color={color} />,
     },
   ];
 
@@ -114,7 +133,11 @@ export default function Sidebar({ onClose, isMobile = false }) {
               activeOpacity={0.7}
             >
               <View style={styles.menuLeft}>
-                {item.icon(iconColor)}
+                {typeof item.icon === 'function' ? (
+                  item.icon(iconColor)
+                ) : (
+                  <MaterialIcons name={item.icon} size={20} color={iconColor} />
+                )}
                 <Text
                   style={[
                     styles.menuLabel,
@@ -156,7 +179,7 @@ export default function Sidebar({ onClose, isMobile = false }) {
         >
           <Ionicons name="log-out-outline" size={20} color="#F2A5A5" />
           <Text style={styles.logoutText}>
-            Logout ({user?.role || 'Kasir'})
+            Logout ({isOwner ? 'Owner' : 'Kasir'})
           </Text>
         </TouchableOpacity>
       </View>

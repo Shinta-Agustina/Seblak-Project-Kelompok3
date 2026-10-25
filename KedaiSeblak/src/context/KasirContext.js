@@ -3,6 +3,7 @@ import {
   INITIAL_ORDERS,
   INITIAL_TRANSACTIONS,
   TOPPING_ITEMS,
+  INITIAL_MENU_ITEMS,
 } from '../data/mockData';
 
 const KasirContext = createContext();
@@ -13,6 +14,9 @@ export function KasirProvider({ children }) {
 
   // Active navigation tab: 'Kasir', 'Pesanan Aktif', 'Riwayat Transaksi', 'Laporan'
   const [activeTab, setActiveTab] = useState('Kasir');
+
+  // Owner Menu & Harga state
+  const [menuItems, setMenuItems] = useState(INITIAL_MENU_ITEMS);
 
   // POS Order builder state - pre-populated with items matching reference screen
   const [cart, setCart] = useState([
@@ -162,6 +166,51 @@ export function KasirProvider({ children }) {
     );
   };
 
+  // Menu CRUD actions (Owner)
+  const addMenuItem = (menuData) => {
+    const newItem = {
+      id: `menu-${Date.now()}`,
+      nama: (menuData.nama || '').trim(),
+      harga: Number(menuData.harga) || 0,
+      stok: Number(menuData.stok) || 0,
+      status: menuData.status || 'Aktif',
+      kategori: menuData.kategori || 'Topping',
+      emoji: menuData.emoji || '🍘',
+      image: menuData.image || null,
+      createdAt: new Date().toISOString(),
+    };
+
+    setMenuItems((prev) => [newItem, ...prev]);
+    return newItem;
+  };
+
+  const updateMenuItem = (id, updatedData) => {
+    setMenuItems((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          return {
+            ...item,
+            ...updatedData,
+            nama: updatedData.nama !== undefined ? updatedData.nama.trim() : item.nama,
+            harga: updatedData.harga !== undefined ? Number(updatedData.harga) : item.harga,
+            stok: updatedData.stok !== undefined ? Number(updatedData.stok) : item.stok,
+            status: updatedData.status !== undefined ? updatedData.status : item.status,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return item;
+      })
+    );
+  };
+
+  const deleteMenuItem = (id) => {
+    setMenuItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const resetMenuItems = () => {
+    setMenuItems(INITIAL_MENU_ITEMS);
+  };
+
   return (
     <KasirContext.Provider
       value={{
@@ -170,6 +219,12 @@ export function KasirProvider({ children }) {
         logout,
         activeTab,
         setActiveTab,
+        menuItems,
+        setMenuItems,
+        addMenuItem,
+        updateMenuItem,
+        deleteMenuItem,
+        resetMenuItems,
         cart,
         setCart,
         addToCart,

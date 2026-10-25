@@ -2,11 +2,12 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useKasir } from '../context/KasirContext';
 
-export default function TopHeader({ onToggleSidebar, isSidebarOpen }) {
+export default function TopHeader({ onToggleSidebar, isSidebarOpen, title, role }) {
   const { user, activeTab } = useKasir();
-  const isOwner = user?.role === 'Owner';
+  const isOwner = role === 'Owner' || user?.role === 'Owner';
 
   const getPageTitle = () => {
+    if (title) return title;
     switch (activeTab) {
       case 'Kasir':
         return isOwner ? 'Simulasi Kasir - POS' : 'Kasir - Point of Sale';
@@ -16,10 +17,15 @@ export default function TopHeader({ onToggleSidebar, isSidebarOpen }) {
         return 'Riwayat Transaksi';
       case 'Laporan':
         return isOwner ? 'Dashboard Owner - Laporan Penjualan' : 'Laporan Penjualan';
+      case 'laporan_keuangan':
+        return 'Owner Portal · Laporan Keuangan';
       default:
         return 'Kasir - Point of Sale';
     }
   };
+
+  const displayRole = role || user?.role || 'Kasir';
+  const displayName = user?.name || (displayRole === 'Owner' ? 'Dewi (Owner)' : 'Siti Aisyah');
 
   const avatarSource =
     typeof user?.avatar === 'string'
@@ -60,11 +66,11 @@ export default function TopHeader({ onToggleSidebar, isSidebarOpen }) {
           />
         </View>
         <View style={styles.profileText}>
-          <Text style={styles.userName}>{user?.name || (isOwner ? 'Dewi' : 'Siti Aisyah')}</Text>
+          <Text style={styles.userName}>{displayName}</Text>
           <View style={styles.roleBadgeRow}>
             {isOwner && <Text style={styles.roleIcon}>👑</Text>}
             <Text style={[styles.userRole, isOwner && styles.userRoleOwner]}>
-              {user?.role || 'Kasir'}
+              {displayRole}
             </Text>
           </View>
         </View>
