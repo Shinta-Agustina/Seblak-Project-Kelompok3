@@ -12,7 +12,6 @@ import TopHeader from '../../components/TopHeader';
 import TabDashboard from '../../components/owner/tabs/TabDashboard';
 import TabPenjualan from '../../components/owner/tabs/TabPenjualan';
 import TabStok from '../../components/owner/tabs/TabStok';
-import TabPengeluaran from '../../components/owner/tabs/TabPengeluaran';
 import MenuHargaScreen from './MenuHargaScreen';
 import PengeluaranScreen from './PengeluaranScreen';
 import LaporanKeuanganScreen from './LaporanKeuanganScreen';
@@ -115,7 +114,7 @@ export default function DashboardOwnerScreen() {
 
       const modalExpense = {
         id: `MODAL-${Date.now().toString().slice(-4)}`,
-        tanggal: new Date().toLocaleDateString('id-ID'),
+        tanggal: '24 Okt 2026',
         waktu: 'Baru saja (Restok)',
         keterangan: `Restok ${targetItem.nama} (+${addedQty} ${targetItem.satuan})`,
         kategori: targetItem.kategori || 'Kerupuk & Makaroni',
@@ -149,14 +148,8 @@ export default function DashboardOwnerScreen() {
         return 'Owner Portal · Laporan Penjualan Seblak';
       case 'stok':
         return 'Owner Portal · Inventaris Stok Bahan Baku';
-      case 'menu_harga':
-        return 'Owner Portal · Menu & Harga';
       case 'pengeluaran':
-      case 'transaksi':
-        return 'Owner Portal · Pengeluaran';
-      case 'laporan_keuangan':
-      case 'laporan':
-        return 'Owner Portal · Laporan Keuangan';
+        return 'Owner Portal · Modal Belanja Bahan Baku';
       default:
         return 'Owner Portal · Kedai Seblak Prasmanan';
     }
@@ -202,25 +195,29 @@ export default function DashboardOwnerScreen() {
           role="Owner"
         />
 
+
+
         {activeTab === 'menu_harga' ? (
           <View style={styles.embeddedTabContainer}>
             <MenuHargaScreen isEmbedded={true} />
           </View>
-        ) : activeTab === 'pengeluaran' || activeTab === 'transaksi' ? (
+        ) : activeTab === 'pengeluaran' ? (
           <View style={styles.embeddedTabContainer}>
             <PengeluaranScreen isEmbedded={true} />
           </View>
-        ) : activeTab === 'laporan_keuangan' || activeTab === 'laporan' ? (
+        ) : activeTab === 'laporan_keuangan' ? (
           <View style={styles.embeddedTabContainer}>
             <LaporanKeuanganScreen isEmbedded={true} />
           </View>
         ) : (
           <ScrollView
             style={styles.scrollArea}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[
+              styles.scrollContent,
+              isMobile && styles.scrollContentMobile,
+            ]}
             showsVerticalScrollIndicator={false}
           >
-            {/* FITUR 1: DASHBOARD KEDAI */}
             {activeTab === 'dashboard' && (
               <TabDashboard
                 setActiveTab={handleChangeTab}
@@ -230,10 +227,8 @@ export default function DashboardOwnerScreen() {
               />
             )}
 
-            {/* FITUR 2: LAPORAN PENJUALAN */}
             {activeTab === 'penjualan' && <TabPenjualan />}
 
-            {/* FITUR 3: INVENTARIS STOK (DENGAN CRUD LENGKAP) */}
             {activeTab === 'stok' && (
               <TabStok
                 stockItems={stockItems}
@@ -246,7 +241,45 @@ export default function DashboardOwnerScreen() {
             )}
           </ScrollView>
         )}
+
+        <PengeluaranScreen isEmbedded={true} />
       </View>
+      ) : activeTab === 'laporan_keuangan' ? (
+      <View style={styles.embeddedTabContainer}>
+        <LaporanKeuanganScreen isEmbedded={true} />
+      </View>
+      ) : (
+      <ScrollView
+        style={styles.scrollArea}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* FITUR 1: DASHBOARD KEDAI */}
+        {activeTab === 'dashboard' && (
+          <TabDashboard
+            setActiveTab={handleChangeTab}
+            stockItems={stockItems}
+            expenses={expenses}
+            onNavigateToStockFilter={handleNavigateToStockFilter}
+          />
+        )}
+
+        {/* FITUR 2: LAPORAN PENJUALAN */}
+        {activeTab === 'penjualan' && <TabPenjualan />}
+
+        {/* FITUR 3: INVENTARIS STOK (DENGAN CRUD LENGKAP) */}
+        {activeTab === 'stok' && (
+          <TabStok
+            stockItems={stockItems}
+            onAddItem={handleAddItem}
+            onUpdateItem={handleUpdateItem}
+            onDeleteItem={handleDeleteItem}
+            onRestockItem={handleRestockItem}
+            initialFilterStatus={stockPresetFilter}
+          />
+        )}
+      </ScrollView>
+      )
     </View>
   );
 }
@@ -281,8 +314,22 @@ const styles = StyleSheet.create({
     maxWidth: 1200,
     alignSelf: 'center',
   },
+
+  scrollContent: {
+    padding: 22,
+    paddingBottom: 60,
+    width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
+  },
+  scrollContentMobile: {
+    padding: 14,
+    paddingBottom: 40,
+  },
   embeddedTabContainer: {
     flex: 1,
+    minWidth: 0,
     width: '100%',
+    height: '100%',
   },
 });

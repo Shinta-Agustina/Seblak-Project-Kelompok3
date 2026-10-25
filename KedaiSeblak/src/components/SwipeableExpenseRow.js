@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import formatCurrency from '../utils/formatCurrency';
+import { getCategoryBadge } from '../screens/owner/MenuHargaScreen';
 
 const ACTION_BUTTON_WIDTH = 58;
 const TOTAL_ACTIONS_WIDTH = ACTION_BUTTON_WIDTH * 2; // 116px
@@ -71,6 +72,8 @@ export default function SwipeableExpenseRow({
     })
   ).current;
 
+  const catBadge = getCategoryBadge(item.kategori, item.keterangan);
+
   return (
     <View style={[styles.container, isLast && styles.containerLast]}>
       {/* Tombol Aksi di Belakang Baris (Edit & Hapus) */}
@@ -132,14 +135,19 @@ export default function SwipeableExpenseRow({
           {/* Kolom 2: Waktu */}
           <Text style={[styles.cellText, styles.colWaktu]}>{item.waktu}</Text>
 
-          {/* Kolom 3: List Topping (Bersih & Elegan tanpa label berlebihan) */}
+          {/* Kolom 3: List Topping: Nama Topping Dulu, Baru Seudahnya Labelnya */}
           <View style={styles.colToppingWrapper}>
-            <Text style={styles.toppingNameText} numberOfLines={1}>
+            <Text style={styles.toppingNameText}>
               {item.keterangan}
             </Text>
+            <View style={[styles.categoryBadge, { backgroundColor: catBadge.bg }]}>
+              <Text style={[styles.categoryBadgeText, { color: catBadge.color }]}>
+                {catBadge.label}
+              </Text>
+            </View>
           </View>
 
-          {/* Kolom 4: Jumlah (kg) */}
+          {/* Kolom 4: Jumlah (kg / pack / pcs) */}
           <Text style={[styles.cellJumlahText, styles.colJumlah]}>
             {item.jumlah} {item.satuan || 'kg'}
           </Text>
@@ -213,34 +221,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 8,
+    minWidth: 540,
   },
   cellText: {
     fontSize: 12,
     color: '#55453E',
   },
   colNo: {
-    width: 24,
+    width: 28,
     textAlign: 'center',
     color: '#8D7B70',
     fontWeight: '600',
   },
   colWaktu: {
-    width: 48,
+    width: 50,
     textAlign: 'center',
     color: '#60646C',
   },
   colToppingWrapper: {
     flex: 1,
+    minWidth: 240,
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 6,
-    justifyContent: 'center',
+    gap: 6,
+  },
+  categoryBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'center',
+  },
+  categoryBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   toppingNameText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#2C1810',
+    flexShrink: 0,
   },
   colJumlah: {
-    width: 54,
+    width: 75,
     textAlign: 'center',
   },
   cellJumlahText: {
@@ -249,9 +272,9 @@ const styles = StyleSheet.create({
     color: '#168653', // Subtle green for quantity
   },
   colTotal: {
-    width: 80,
+    width: 90,
     textAlign: 'right',
-    paddingRight: 2,
+    paddingRight: 4,
   },
   cellTextTotal: {
     fontSize: 12,
@@ -259,7 +282,7 @@ const styles = StyleSheet.create({
     color: '#DC2626', // Merah jreng
   },
   swipeHintIndicator: {
-    width: 12,
+    width: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 2,

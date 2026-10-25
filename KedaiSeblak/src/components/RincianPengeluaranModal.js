@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import formatCurrency from '../utils/formatCurrency';
+import { getCategoryBadge } from '../screens/owner/MenuHargaScreen';
 
 export default function RincianPengeluaranModal({
   visible,
@@ -54,64 +55,89 @@ export default function RincianPengeluaranModal({
 
               {/* Tabel Detail Rincian (Read-Only) */}
               <View style={styles.tableCard}>
-                {/* Table Header */}
-                <View style={styles.tableHeaderRow}>
-                  <Text style={[styles.headerCell, styles.colNo]}>No</Text>
-                  <Text style={[styles.headerCell, styles.colWaktu]}>Waktu</Text>
-                  <Text style={[styles.headerCell, styles.colKet]}>List Topping</Text>
-                  <Text style={[styles.headerCell, styles.colJumlah]}>Jumlah</Text>
-                  <Text style={[styles.headerCell, styles.colTotal]}>Total</Text>
-                </View>
-
-                {/* Table Rows Scroll */}
                 <ScrollView
-                  style={styles.tableBodyScroll}
-                  contentContainerStyle={styles.tableBodyContent}
-                  showsVerticalScrollIndicator={true}
+                  horizontal={true}
+                  showsHorizontalScrollIndicator={true}
+                  contentContainerStyle={styles.tableHorizontalScroll}
                 >
-                  {items.length > 0 ? (
-                    items.map((item, index) => (
-                      <View
-                        key={item.id || index}
-                        style={[
-                          styles.tableRow,
-                          index % 2 === 1 && styles.tableRowAlt,
-                          index === items.length - 1 && styles.tableRowLast,
-                        ]}
-                      >
-                        <Text style={[styles.cellText, styles.colNo]}>
-                          {index + 1}
-                        </Text>
-                        <Text style={[styles.cellText, styles.colWaktu]}>
-                          {item.waktu}
-                        </Text>
-                        <Text
-                          style={[styles.toppingNameText, styles.colKet]}
-                          numberOfLines={1}
-                        >
-                          {item.keterangan}
-                        </Text>
-                        <Text style={[styles.cellJumlahText, styles.colJumlah]}>
-                          {item.jumlah} {item.satuan || 'kg'}
-                        </Text>
-                        <Text style={[styles.cellTextTotal, styles.colTotal]}>
-                          {formatCurrency(item.total)}
-                        </Text>
-                      </View>
-                    ))
-                  ) : (
-                    <View style={styles.emptyContainer}>
-                      <Ionicons
-                        name="receipt-outline"
-                        size={32}
-                        color="#8D7B70"
-                        style={{ marginBottom: 6 }}
-                      />
-                      <Text style={styles.emptyText}>
-                        Tidak ada transaksi pengeluaran pada tanggal ini.
-                      </Text>
+                  <View style={styles.tableInnerWrapper}>
+                    {/* Table Header */}
+                    <View style={styles.tableHeaderRow}>
+                      <Text style={[styles.headerCell, styles.colNo]}>No</Text>
+                      <Text style={[styles.headerCell, styles.colWaktu]}>Waktu</Text>
+                      <Text style={[styles.headerCell, styles.colKet]}>List Topping</Text>
+                      <Text style={[styles.headerCell, styles.colJumlah]}>Jumlah</Text>
+                      <Text style={[styles.headerCell, styles.colTotal]}>Total</Text>
                     </View>
-                  )}
+
+                    {/* Table Rows Scroll */}
+                    <ScrollView
+                      style={styles.tableBodyScroll}
+                      contentContainerStyle={styles.tableBodyContent}
+                      showsVerticalScrollIndicator={true}
+                    >
+                      {items.length > 0 ? (
+                        items.map((item, index) => {
+                          const catBadge = getCategoryBadge(item.kategori, item.keterangan);
+                          return (
+                            <View
+                              key={item.id || index}
+                              style={[
+                                styles.tableRow,
+                                index % 2 === 1 && styles.tableRowAlt,
+                                index === items.length - 1 && styles.tableRowLast,
+                              ]}
+                            >
+                              <Text style={[styles.cellText, styles.colNo]}>
+                                {index + 1}
+                              </Text>
+                              <Text style={[styles.cellText, styles.colWaktu]}>
+                                {item.waktu}
+                              </Text>
+                              <View style={styles.colKetWrapper}>
+                                <Text style={styles.toppingNameText}>
+                                  {item.keterangan}
+                                </Text>
+                                <View
+                                  style={[
+                                    styles.categoryBadge,
+                                    { backgroundColor: catBadge.bg },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.categoryBadgeText,
+                                      { color: catBadge.color },
+                                    ]}
+                                  >
+                                    {catBadge.label}
+                                  </Text>
+                                </View>
+                              </View>
+                              <Text style={[styles.cellJumlahText, styles.colJumlah]}>
+                                {item.jumlah} {item.satuan || 'kg'}
+                              </Text>
+                              <Text style={[styles.cellTextTotal, styles.colTotal]}>
+                                {formatCurrency(item.total)}
+                              </Text>
+                            </View>
+                          );
+                        })
+                      ) : (
+                        <View style={styles.emptyContainer}>
+                          <Ionicons
+                            name="receipt-outline"
+                            size={32}
+                            color="#8D7B70"
+                            style={{ marginBottom: 6 }}
+                          />
+                          <Text style={styles.emptyText}>
+                            Tidak ada transaksi pengeluaran pada tanggal ini.
+                          </Text>
+                        </View>
+                      )}
+                    </ScrollView>
+                  </View>
                 </ScrollView>
               </View>
 
@@ -219,6 +245,14 @@ const styles = StyleSheet.create({
     borderColor: '#EDE5E0',
     overflow: 'hidden',
   },
+  tableHorizontalScroll: {
+    minWidth: 500,
+    flexGrow: 1,
+  },
+  tableInnerWrapper: {
+    minWidth: 500,
+    flex: 1,
+  },
   tableHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -227,6 +261,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderBottomWidth: 1.5,
     borderBottomColor: '#D8CBC3',
+    minWidth: 500,
   },
   headerCell: {
     fontSize: 12,
@@ -234,26 +269,45 @@ const styles = StyleSheet.create({
     color: '#2C1810',
   },
   colNo: {
-    width: 24,
+    width: 28,
     textAlign: 'center',
     color: '#8D7B70',
   },
   colWaktu: {
-    width: 48,
+    width: 50,
     textAlign: 'center',
     color: '#60646C',
   },
   colKet: {
     flex: 1,
+    minWidth: 220,
     paddingHorizontal: 6,
     textAlign: 'left',
   },
+  colKetWrapper: {
+    flex: 1,
+    minWidth: 220,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 6,
+  },
+  categoryBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'center',
+  },
+  categoryBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+  },
   colJumlah: {
-    width: 54,
+    width: 70,
     textAlign: 'center',
   },
   colTotal: {
-    width: 80,
+    width: 88,
     textAlign: 'right',
     paddingRight: 4,
   },

@@ -27,9 +27,9 @@ export const FINANCIAL_REPORT_DATA = {
     ],
     // Pengeluaran Terbesar Top 3
     topPengeluaran: [
-      { rank: '01', nama: 'Ceker Ayam', nominal: 280000, persen: 26.4 },
-      { rank: '02', nama: 'Bakso Sapi', nominal: 240000, persen: 22.6 },
-      { rank: '03', nama: 'Sosis Sapi', nominal: 200000, persen: 18.9 },
+      { rank: '01', nama: 'Dumpling Keju', nominal: 175000, persen: 16.5 },
+      { rank: '02', nama: 'Bakso Sapi Polos', nominal: 160000, persen: 15.1 },
+      { rank: '03', nama: 'Telur Ayam Negeri', nominal: 130000, persen: 12.3 },
     ],
     // Topping Terlaris (Top 3)
     topTopping: [
@@ -45,17 +45,17 @@ export const FINANCIAL_REPORT_DATA = {
     ],
     // Rekap Pengeluaran Harian (Daftar Pengeluaran Topping pada Hari Tersebut Sesuai Data Proyek)
     rekapPengeluaranHarian: [
-      { id: 'EXP-61', no: 1, waktu: '08:10', keterangan: 'Kerupuk', jumlah: 3, satuan: 'kg', total: 48000 },
-      { id: 'EXP-62', no: 2, waktu: '08:50', keterangan: 'Makaroni', jumlah: 2, satuan: 'kg', total: 30000 },
-      { id: 'EXP-63', no: 3, waktu: '09:30', keterangan: 'Sosis', jumlah: 4, satuan: 'kg', total: 112000 },
-      { id: 'EXP-64', no: 4, waktu: '10:15', keterangan: 'Bakso', jumlah: 5, satuan: 'kg', total: 160000 },
-      { id: 'EXP-65', no: 5, waktu: '11:00', keterangan: 'Ceker', jumlah: 3, satuan: 'kg', total: 66000 },
-      { id: 'EXP-66', no: 6, waktu: '11:45', keterangan: 'Tahu', jumlah: 4, satuan: 'kg', total: 60000 },
-      { id: 'EXP-67', no: 7, waktu: '12:30', keterangan: 'Telur', jumlah: 5, satuan: 'kg', total: 130000 },
-      { id: 'EXP-68', no: 8, waktu: '13:20', keterangan: 'Fish roll', jumlah: 3, satuan: 'kg', total: 84000 },
-      { id: 'EXP-69', no: 9, waktu: '14:05', keterangan: 'Chikuwa', jumlah: 3, satuan: 'kg', total: 75000 },
-      { id: 'EXP-70', no: 10, waktu: '15:00', keterangan: 'Jamur enoki', jumlah: 4, satuan: 'kg', total: 120000 },
-      { id: 'EXP-71', no: 11, waktu: '16:15', keterangan: 'Dumpling keju', jumlah: 5, satuan: 'kg', total: 175000 },
+      { id: 'EXP-61', no: 1, waktu: '08:10', keterangan: 'Kerupuk Bawang (Mawar)', kategori: 'Kerupuk & Makaroni', jumlah: 3, satuan: 'kg', total: 48000 },
+      { id: 'EXP-62', no: 2, waktu: '08:50', keterangan: 'Makaroni Kondang / Spiral', kategori: 'Kerupuk & Makaroni', jumlah: 2, satuan: 'kg', total: 30000 },
+      { id: 'EXP-63', no: 3, waktu: '09:30', keterangan: 'Sosis Sapi Jumbo', kategori: 'Seafood & Olahan', jumlah: 4, satuan: 'pack', total: 112000 },
+      { id: 'EXP-64', no: 4, waktu: '10:15', keterangan: 'Bakso Sapi Polos', kategori: 'Seafood & Olahan', jumlah: 5, satuan: 'pack', total: 160000 },
+      { id: 'EXP-65', no: 5, waktu: '11:00', keterangan: 'Ceker Ayam Empuk', kategori: 'Daging & Jeroan', jumlah: 3, satuan: 'kg', total: 66000 },
+      { id: 'EXP-66', no: 6, waktu: '11:45', keterangan: 'Tahu Putih Lembut', kategori: 'Telur & Tahu', jumlah: 4, satuan: 'kg', total: 60000 },
+      { id: 'EXP-67', no: 7, waktu: '12:30', keterangan: 'Telur Ayam Negeri', kategori: 'Telur & Tahu', jumlah: 5, satuan: 'kg', total: 130000 },
+      { id: 'EXP-68', no: 8, waktu: '13:20', keterangan: 'Fish Roll', kategori: 'Seafood & Olahan', jumlah: 3, satuan: 'pack', total: 84000 },
+      { id: 'EXP-69', no: 9, waktu: '14:05', keterangan: 'Chikuwa', kategori: 'Seafood & Olahan', jumlah: 3, satuan: 'pack', total: 75000 },
+      { id: 'EXP-70', no: 10, waktu: '15:00', keterangan: 'Jamur Enoki Putih', kategori: 'Sayur & Jamur', jumlah: 4, satuan: 'pack', total: 120000 },
+      { id: 'EXP-71', no: 11, waktu: '16:15', keterangan: 'Dumpling Keju', kategori: 'Seafood & Olahan', jumlah: 5, satuan: 'pack', total: 175000 },
     ],
     // Rekap Harian (Tabel Hari dalam Minggu Berjalan Sesuai Wireframe)
     rekapTabelHarian: [
@@ -88,9 +88,9 @@ export const FINANCIAL_REPORT_DATA = {
     ],
     // Pengeluaran Terbesar Top 3
     topPengeluaran: [
-      { rank: '01', nama: 'Sosis Sapi', nominal: 2850000, persen: 34.5 },
-      { rank: '02', nama: 'Bakso Aci', nominal: 2400000, persen: 29.1 },
-      { rank: '03', nama: 'Ceker Ayam', nominal: 1550000, persen: 18.8 },
+      { rank: '01', nama: 'Sosis Sapi Jumbo', nominal: 2850000, persen: 34.5 },
+      { rank: '02', nama: 'Bakso Sapi Polos', nominal: 2400000, persen: 29.1 },
+      { rank: '03', nama: 'Ceker Ayam Empuk', nominal: 1550000, persen: 18.8 },
     ],
     // Topping Terlaris (Top 3)
     topTopping: [
@@ -156,7 +156,7 @@ export const FINANCIAL_REPORT_DATA = {
     ringkasanTahunan: [
       { label: 'Bulan Terbaik', value: 'Okt 2026', unit: 'Rp 25,46 jt' },
       { label: 'Pengeluaran Terbesar', value: 'Sep 2026', unit: 'Rp 8,15 jt' },
-      { label: 'Top Topping Terlaris', value: 'Bakso Aci', unit: '14.500 porsi' },
+      { label: 'Total Transaksi', value: '12.840', unit: 'transaksi' },
     ],
     // Rekap Bulanan (Tabel 12 Bulan)
     rekapTabel: [

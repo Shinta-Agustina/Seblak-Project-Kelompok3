@@ -15,6 +15,7 @@ import ComboBarLineChart from './ComboBarLineChart';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { FINANCIAL_REPORT_DATA } from '../../data/mockFinancialReport';
+import { getCategoryBadge } from '../../screens/owner/MenuHargaScreen';
 
 const WARNA_PRIMARY = '#52141D';
 const WARNA_TOMBOL = '#C62828';
@@ -412,138 +413,174 @@ export default function PreviewLaporanModal({
                     </View>
 
                     <View style={[styles.tableCard, { marginTop: 10 }]}>
-                      <View style={styles.thRow}>
-                        <Text
-                          style={[
-                            styles.thCell,
-                            { width: 28, textAlign: 'center' },
-                          ]}
-                        >
-                          No
-                        </Text>
-                        <Text
-                          style={[
-                            styles.thCell,
-                            { width: 50, textAlign: 'center' },
-                          ]}
-                        >
-                          Waktu
-                        </Text>
-                        <Text
-                          style={[
-                            styles.thCell,
-                            { flex: 1, paddingHorizontal: 4 },
-                          ]}
-                        >
-                          List Topping
-                        </Text>
-                        <Text
-                          style={[
-                            styles.thCell,
-                            { width: 60, textAlign: 'center' },
-                          ]}
-                        >
-                          Jumlah
-                        </Text>
-                        <Text
-                          style={[
-                            styles.thCell,
-                            { width: 88, textAlign: 'right' },
-                          ]}
-                        >
-                          Total Biaya
-                        </Text>
-                      </View>
+                      <ScrollView
+                        horizontal={true}
+                        showsHorizontalScrollIndicator={true}
+                        contentContainerStyle={{ minWidth: 480 }}
+                      >
+                        <View style={{ flex: 1, minWidth: 480 }}>
+                          <View style={styles.thRow}>
+                            <Text
+                              style={[
+                                styles.thCell,
+                                { width: 28, textAlign: 'center' },
+                              ]}
+                            >
+                              No
+                            </Text>
+                            <Text
+                              style={[
+                                styles.thCell,
+                                { width: 50, textAlign: 'center' },
+                              ]}
+                            >
+                              Waktu
+                            </Text>
+                            <Text
+                              style={[
+                                styles.thCell,
+                                { flex: 1, minWidth: 200, paddingHorizontal: 4 },
+                              ]}
+                            >
+                              List Topping
+                            </Text>
+                            <Text
+                              style={[
+                                styles.thCell,
+                                { width: 65, textAlign: 'center' },
+                              ]}
+                            >
+                              Jumlah
+                            </Text>
+                            <Text
+                              style={[
+                                styles.thCell,
+                                { width: 88, textAlign: 'right' },
+                              ]}
+                            >
+                              Total Biaya
+                            </Text>
+                          </View>
 
-                      {harianExpensesList.map((row, idx) => (
-                        <View
-                          key={row.id || idx}
-                          style={[
-                            styles.tdRow,
-                            idx % 2 === 1 && styles.tdRowAlt,
-                            idx === harianExpensesList.length - 1 &&
-                              styles.tableRowItemLast,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.tdCell,
-                              {
-                                width: 28,
-                                textAlign: 'center',
-                                color: '#78665E',
-                              },
-                            ]}
-                          >
-                            {row.no || idx + 1}
-                          </Text>
+                          {harianExpensesList.map((row, idx) => {
+                            const catBadge = getCategoryBadge(row.kategori, row.keterangan);
+                            return (
+                              <View
+                                key={row.id || idx}
+                                style={[
+                                  styles.tdRow,
+                                  idx % 2 === 1 && styles.tdRowAlt,
+                                  idx === harianExpensesList.length - 1 &&
+                                    styles.tableRowItemLast,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.tdCell,
+                                    {
+                                      width: 28,
+                                      textAlign: 'center',
+                                      color: '#78665E',
+                                    },
+                                  ]}
+                                >
+                                  {row.no || idx + 1}
+                                </Text>
 
-                          <Text
-                            style={[
-                              styles.tdCell,
-                              {
-                                width: 50,
-                                textAlign: 'center',
-                                color: '#78665E',
-                              },
-                            ]}
-                          >
-                            {row.waktu}
-                          </Text>
+                                <Text
+                                  style={[
+                                    styles.tdCell,
+                                    {
+                                      width: 50,
+                                      textAlign: 'center',
+                                      color: '#78665E',
+                                    },
+                                  ]}
+                                >
+                                  {row.waktu}
+                                </Text>
 
-                          <Text
-                            style={[
-                              styles.tdCell,
-                              styles.boldCell,
-                              { flex: 1, paddingHorizontal: 4 },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {row.keterangan}
-                          </Text>
+                                <View
+                                  style={{
+                                    flex: 1,
+                                    minWidth: 200,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    paddingHorizontal: 4,
+                                  }}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.tdCell,
+                                      styles.boldCell,
+                                      { flexShrink: 0 },
+                                    ]}
+                                  >
+                                    {row.keterangan}
+                                  </Text>
+                                  <View
+                                    style={[
+                                      styles.previewCategoryBadge,
+                                      { backgroundColor: catBadge.bg },
+                                    ]}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.previewCategoryBadgeText,
+                                        { color: catBadge.color },
+                                      ]}
+                                    >
+                                      {catBadge.label}
+                                    </Text>
+                                  </View>
+                                </View>
 
-                          <Text
-                            style={[
-                              styles.tdCell,
-                              {
-                                width: 60,
-                                textAlign: 'center',
-                                color: '#55453E',
-                              },
-                            ]}
-                          >
-                            {row.jumlah} {row.satuan || 'kg'}
-                          </Text>
+                                <Text
+                                  style={[
+                                    styles.tdCell,
+                                    {
+                                      width: 65,
+                                      textAlign: 'center',
+                                      color: '#55453E',
+                                    },
+                                  ]}
+                                >
+                                  {row.jumlah} {row.satuan || 'kg'}
+                                </Text>
 
-                          <Text
-                            style={[
-                              styles.tdCell,
-                              styles.boldCell,
-                              {
-                                width: 88,
-                                textAlign: 'right',
-                                color: WARNA_EXPENSE,
-                              },
-                            ]}
-                          >
-                            {formatCurrency(row.total)}
-                          </Text>
+                                <Text
+                                  style={[
+                                    styles.tdCell,
+                                    styles.boldCell,
+                                    {
+                                      width: 88,
+                                      textAlign: 'right',
+                                      color: WARNA_EXPENSE,
+                                    },
+                                  ]}
+                                >
+                                  {formatCurrency(row.total)}
+                                </Text>
+                              </View>
+                            );
+                          })}
+
+                          <View style={styles.tfootRow}>
+                            <Text style={styles.tfootLabel}>
+                              Total Pengeluaran ({harianExpensesList.length}{' '}
+                              Pembelian Topping)
+                            </Text>
+                            <Text style={styles.tfootValue}>
+                              {formatCurrency(
+                                totalHarianExpenses ||
+                                  summary.pengeluaran ||
+                                  1060000
+                              )}
+                            </Text>
+                          </View>
                         </View>
-                      ))}
-
-                      <View style={styles.tfootRow}>
-                        <Text style={styles.tfootLabel}>
-                          Total Pengeluaran ({harianExpensesList.length}{' '}
-                          Pembelian Topping)
-                        </Text>
-                        <Text style={styles.tfootValue}>
-                          {formatCurrency(
-                            totalHarianExpenses ||
-                              summary.pengeluaran ||
-                              1060000
-                          )}
-                        </Text>
-                      </View>
+                      </ScrollView>
                     </View>
                   </>
                 ) : (
@@ -967,6 +1004,16 @@ const styles = StyleSheet.create({
     color: '#2C1810',
   },
   boldCell: {
+    fontWeight: '700',
+  },
+  previewCategoryBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    alignSelf: 'center',
+  },
+  previewCategoryBadgeText: {
+    fontSize: 9,
     fontWeight: '700',
   },
   tdRowAlt: {

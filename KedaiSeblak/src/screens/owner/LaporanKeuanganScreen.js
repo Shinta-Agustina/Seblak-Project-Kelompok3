@@ -16,6 +16,7 @@ import PreviewLaporanModal from '../../components/owner/PreviewLaporanModal';
 import ComboBarLineChart from '../../components/owner/ComboBarLineChart';
 import { FINANCIAL_REPORT_DATA } from '../../data/mockFinancialReport';
 import { MASTER_EXPENSES } from '../../data/mockExpenses';
+import { getCategoryBadge } from './MenuHargaScreen';
 
 // Palet Warna Konsisten Khas Proyek Seblak Prasmanan
 const WARNA = {
@@ -63,6 +64,7 @@ export default function LaporanKeuanganScreen({ isEmbedded = false, navigation }
         no: idx + 1,
         waktu: item.waktu || '08:00',
         keterangan: item.keterangan || 'Topping',
+        kategori: item.kategori,
         jumlah: item.jumlah || 1,
         satuan: item.satuan || 'kg',
         total: item.total || 0,
@@ -125,98 +127,107 @@ export default function LaporanKeuanganScreen({ isEmbedded = false, navigation }
   // ==========================================================================
   const content = (
     <View style={styles.mainContainer}>
-      {/* 1. TOP BAR SESUAI WIREFRAME GAMBAR: BACK ARROW, TITLE, & IKON PRINTER PREVIEW */}
-      <View style={styles.subTopHeader}>
-        <View style={styles.subTopLeft}>
-          <Text style={styles.subTopTitle}>{headerDetailTitle}</Text>
+      {/* STICKY HEADER SECTION: Detail Title, Printer, Tab Periode, & Tanggal (Tetap di posisinya saat di-scroll) */}
+      <View style={styles.stickyHeaderSection}>
+        {/* 1. TOP BAR SESUAI WIREFRAME GAMBAR: BACK ARROW, TITLE, & IKON PRINTER PREVIEW */}
+        <View style={styles.subTopHeader}>
+          <View style={styles.subTopLeft}>
+            <Text style={styles.subTopTitle}>{headerDetailTitle}</Text>
+          </View>
+
+          {/* IKON PRINTER (AKSES PREVIEW LAPORAN) */}
+          <TouchableOpacity
+            style={styles.printIconBtn}
+            onPress={() => setPreviewModalVisible(true)}
+            activeOpacity={0.7}
+            accessibilityLabel="Buka Preview Laporan"
+          >
+            <Ionicons name="print-outline" size={20} color={WARNA.teks} />
+          </TouchableOpacity>
         </View>
 
-        {/* IKON PRINTER (AKSES PREVIEW LAPORAN) */}
+        {/* 2. TAB PERIODE (HANYA HARIAN | BULANAN | TAHUNAN) */}
+        <View style={styles.tabPeriodWrapper}>
+          <View style={styles.tabPeriodContainer}>
+            <TouchableOpacity
+              style={[
+                styles.tabPeriodBtn,
+                activeTab === 'harian' && styles.tabPeriodBtnActive,
+              ]}
+              onPress={() => setActiveTab('harian')}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.tabPeriodText,
+                  activeTab === 'harian' && styles.tabPeriodTextActive,
+                ]}
+              >
+                Harian
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.tabPeriodBtn,
+                activeTab === 'bulanan' && styles.tabPeriodBtnActive,
+              ]}
+              onPress={() => setActiveTab('bulanan')}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.tabPeriodText,
+                  activeTab === 'bulanan' && styles.tabPeriodTextActive,
+                ]}
+              >
+                Bulanan
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.tabPeriodBtn,
+                activeTab === 'tahunan' && styles.tabPeriodBtnActive,
+              ]}
+              onPress={() => setActiveTab('tahunan')}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.tabPeriodText,
+                  activeTab === 'tahunan' && styles.tabPeriodTextActive,
+                ]}
+              >
+                Tahunan
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 3. SELECTOR PERIODE CARD */}
         <TouchableOpacity
-          style={styles.printIconBtn}
-          onPress={() => setPreviewModalVisible(true)}
+          style={styles.dateFilterCard}
+          onPress={() => setDatePickerVisible(true)}
           activeOpacity={0.7}
-          accessibilityLabel="Buka Preview Laporan"
+          accessibilityLabel="Pilih periode laporan"
         >
-          <Ionicons name="print-outline" size={20} color={WARNA.teks} />
+          <View style={styles.dateFilterLeft}>
+            <Ionicons name="calendar-outline" size={18} color="#55433B" />
+            <Text style={styles.dateFilterText}>{currentSelectorText}</Text>
+          </View>
+          <Ionicons name="chevron-down" size={16} color={WARNA.abu} />
         </TouchableOpacity>
       </View>
 
-      {/* 2. TAB PERIODE (HANYA HARIAN | BULANAN | TAHUNAN) */}
-      <View style={styles.tabPeriodWrapper}>
-        <View style={styles.tabPeriodContainer}>
-          <TouchableOpacity
-            style={[
-              styles.tabPeriodBtn,
-              activeTab === 'harian' && styles.tabPeriodBtnActive,
-            ]}
-            onPress={() => setActiveTab('harian')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.tabPeriodText,
-                activeTab === 'harian' && styles.tabPeriodTextActive,
-              ]}
-            >
-              Harian
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.tabPeriodBtn,
-              activeTab === 'bulanan' && styles.tabPeriodBtnActive,
-            ]}
-            onPress={() => setActiveTab('bulanan')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.tabPeriodText,
-                activeTab === 'bulanan' && styles.tabPeriodTextActive,
-              ]}
-            >
-              Bulanan
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.tabPeriodBtn,
-              activeTab === 'tahunan' && styles.tabPeriodBtnActive,
-            ]}
-            onPress={() => setActiveTab('tahunan')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.tabPeriodText,
-                activeTab === 'tahunan' && styles.tabPeriodTextActive,
-              ]}
-            >
-              Tahunan
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* 3. SELECTOR PERIODE CARD */}
-      <TouchableOpacity
-        style={styles.dateFilterCard}
-        onPress={() => setDatePickerVisible(true)}
-        activeOpacity={0.7}
-        accessibilityLabel="Pilih periode laporan"
+      {/* AREA SCROLLABLE: KEUANGAN, GRAFIK, DAN REKAP TABEL */}
+      <ScrollView
+        style={styles.bodyScrollArea}
+        contentContainerStyle={styles.bodyScrollContent}
+        showsVerticalScrollIndicator={true}
       >
-        <View style={styles.dateFilterLeft}>
-          <Ionicons name="calendar-outline" size={18} color="#55433B" />
-          <Text style={styles.dateFilterText}>{currentSelectorText}</Text>
-        </View>
-        <Ionicons name="chevron-down" size={16} color={WARNA.abu} />
-      </TouchableOpacity>
-
-      {/* 4. SECTION 1: RINGKASAN KEUANGAN */}
-      <View style={styles.sectionBlock}>
+        {/* 4. SECTION 1: RINGKASAN KEUANGAN */}
+        <View style={styles.sectionBlock}>
         <Text style={styles.sectionHeading}>Ringkasan Keuangan</Text>
 
         {/* Banner Omzet Pelengkap */}
@@ -374,62 +385,79 @@ export default function LaporanKeuanganScreen({ isEmbedded = false, navigation }
                 </Text>
               </View>
               <View style={styles.tableCardContainer}>
-                {/* Header Kolom Tabel Pengeluaran */}
-                <View style={styles.tableHeaderRow}>
-                  <Text style={[styles.headerCellText, styles.colNo]}>No</Text>
-                  <Text style={[styles.headerCellText, styles.colWaktu]}>Waktu</Text>
-                  <Text style={[styles.headerCellText, styles.colTopping]}>List Topping</Text>
-                  <Text style={[styles.headerCellText, styles.colJumlah]}>Jumlah</Text>
-                  <Text style={[styles.headerCellText, styles.colTotal]}>Total Biaya</Text>
-                </View>
+                <ScrollView
+                  horizontal={true}
+                  showsHorizontalScrollIndicator={true}
+                  contentContainerStyle={styles.tableHorizontalScroll}
+                >
+                  <View style={styles.tableInnerWrapper}>
+                    {/* Header Kolom Tabel Pengeluaran */}
+                    <View style={styles.tableHeaderRow}>
+                      <Text style={[styles.headerCellText, styles.colNo]}>No</Text>
+                      <Text style={[styles.headerCellText, styles.colWaktu]}>Waktu</Text>
+                      <Text style={[styles.headerCellText, styles.colTopping]}>List Topping</Text>
+                      <Text style={[styles.headerCellText, styles.colJumlah]}>Jumlah</Text>
+                      <Text style={[styles.headerCellText, styles.colTotal]}>Total Biaya</Text>
+                    </View>
 
-                {/* Baris Data Pengeluaran Hari Ini */}
-                {selectedHarianExpenses.map((row, idx) => (
-                  <View
-                    key={row.id || idx}
-                    style={[
-                      styles.tableDataRow,
-                      idx % 2 === 1 && styles.tableDataRowAlt,
-                      idx === selectedHarianExpenses.length - 1 && styles.tableDataRowLast,
-                    ]}
-                  >
-                    <Text style={[styles.dataCellText, styles.colNo, { color: WARNA.abu }]}>
-                      {row.no || idx + 1}
-                    </Text>
-                    <Text style={[styles.dataCellText, styles.colWaktu, { color: WARNA.abu }]}>
-                      {row.waktu}
-                    </Text>
-                    <Text
-                      style={[styles.dataCellText, styles.boldCellText, styles.colTopping]}
-                      numberOfLines={1}
-                    >
-                      {row.keterangan}
-                    </Text>
-                    <Text style={[styles.dataCellText, styles.colJumlah, { color: '#55453E' }]}>
-                      {row.jumlah} {row.satuan || 'kg'}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.dataCellText,
-                        styles.boldCellText,
-                        styles.colTotal,
-                        { color: WARNA.merahJreng },
-                      ]}
-                    >
-                      {formatCurrency(row.total)}
-                    </Text>
+                    {/* Baris Data Pengeluaran Hari Ini */}
+                    {selectedHarianExpenses.map((row, idx) => {
+                      const catBadge = getCategoryBadge(row.kategori, row.keterangan);
+                      return (
+                        <View
+                          key={row.id || idx}
+                          style={[
+                            styles.tableDataRow,
+                            idx % 2 === 1 && styles.tableDataRowAlt,
+                            idx === selectedHarianExpenses.length - 1 && styles.tableDataRowLast,
+                          ]}
+                        >
+                          <Text style={[styles.dataCellText, styles.colNo, { color: WARNA.abu }]}>
+                            {row.no || idx + 1}
+                          </Text>
+                          <Text style={[styles.dataCellText, styles.colWaktu, { color: WARNA.abu }]}>
+                            {row.waktu}
+                          </Text>
+                          <View style={styles.colToppingWrapper}>
+                            <Text
+                              style={[styles.dataCellText, styles.boldCellText, styles.colToppingText]}
+                            >
+                              {row.keterangan}
+                            </Text>
+                            <View style={[styles.categoryBadge, { backgroundColor: catBadge.bg }]}>
+                              <Text style={[styles.categoryBadgeText, { color: catBadge.color }]}>
+                                {catBadge.label}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={[styles.dataCellText, styles.colJumlah, { color: '#55453E' }]}>
+                            {row.jumlah} {row.satuan || 'kg'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.dataCellText,
+                              styles.boldCellText,
+                              styles.colTotal,
+                              { color: WARNA.merahJreng },
+                            ]}
+                          >
+                            {formatCurrency(row.total)}
+                          </Text>
+                        </View>
+                      );
+                    })}
+
+                    {/* Footer Total Pengeluaran Hari Ini */}
+                    <View style={styles.tableFooterRow}>
+                      <Text style={styles.tableFooterLabel}>
+                        Total Pengeluaran ({selectedHarianExpenses.length} Pembelian)
+                      </Text>
+                      <Text style={styles.tableFooterValue}>
+                        {formatCurrency(totalPengeluaranHarianTabel)}
+                      </Text>
+                    </View>
                   </View>
-                ))}
-
-                {/* Footer Total Pengeluaran Hari Ini */}
-                <View style={styles.tableFooterRow}>
-                  <Text style={styles.tableFooterLabel}>
-                    Total Pengeluaran ({selectedHarianExpenses.length} Pembelian)
-                  </Text>
-                  <Text style={styles.tableFooterValue}>
-                    {formatCurrency(totalPengeluaranHarianTabel)}
-                  </Text>
-                </View>
+                </ScrollView>
               </View>
             </View>
           </>
@@ -573,8 +601,8 @@ export default function LaporanKeuanganScreen({ isEmbedded = false, navigation }
             </View>
           </>
         )}
-      </View>
-
+        </View>
+      </ScrollView>
 
       {/* MODAL DATE PICKER */}
       <LaporanDatePickerModal
@@ -596,15 +624,7 @@ export default function LaporanKeuanganScreen({ isEmbedded = false, navigation }
 
   // Jika di-embed ke dalam DashboardOwnerScreen
   if (isEmbedded) {
-    return (
-      <ScrollView
-        style={styles.embeddedScrollView}
-        contentContainerStyle={styles.embeddedContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {content}
-      </ScrollView>
-    );
+    return content;
   }
 
   // Jika dibuka sebagai Halaman Standalone
@@ -648,13 +668,9 @@ export default function LaporanKeuanganScreen({ isEmbedded = false, navigation }
           title="Owner Portal · Laporan Keuangan"
           role="Owner"
         />
-        <ScrollView
-          style={styles.standaloneScroll}
-          contentContainerStyle={styles.standaloneContent}
-          showsVerticalScrollIndicator={false}
-        >
+        <View style={styles.standaloneMainArea}>
           {content}
-        </ScrollView>
+        </View>
       </View>
     </View>
   );
@@ -671,18 +687,13 @@ const styles = StyleSheet.create({
     minWidth: 0,
     height: '100%',
   },
-  standaloneScroll: {
-    flex: 1,
-  },
-  standaloneContent: {
-    paddingBottom: 40,
-  },
-  embeddedScrollView: {
+  standaloneMainArea: {
     flex: 1,
     backgroundColor: WARNA.latar,
   },
-  embeddedContent: {
-    paddingBottom: 40,
+  embeddedContainer: {
+    flex: 1,
+    backgroundColor: WARNA.latar,
   },
   mobileBackdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -694,8 +705,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
   mainContainer: {
+    flex: 1,
+    backgroundColor: WARNA.latar,
+  },
+  stickyHeaderSection: {
     paddingHorizontal: 16,
     paddingTop: 12,
+    paddingBottom: 4,
+    backgroundColor: WARNA.latar,
+    zIndex: 10,
+  },
+  bodyScrollArea: {
+    flex: 1,
+  },
+  bodyScrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 40,
   },
 
   // Sub Top Header
@@ -1100,27 +1126,59 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#78665E',
   },
+  tableHorizontalScroll: {
+    minWidth: 540,
+    flexGrow: 1,
+  },
+  tableInnerWrapper: {
+    minWidth: 540,
+    flex: 1,
+  },
   colNo: {
     width: 28,
     textAlign: 'center',
   },
   colWaktu: {
-    width: 52,
+    width: 50,
     textAlign: 'center',
   },
   colTopping: {
     flex: 1,
+    minWidth: 240,
     paddingHorizontal: 6,
     textAlign: 'left',
   },
+  colToppingWrapper: {
+    flex: 1,
+    minWidth: 240,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    gap: 6,
+  },
+  categoryBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'center',
+  },
+  categoryBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  colToppingText: {
+    fontSize: 12,
+    color: '#2C1810',
+    flexShrink: 0,
+  },
   colJumlah: {
-    width: 62,
+    width: 75,
     textAlign: 'center',
   },
   colTotal: {
-    width: 88,
+    width: 90,
     textAlign: 'right',
-    paddingRight: 2,
+    paddingRight: 4,
   },
   tableFooterRow: {
     flexDirection: 'row',
@@ -1131,6 +1189,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderTopWidth: 1.5,
     borderTopColor: '#E8DCD4',
+    minWidth: 540,
   },
   tableFooterLabel: {
     fontSize: 11,
