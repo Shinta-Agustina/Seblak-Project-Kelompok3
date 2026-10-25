@@ -30,7 +30,7 @@ import ReceiptModal from '../../components/ReceiptModal';
 
 import PesananAktifScreen from './PesananAktifScreen';
 import RiwayatTransaksiScreen from './RiwayatTransaksiScreen';
-import LaporanScreen from './LaporanScreen';
+import LaporanScreen from './LaporanPenjualanHarianScreen';
 
 export default function DashboardKasirScreen() {
   const { width } = useWindowDimensions();
