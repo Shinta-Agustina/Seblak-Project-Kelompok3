@@ -3,6 +3,7 @@ import {
   Modal,
   View,
   Text,
+  Image,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -44,7 +45,7 @@ export default function StockDetailModal({
                 <StatusBadge status={status} size="sm" />
               </View>
               <Text style={styles.subtitle}>
-                ID: {item.id} · Kategori: {item.kategori}
+                ID: {item.id} · {item.jenisStok || (['Bumbu & Kuah', 'Bahan Dasar'].includes(item.kategori) ? 'Bumbu' : 'Topping')} · Kategori: {item.kategori}
               </Text>
             </View>
 
@@ -54,6 +55,11 @@ export default function StockDetailModal({
           </View>
 
           <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+            {item.foto || item.image ? (
+              <Image source={{ uri: item.foto || item.image }} style={styles.detailPhoto} resizeMode="cover" />
+            ) : (
+              <View style={styles.detailPhotoPlaceholder}><Ionicons name="image-outline" size={30} color="#A89A92" /><Text style={{ color: '#A89A92', fontSize: 11, marginTop: 5 }}>Foto belum tersedia</Text></View>
+            )}
             {/* Progress Bar Sisa Stok */}
             <View style={styles.progressCard}>
               <View style={styles.progressHeader}>
@@ -249,6 +255,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#F8F5F2',
   },
+  detailPhoto: { width: '100%', height: 180, borderRadius: 14, marginBottom: 14, backgroundColor: '#F8F5F2' },
+  detailPhotoPlaceholder: { width: '100%', height: 130, borderRadius: 14, marginBottom: 14, backgroundColor: '#F8F5F2', alignItems: 'center', justifyContent: 'center' },
   contentScroll: {
     maxHeight: 460,
   },

@@ -1,7 +1,9 @@
-﻿import React, { useState, useMemo } from 'react';
+﻿
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
+  Image,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -9,6 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
 import StatCard from '../StatCard';
 import StatusBadge from '../StatusBadge';
 import FilterChips from '../FilterChips';
@@ -27,52 +30,118 @@ export default function TabStok({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(initialFilterStatus);
+  const [jenisFilter, setJenisFilter] = useState('Topping');
 
-  // Modals state
+  // State modal
   const [isFormModalVisible, setIsFormModalVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isRestockModalVisible, setIsRestockModalVisible] = useState(false);
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
-
-  // Delete confirmation modal state
   const [itemToDelete, setItemToDelete] = useState(null);
 
-  // Hitung status helper:
-  // sisa <= 0 => Habis
-  // sisa <= minimum => Menipis
-  // selain itu => Aman
+// Menentukan jenis stok
+const getJenisStok = (item) => {
+  if (item.jenisStok) {
+    return item.jenisStok;
+  }
+
+  const kategori = String(item.kategori ?? '')
+    .trim()
+    .toLowerCase();
+
+  if (
+    ['bumbu', 'bumbu & kuah', 'bahan dasar'].includes(kategori) ||
+    String(item.id ?? '').startsWith('STK-BAHAN-')
+  ) {
+    return 'Bumbu';
+  }
+
+  return 'Topping';
+};
+
+  // Menentukan status stok
   const getItemStatus = (item) => {
-    const sisa = item.sisa ?? 0;
-    const min = item.minimum ?? 1;
+    const sisa = Number(item.sisa ?? 0);
+    const minimum = Number(item.minimum ?? 1);
+
     if (sisa <= 0) return 'Habis';
-    if (sisa <= min) return 'Menipis';
+    if (sisa <= minimum) return 'Menipis';
+
     return 'Aman';
   };
 
-  // Ringkasan Atas
-  const totalBahan = stockItems.length;
-  const countMenipis = stockItems.filter((i) => getItemStatus(i) === 'Menipis').length;
-  const countHabis = stockItems.filter((i) => getItemStatus(i) === 'Habis').length;
-  const countAman = stockItems.filter((i) => getItemStatus(i) === 'Aman').length;
+  // Mengambil sumber foto lokal atau URL.
+  // require() menghasilkan angka pada React Native,
+  // sedangkan foto URL menggunakan objek { uri }.
+  const getImageSource = (item) => {
+    const foto = item?.foto ?? item?.image;
 
-  // Filter & Search Logic
+    if (foto == null || foto === '') {
+      return null;
+    }
+
+    if (typeof foto === 'number') {
+      return foto;
+    }
+
+    if (typeof foto === 'string') {
+      return { uri: foto };
+    }
+
+    // Mendukung sumber gambar yang sudah berbentuk objek.
+    if (typeof foto === 'object' && foto.uri) {
+      return foto;
+    }
+
+    return null;
+  };
+
+  // Ringkasan stok sesuai jenis yang dipilih
+  const stokJenisAktif = useMemo(
+    () => stockItems.filter((item) => getJenisStok(item) === jenisFilter),
+    [stockItems, jenisFilter]
+  );
+
+  const totalBahan = stokJenisAktif.length;
+
+  const countMenipis = stokJenisAktif.filter(
+    (item) => getItemStatus(item) === 'Menipis'
+  ).length;
+
+  const countHabis = stokJenisAktif.filter(
+    (item) => getItemStatus(item) === 'Habis'
+  ).length;
+
+  const countAman = stokJenisAktif.filter(
+    (item) => getItemStatus(item) === 'Aman'
+  ).length;
+
+  // Pencarian dan filter
   const filteredData = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
     return stockItems.filter((item) => {
       const status = getItemStatus(item);
-      const matchesStatus =
-        statusFilter === 'Semua' || status.toLowerCase() === statusFilter.toLowerCase();
+      const nama = String(item.nama ?? '').toLowerCase();
+      const kategori = String(item.kategori ?? '').toLowerCase();
+      const supplier = String(item.supplier ?? '').toLowerCase();
 
-      const query = searchQuery.trim().toLowerCase();
+      const matchesJenis = getJenisStok(item) === jenisFilter;
+
+      const matchesStatus =
+        statusFilter === 'Semua' ||
+        status.toLowerCase() === statusFilter.toLowerCase();
+
       const matchesSearch =
         !query ||
-        item.nama.toLowerCase().includes(query) ||
-        (item.kategori && item.kategori.toLowerCase().includes(query)) ||
-        (item.supplier && item.supplier.toLowerCase().includes(query));
+        nama.includes(query) ||
+        kategori.includes(query) ||
+        supplier.includes(query);
 
-      return matchesStatus && matchesSearch;
+      return matchesJenis && matchesStatus && matchesSearch;
     });
-  }, [stockItems, statusFilter, searchQuery]);
+  }, [stockItems, statusFilter, searchQuery, jenisFilter]);
 
   const filterOptions = [
     { id: 'Semua', label: 'Semua', count: totalBahan },
@@ -81,13 +150,14 @@ export default function TabStok({
     { id: 'Habis', label: 'Habis', count: countHabis },
   ];
 
-  // Handlers
+  // Handler modal tambah
   const handleOpenAdd = () => {
     setSelectedItem(null);
     setIsEditMode(false);
     setIsFormModalVisible(true);
   };
 
+  // Handler modal edit
   const handleOpenEdit = (item) => {
     setSelectedItem(item);
     setIsEditMode(true);
@@ -95,29 +165,43 @@ export default function TabStok({
     setIsFormModalVisible(true);
   };
 
+  // Handler modal restok
   const handleOpenRestock = (item) => {
     setSelectedItem(item);
     setIsDetailModalVisible(false);
     setIsRestockModalVisible(true);
   };
 
+  // Handler modal detail
   const handleOpenDetail = (item) => {
     setSelectedItem(item);
     setIsDetailModalVisible(true);
   };
 
+  // Konfirmasi hapus
   const handleConfirmDelete = () => {
-    if (itemToDelete) {
-      onDeleteItem(itemToDelete.id);
-      setItemToDelete(null);
-      setIsDetailModalVisible(false);
-    }
+    if (!itemToDelete) return;
+
+    onDeleteItem?.(itemToDelete.id);
+    setItemToDelete(null);
+    setIsDetailModalVisible(false);
   };
 
-  // Render Item FlatList
+  // Render setiap kartu stok
   const renderStockItem = ({ item }) => {
     const status = getItemStatus(item);
-    const maxReference = Math.max(item.stokAwal || 0, item.minimum * 2, item.sisa);
+    const sisa = Number(item.sisa ?? 0);
+    const minimum = Number(item.minimum ?? 1);
+    const stokAwal = Number(item.stokAwal ?? 0);
+
+    const maxReference = Math.max(
+      stokAwal,
+      minimum * 2,
+      sisa,
+      1
+    );
+
+    const imageSource = getImageSource(item);
 
     return (
       <TouchableOpacity
@@ -125,21 +209,41 @@ export default function TabStok({
         onPress={() => handleOpenDetail(item)}
         activeOpacity={0.75}
       >
+        {/* Foto dan informasi bahan */}
         <View style={styles.cardTopRow}>
+          {imageSource ? (
+            <Image
+              source={imageSource}
+              style={styles.stockPhoto}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.stockPhotoPlaceholder}>
+              <Ionicons
+                name="image-outline"
+                size={22}
+                color="#A89A92"
+              />
+            </View>
+          )}
+
           <View style={styles.cardTitleCol}>
             <View style={styles.nameRow}>
               <Text style={styles.stockName} numberOfLines={1}>
                 {item.nama}
               </Text>
+
               <StatusBadge status={status} size="sm" />
             </View>
+
             <Text style={styles.stockCategory}>
-              {item.kategori} · Supplier: {item.supplier || '-'}
+              {item.kategori || 'Tanpa kategori'} · Supplier:{' '}
+              {item.supplier || '-'}
             </Text>
           </View>
         </View>
 
-        {/* Progress Bar & Sisa Ratio */}
+        {/* Progress stok */}
         <View style={styles.progressSection}>
           <View style={styles.progressLabelRow}>
             <Text style={styles.stockRatioText}>
@@ -147,31 +251,39 @@ export default function TabStok({
               <Text
                 style={{
                   fontWeight: '900',
-                  color: status === 'Habis' ? '#DC2626' : status === 'Menipis' ? '#B45309' : '#168653',
+                  color:
+                    status === 'Habis'
+                      ? '#DC2626'
+                      : status === 'Menipis'
+                      ? '#B45309'
+                      : '#168653',
                 }}
               >
-                {item.sisa} {item.satuan}
+                {sisa} {item.satuan}
               </Text>{' '}
-              / Min. {item.minimum} {item.satuan}
+              / Min. {minimum} {item.satuan}
             </Text>
 
             <Text style={styles.estimateDaysText}>
-              {status === 'Habis' ? 'Segera Restok!' : `~${item.estimasiHabisHari ?? 1.5} hari lagi`}
+              {status === 'Habis'
+                ? 'Segera Restok!'
+                : `~${item.estimasiHabisHari ?? 1.5} hari lagi`}
             </Text>
           </View>
 
           <StockProgressBar
-            current={item.sisa}
+            current={sisa}
             max={maxReference}
             status={status}
             height={7}
           />
         </View>
 
-        {/* Quick Actions Row */}
+        {/* Harga dan aksi */}
         <View style={styles.cardActionsRow}>
           <Text style={styles.priceTag}>
-            Rp {(item.hargaBeli || 0).toLocaleString('id-ID')} / {item.satuan}
+            Rp {Number(item.hargaBeli || 0).toLocaleString('id-ID')} /{' '}
+            {item.satuan}
           </Text>
 
           <View style={styles.actionButtonsGroup}>
@@ -181,7 +293,11 @@ export default function TabStok({
               activeOpacity={0.7}
               accessibilityLabel="Edit bahan"
             >
-              <Ionicons name="create-outline" size={16} color="#78665E" />
+              <Ionicons
+                name="create-outline"
+                size={16}
+                color="#78665E"
+              />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -190,7 +306,11 @@ export default function TabStok({
               activeOpacity={0.7}
               accessibilityLabel="Hapus bahan"
             >
-              <Ionicons name="trash-outline" size={16} color="#DC2626" />
+              <Ionicons
+                name="trash-outline"
+                size={16}
+                color="#DC2626"
+              />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -209,12 +329,12 @@ export default function TabStok({
 
   return (
     <View style={styles.container}>
-      {/* Page Header */}
+      {/* Header */}
       <View style={styles.headerRow}>
         <View style={styles.headerTitles}>
-          <Text style={styles.pageTitle}>Stok Bahan Baku Kedai</Text>
+          <Text style={styles.pageTitle}>Manajemen Stok</Text>
           <Text style={styles.pageSubtitle}>
-            Pantau ketersediaan bahan, batas minimum, dan kelola restok harian
+            Kelola stok topping dan bumbu secara terpisah
           </Text>
         </View>
 
@@ -224,11 +344,51 @@ export default function TabStok({
           activeOpacity={0.8}
         >
           <Ionicons name="add" size={20} color="#FFFFFF" />
-          <Text style={styles.addBtnText}>Tambah Bahan</Text>
+          <Text style={styles.addBtnText}>
+            Tambah {jenisFilter}
+          </Text>
         </TouchableOpacity>
       </View>
 
-      {/* 3 KARTU RINGKASAN ATAS */}
+      {/* Tab jenis stok */}
+      <View style={styles.stockTypeTabs}>
+        {['Topping', 'Bumbu'].map((jenis) => (
+          <TouchableOpacity
+            key={jenis}
+            style={[
+              styles.stockTypeTab,
+              jenisFilter === jenis && styles.stockTypeTabActive,
+            ]}
+            onPress={() => {
+              setJenisFilter(jenis);
+              setStatusFilter('Semua');
+              setSearchQuery('');
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name={
+                jenis === 'Topping'
+                  ? 'fast-food-outline'
+                  : 'leaf-outline'
+              }
+              size={17}
+              color={jenisFilter === jenis ? '#FFFFFF' : '#78665E'}
+            />
+
+            <Text
+              style={[
+                styles.stockTypeTabText,
+                jenisFilter === jenis && styles.stockTypeTabTextActive,
+              ]}
+            >
+              Stok {jenis}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Ringkasan stok */}
       <View style={styles.summaryGrid}>
         <StatCard
           title="Total Jenis Bahan"
@@ -263,26 +423,38 @@ export default function TabStok({
         />
       </View>
 
-      {/* PENCARIAN & FILTER STATUS CHIPS */}
+      {/* Pencarian dan filter */}
       <View style={styles.filterSection}>
-        {/* Search Bar */}
         <View style={styles.searchBarWrap}>
-          <Ionicons name="search-outline" size={18} color="#8D7B70" style={styles.searchIcon} />
+          <Ionicons
+            name="search-outline"
+            size={18}
+            color="#8D7B70"
+            style={styles.searchIcon}
+          />
+
           <TextInput
             style={styles.searchInput}
-            placeholder="Cari nama bahan, kategori, atau supplier..."
+            placeholder={`Cari ${jenisFilter.toLowerCase()}, kategori, atau supplier...`}
             placeholderTextColor="#A89A92"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
+
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
-              <Ionicons name="close-circle" size={18} color="#A89A92" />
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              style={styles.clearSearchBtn}
+            >
+              <Ionicons
+                name="close-circle"
+                size={18}
+                color="#A89A92"
+              />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Filter Chips: Semua, Aman, Menipis, Habis */}
         <FilterChips
           options={filterOptions}
           selectedId={statusFilter}
@@ -291,26 +463,45 @@ export default function TabStok({
         />
       </View>
 
-      {/* DAFTAR BAHAN (FLATLIST) */}
+      {/* Daftar stok */}
       <View style={styles.listContainer}>
         <View style={styles.listMetaRow}>
           <Text style={styles.listCountText}>
-            Menampilkan <Text style={{ fontWeight: '800' }}>{filteredData.length}</Text> bahan
+            Menampilkan{' '}
+            <Text style={{ fontWeight: '800' }}>
+              {filteredData.length}
+            </Text>{' '}
+            item {jenisFilter.toLowerCase()}
             {statusFilter !== 'Semua' ? ` status ${statusFilter}` : ''}
           </Text>
-          <Text style={styles.listHintText}>Ketuk kartu untuk detail & riwayat restok</Text>
+
+          <Text style={styles.listHintText}>
+            Ketuk kartu untuk detail & riwayat restok
+          </Text>
         </View>
 
         <FlatList
           data={filteredData}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) =>
+            String(item.id ?? `${item.nama}-${index}`)
+          }
           renderItem={renderStockItem}
-          scrollEnabled={false} // Di-scroll oleh parent ScrollView DashboardOwner
-          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          scrollEnabled={false}
+          ItemSeparatorComponent={() => (
+            <View style={{ height: 10 }} />
+          )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="file-tray-outline" size={42} color="#D1C7BD" />
-              <Text style={styles.emptyTitle}>Tidak ada bahan baku yang cocok</Text>
+              <Ionicons
+                name="file-tray-outline"
+                size={42}
+                color="#D1C7BD"
+              />
+
+              <Text style={styles.emptyTitle}>
+                Tidak ada item stok yang cocok
+              </Text>
+
               <Text style={styles.emptySubtitle}>
                 Coba ubah kata kunci pencarian atau ganti filter status.
               </Text>
@@ -319,7 +510,7 @@ export default function TabStok({
         />
       </View>
 
-      {/* MODAL 1: FORM TAMBAH / EDIT BAHAN */}
+      {/* Modal tambah dan edit */}
       <StockFormModal
         visible={isFormModalVisible}
         isEdit={isEditMode}
@@ -327,51 +518,66 @@ export default function TabStok({
         onClose={() => setIsFormModalVisible(false)}
         onSubmit={(itemData) => {
           if (isEditMode) {
-            onUpdateItem(itemData);
+            onUpdateItem?.(itemData);
           } else {
-            onAddItem(itemData);
+            onAddItem?.(itemData);
           }
+
+          setIsFormModalVisible(false);
         }}
       />
 
-      {/* MODAL 2: AKSI RESTOK */}
+      {/* Modal restok */}
       <RestockModal
         visible={isRestockModalVisible}
         item={selectedItem}
         onClose={() => setIsRestockModalVisible(false)}
         onSubmitRestock={(itemId, addedQty, restockRecord) => {
-          onRestockItem(itemId, addedQty, restockRecord);
+          onRestockItem?.(itemId, addedQty, restockRecord);
+          setIsRestockModalVisible(false);
         }}
       />
 
-      {/* MODAL 3: DETAIL LENGKAP BAHAN */}
+      {/* Modal detail */}
       <StockDetailModal
         visible={isDetailModalVisible}
         item={selectedItem}
         onClose={() => setIsDetailModalVisible(false)}
-        onOpenRestock={(item) => handleOpenRestock(item)}
-        onEdit={(item) => handleOpenEdit(item)}
+        onOpenRestock={handleOpenRestock}
+        onEdit={handleOpenEdit}
         onDelete={(item) => {
           setIsDetailModalVisible(false);
           setItemToDelete(item);
         }}
       />
 
-      {/* MODAL 4: KONFIRMASI HAPUS */}
+      {/* Modal konfirmasi hapus */}
       <Modal
         visible={!!itemToDelete}
-        transparent={true}
+        transparent
         animationType="fade"
         onRequestClose={() => setItemToDelete(null)}
       >
         <View style={styles.confirmBackdrop}>
           <View style={styles.confirmCard}>
             <View style={styles.confirmIconBox}>
-              <Ionicons name="trash" size={24} color="#DC2626" />
+              <Ionicons
+                name="trash"
+                size={24}
+                color="#DC2626"
+              />
             </View>
-            <Text style={styles.confirmTitle}>Hapus Bahan Baku?</Text>
+
+            <Text style={styles.confirmTitle}>
+              Hapus Bahan Baku?
+            </Text>
+
             <Text style={styles.confirmDesc}>
-              Bahan <Text style={{ fontWeight: '800' }}>{itemToDelete?.nama}</Text> akan dihapus dari sistem inventaris kedai seblak.
+              Item{' '}
+              <Text style={{ fontWeight: '800' }}>
+                {itemToDelete?.nama}
+              </Text>{' '}
+              akan dihapus dari sistem inventaris kedai seblak.
             </Text>
 
             <View style={styles.confirmBtnRow}>
@@ -380,7 +586,9 @@ export default function TabStok({
                 onPress={() => setItemToDelete(null)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.confirmCancelText}>Batal</Text>
+                <Text style={styles.confirmCancelText}>
+                  Batal
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -388,7 +596,9 @@ export default function TabStok({
                 onPress={handleConfirmDelete}
                 activeOpacity={0.8}
               >
-                <Text style={styles.confirmDeleteText}>Ya, Hapus</Text>
+                <Text style={styles.confirmDeleteText}>
+                  Ya, Hapus
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -402,6 +612,37 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
   },
+
+  stockTypeTabs: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  stockTypeTab: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E7DAD2',
+    backgroundColor: '#FFFFFF',
+  },
+  stockTypeTabActive: {
+    backgroundColor: '#C62828',
+    borderColor: '#C62828',
+  },
+  stockTypeTabText: {
+    color: '#78665E',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  stockTypeTabTextActive: {
+    color: '#FFFFFF',
+  },
+
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -446,12 +687,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
+
   summaryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
     marginBottom: 10,
   },
+
   filterSection: {
     gap: 12,
     marginBottom: 16,
@@ -482,6 +725,7 @@ const styles = StyleSheet.create({
   clearSearchBtn: {
     padding: 4,
   },
+
   listContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -513,6 +757,25 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#A89A92',
     fontStyle: 'italic',
+  },
+
+  stockPhoto: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    backgroundColor: '#F8F5F2',
+    marginRight: 12,
+  },
+  stockPhotoPlaceholder: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    backgroundColor: '#F8F5F2',
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#EFE7E2',
   },
   stockCard: {
     backgroundColor: '#FAFAF9',
@@ -547,6 +810,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#78665E',
   },
+
   progressSection: {
     marginBottom: 12,
   },
@@ -567,6 +831,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#78665E',
   },
+
   cardActionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -611,6 +876,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -628,6 +894,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 280,
   },
+
   confirmBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(44, 24, 16, 0.65)',
