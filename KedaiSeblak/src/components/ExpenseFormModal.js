@@ -282,35 +282,40 @@ export default function ExpenseFormModal({
                   </View>
 
                   {/* Field 4: Nominal / Total Pembelian Topping */}
-                  <View style={styles.fieldGroup}>
-                    <Text style={styles.fieldLabel}>Total Pembelian (Rp) *</Text>
-                    <TouchableOpacity
-                      activeOpacity={1}
-                      onPress={() => totalInputRef.current?.focus()}
-                      style={[styles.inputWrapper, styles.moneyInputWrapper]}
-                    >
-                      <Text style={styles.rpPrefix}>Rp</Text>
-                      <TextInput
-                        ref={totalInputRef}
-                        style={[styles.textInput, styles.moneyTextInput]}
-                        placeholder="32.000"
-                        placeholderTextColor="#A69A90"
-                        value={total}
-                        onChangeText={(txt) => {
-                          const num = txt.replace(/[^0-9]/g, '');
-                          setTotal(num ? Number(num).toLocaleString('id-ID') : '');
-                        }}
-                        keyboardType={Platform.OS === 'web' ? 'default' : 'numeric'}
-                        inputMode="numeric"
-                        editable={true}
-                      />
-                    </TouchableOpacity>
-                    {total ? (
-                      <Text style={styles.helperMoney}>
-                        Terbaca: {formatCurrency(parseInt(total.replace(/[^0-9]/g, ''), 10) || 0)}
-                      </Text>
-                    ) : null}
+                  
+                {/* Field 4: Nominal / Total Pembelian Topping */}
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Total Pembelian (Rp) *</Text>
+
+                  <View style={[styles.inputWrapper, styles.moneyInputWrapper]}>
+                    <Text style={styles.rpPrefix}>Rp</Text>
+
+                    <TextInput
+                      ref={totalInputRef}
+                      style={[styles.textInput, styles.moneyTextInput]}
+                      placeholder="Masukkan nominal"
+                      placeholderTextColor="#A69A90"
+                      value={total}
+                      onChangeText={(txt) => {
+                        const num = txt.replace(/[^0-9]/g, '');
+                        setTotal(num ? Number(num).toLocaleString('id-ID') : '');
+                      }}
+                      keyboardType="numeric"
+                      inputMode="numeric"
+                      editable={true}
+                      selectTextOnFocus={true}
+                    />
                   </View>
+
+                  {total !== '' ? (
+                    <Text style={styles.helperMoney}>
+                      Terbaca: {formatCurrency(
+                        parseInt(total.replace(/[^0-9]/g, ''), 10) || 0
+                      )}
+                    </Text>
+                  ) : null}
+                </View>
+
                 </ScrollView>
 
                 {/* Footer Action Buttons */}

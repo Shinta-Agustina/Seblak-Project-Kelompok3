@@ -195,7 +195,7 @@ export default function DatePickerModal({
         {
           id: 2,
           label: `13 ${monthName} ${year} – 19 ${monthName} ${year}`,
-          desc: 'Minggu 3 (Default Referensi)',
+          desc: 'Minggu 3',
         },
         {
           id: 3,
@@ -342,15 +342,10 @@ export default function DatePickerModal({
                     </Text>
                     <Text style={styles.weekItemDesc}>
                       {week.desc}
-                      {isDefaultWeek ? ' • Data Tersedia' : ''}
                     </Text>
                   </View>
                 </View>
-                {isDefaultWeek && (
-                  <View style={styles.badgeDataReady}>
-                    <Text style={styles.badgeDataReadyText}>Default</Text>
-                  </View>
-                )}
+
               </TouchableOpacity>
             );
           })}

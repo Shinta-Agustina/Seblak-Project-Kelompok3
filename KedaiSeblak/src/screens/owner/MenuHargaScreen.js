@@ -180,7 +180,7 @@ export default function MenuHargaScreen({ isEmbedded = false, navigation }) {
             />
             <TextInput
               style={styles.searchInput}
-              placeholder="Cari menu seblak..."
+              placeholder="Cari menu..."
               placeholderTextColor="#A69A90"
               value={searchQuery}
               onChangeText={(text) => setSearchQuery(text)}

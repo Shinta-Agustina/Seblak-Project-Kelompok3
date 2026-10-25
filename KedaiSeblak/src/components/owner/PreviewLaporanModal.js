@@ -12,12 +12,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import formatCurrency from '../../utils/formatCurrency';
 import ComboBarLineChart from './ComboBarLineChart';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { FINANCIAL_REPORT_DATA } from '../../data/mockFinancialReport';
 
-const WARNA_PRIMARY = '#52141D'; // Deep Maroon Identity
-const WARNA_TOMBOL = '#C62828';  // Tombol Utama Login / Crimson
-const WARNA_SUCCESS = '#168653'; // Hijau Laba Bersih
-const WARNA_EXPENSE = '#DC2626'; // Merah Pengeluaran
+const WARNA_PRIMARY = '#52141D';
+const WARNA_TOMBOL = '#C62828';
+const WARNA_SUCCESS = '#168653';
+const WARNA_EXPENSE = '#DC2626';
 
 export default function PreviewLaporanModal({
   visible,
@@ -43,9 +45,9 @@ export default function PreviewLaporanModal({
   } = reportData;
 
   const harianExpensesList =
-    (rekapPengeluaranHarian && rekapPengeluaranHarian.length > 0)
+    rekapPengeluaranHarian && rekapPengeluaranHarian.length > 0
       ? rekapPengeluaranHarian
-      : (FINANCIAL_REPORT_DATA?.harian?.rekapPengeluaranHarian || []);
+      : FINANCIAL_REPORT_DATA?.harian?.rekapPengeluaranHarian || [];
 
   const totalHarianExpenses = harianExpensesList.reduce(
     (sum, item) => sum + (item.total || 0),
@@ -64,37 +66,47 @@ export default function PreviewLaporanModal({
 
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Helper memuat html2pdf bundle dari CDN secara dinamis dan aman
   const loadHtml2Pdf = () => {
     return new Promise((resolve, reject) => {
-      if (typeof window === 'undefined') return reject(new Error('Window not available'));
+      if (typeof window === 'undefined') {
+        return reject(new Error('Window not available'));
+      }
+
       if (window.html2pdf) return resolve(window.html2pdf);
 
       const existing = document.getElementById('html2pdf-cdn-script');
       if (existing) {
         existing.addEventListener('load', () => resolve(window.html2pdf));
+        existing.addEventListener('error', reject);
         return;
       }
 
       const script = document.createElement('script');
       script.id = 'html2pdf-cdn-script';
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      script.src =
+        'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
       script.onload = () => resolve(window.html2pdf);
-      script.onerror = (err) => reject(err);
+      script.onerror = reject;
       document.head.appendChild(script);
     });
   };
 
-  // Fallback pengunduhan berkas HTML siap cetak jika offline / kendala jaringan
   const downloadHtmlBlobFallback = (element, filename) => {
     if (typeof window === 'undefined' || !element) return;
+
     const content = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <title>${filename.replace(/\.pdf$/i, '')}</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #FFFFFF; margin: 0; padding: 20px; color: #2C1810; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #FFFFFF;
+      margin: 0;
+      padding: 20px;
+      color: #2C1810;
+    }
     * { box-sizing: border-box; }
     @media print { body { padding: 0; } }
   </style>
@@ -108,6 +120,7 @@ export default function PreviewLaporanModal({
   </script>
 </body>
 </html>`;
+
     const blob = new Blob([content], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -124,6 +137,7 @@ export default function PreviewLaporanModal({
       try {
         const printStyleId = 'seblak-print-style';
         let styleEl = document.getElementById(printStyleId);
+
         if (!styleEl) {
           styleEl = document.createElement('style');
           styleEl.id = printStyleId;
@@ -154,6 +168,7 @@ export default function PreviewLaporanModal({
           `;
           document.head.appendChild(styleEl);
         }
+
         window.print();
       } catch (err) {
         Alert.alert('Cetak Laporan', 'Gagal mencetak: ' + err.message);
@@ -172,27 +187,31 @@ export default function PreviewLaporanModal({
 
     if (Platform.OS === 'web') {
       const element = document.getElementById('printable-laporan-keuangan');
+
       if (!element) {
         handlePrint();
         return;
       }
 
       setIsDownloading(true);
+
       try {
         const html2pdf = await loadHtml2Pdf();
+
         const opt = {
           margin: [8, 8, 8, 8],
-          filename: filename,
+          filename,
           image: { type: 'jpeg', quality: 0.98 },
           html2canvas: { scale: 2, useCORS: true, logging: false },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         };
+
         await html2pdf().set(opt).from(element).save();
-        setIsDownloading(false);
       } catch (err) {
         console.warn('html2pdf download fallback:', err);
         downloadHtmlBlobFallback(element, filename);
         handlePrint();
+      } finally {
         setIsDownloading(false);
       }
     } else {
@@ -206,7 +225,7 @@ export default function PreviewLaporanModal({
   return (
     <Modal
       visible={visible}
-      transparent={true}
+      transparent
       animationType="slide"
       onRequestClose={onClose}
     >
@@ -215,12 +234,18 @@ export default function PreviewLaporanModal({
           {/* Top Bar Preview */}
           <View style={styles.topBar}>
             <View style={styles.topBarLeft}>
-              <TouchableOpacity onPress={onClose} style={styles.backBtn} activeOpacity={0.7}>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.backBtn}
+                activeOpacity={0.7}
+              >
                 <Ionicons name="arrow-back" size={20} color="#2C1810" />
               </TouchableOpacity>
+
               <Text style={styles.topBarTitle}>Preview Laporan</Text>
             </View>
 
+            {/* Tombol cetak atas tetap dipertahankan */}
             <TouchableOpacity
               onPress={handlePrint}
               style={styles.printHeaderIconBtn}
@@ -231,34 +256,34 @@ export default function PreviewLaporanModal({
             </TouchableOpacity>
           </View>
 
-          {/* Kertas Dokumen Laporan (Formal Document Sheet) */}
+          {/* Kertas Dokumen Laporan */}
           <ScrollView
             style={styles.documentScroll}
             contentContainerStyle={styles.documentContent}
-            showsVerticalScrollIndicator={true}
+            showsVerticalScrollIndicator
           >
             <View
               nativeID="printable-laporan-keuangan"
               style={styles.paperSheet}
             >
-              {/* KOP LAPORAN SESUAI STRUK KASIR & WIREFRAME */}
+              {/* KOP LAPORAN */}
               <View style={styles.docBrandHeader}>
                 <View style={styles.logoCircle}>
                   <Text style={styles.logoEmoji}>🍲</Text>
                 </View>
+
                 <Text style={styles.brandTitleText}>Seblak Prasmanan</Text>
                 <Text style={styles.brandSubText}>Laporan Keuangan</Text>
 
                 <View style={styles.kopLine} />
 
-                {/* Judul Laporan */}
                 <Text style={styles.reportDocTitle}>{titleDokumen}</Text>
 
-                {/* Meta Periode & Tanggal Cetak */}
                 <View style={styles.metaRow}>
                   <Text style={styles.metaText}>
                     <Text style={styles.metaBold}>Periode:</Text> {periodeLabel}
                   </Text>
+
                   <Text style={styles.metaText}>
                     <Text style={styles.metaBold}>Tanggal Cetak:</Text> {tanggalCetak}
                   </Text>
@@ -267,49 +292,70 @@ export default function PreviewLaporanModal({
 
               {/* 1. RINGKASAN KEUANGAN */}
               <View style={styles.docSection}>
-                <Text style={styles.sectionHeaderTitle}>RINGKASAN KEUANGAN</Text>
+                <Text style={styles.sectionHeaderTitle}>
+                  RINGKASAN KEUANGAN
+                </Text>
+
                 <View style={styles.summaryDualBox}>
-                  {/* Total Omzet */}
                   <View style={styles.summaryBoxCol}>
                     <Text style={styles.summaryBoxLabel}>Total Omzet</Text>
-                    <Text style={[styles.summaryBoxVal, { color: WARNA_PRIMARY }]}>
+                    <Text
+                      style={[
+                        styles.summaryBoxVal,
+                        { color: WARNA_PRIMARY },
+                      ]}
+                    >
                       {formatCurrency(summary.omzet)}
                     </Text>
                   </View>
 
-                  {/* Total Pengeluaran */}
                   <View style={styles.summaryBoxCol}>
-                    <Text style={styles.summaryBoxLabel}>Total Pengeluaran</Text>
-                    <Text style={[styles.summaryBoxVal, { color: WARNA_EXPENSE }]}>
+                    <Text style={styles.summaryBoxLabel}>
+                      Total Pengeluaran
+                    </Text>
+                    <Text
+                      style={[
+                        styles.summaryBoxVal,
+                        { color: WARNA_EXPENSE },
+                      ]}
+                    >
                       {formatCurrency(summary.pengeluaran)}
                     </Text>
                   </View>
 
-                  {/* Laba Bersih */}
                   <View style={styles.summaryBoxCol}>
                     <Text style={styles.summaryBoxLabel}>Laba Bersih</Text>
-                    <Text style={[styles.summaryBoxVal, { color: WARNA_SUCCESS }]}>
+                    <Text
+                      style={[
+                        styles.summaryBoxVal,
+                        { color: WARNA_SUCCESS },
+                      ]}
+                    >
                       {formatCurrency(summary.labaBersih)}
                     </Text>
                   </View>
                 </View>
               </View>
 
-              {/* 2. GRAFIK KEUANGAN (GRAFIK BATANG & GARIS DENGAN HITUNGAN SKALA) */}
+              {/* 2. GRAFIK KEUANGAN */}
               <View style={styles.docSection}>
                 <Text style={styles.sectionHeaderTitle}>GRAFIK KEUANGAN</Text>
+
                 <View style={styles.chartPaperBox}>
                   <ComboBarLineChart
                     data={chart}
                     height={175}
-                    showLegend={true}
+                    showLegend
                   />
                 </View>
               </View>
 
-              {/* 3. PENGELUARAN TERBESAR (TOP 3) */}
+              {/* 3. PENGELUARAN TERBESAR */}
               <View style={styles.docSection}>
-                <Text style={styles.sectionHeaderTitle}>PENGELUARAN TERBESAR (TOP 3)</Text>
+                <Text style={styles.sectionHeaderTitle}>
+                  PENGELUARAN TERBESAR (TOP 3)
+                </Text>
+
                 <View style={styles.tableCard}>
                   {topPengeluaran.slice(0, 3).map((item, idx) => (
                     <View
@@ -319,14 +365,21 @@ export default function PreviewLaporanModal({
                         idx === 2 && styles.tableRowItemLast,
                       ]}
                     >
-                      <Text style={styles.rowRankNum}>{item.rank.replace(/^0/, '')}</Text>
+                      <Text style={styles.rowRankNum}>
+                        {(item.rank || '').replace(/^0/, '')}
+                      </Text>
+
                       <Text style={{ fontSize: 13, marginRight: 6 }}>
                         {getToppingEmoji(item.nama)}
                       </Text>
+
                       <Text style={styles.rowItemName}>{item.nama}</Text>
+
                       <Text style={styles.rowItemNominal}>
                         {formatCurrency(item.nominal)}{' '}
-                        <Text style={styles.rowItemPct}>({item.persen}%)</Text>
+                        <Text style={styles.rowItemPct}>
+                          ({item.persen}%)
+                        </Text>
                       </Text>
                     </View>
                   ))}
@@ -345,11 +398,12 @@ export default function PreviewLaporanModal({
 
                 {periodeType === 'harian' ? (
                   <>
-                    {/* Ringkasan Aktivitas */}
                     <View style={styles.activityBox}>
                       {ringkasanAktivitas.map((act, idx) => (
                         <View key={idx} style={styles.activityItem}>
-                          <Text style={styles.activityItemLabel}>{act.label}</Text>
+                          <Text style={styles.activityItemLabel}>
+                            {act.label}
+                          </Text>
                           <Text style={styles.activityItemVal}>
                             {act.value} {act.unit}
                           </Text>
@@ -357,14 +411,48 @@ export default function PreviewLaporanModal({
                       ))}
                     </View>
 
-                    {/* Tabel Rekap Pengeluaran Harian Sesuai Data Proyek */}
                     <View style={[styles.tableCard, { marginTop: 10 }]}>
                       <View style={styles.thRow}>
-                        <Text style={[styles.thCell, { width: 28, textAlign: 'center' }]}>No</Text>
-                        <Text style={[styles.thCell, { width: 50, textAlign: 'center' }]}>Waktu</Text>
-                        <Text style={[styles.thCell, { flex: 1, paddingHorizontal: 4 }]}>List Topping</Text>
-                        <Text style={[styles.thCell, { width: 60, textAlign: 'center' }]}>Jumlah</Text>
-                        <Text style={[styles.thCell, { width: 88, textAlign: 'right' }]}>Total Biaya</Text>
+                        <Text
+                          style={[
+                            styles.thCell,
+                            { width: 28, textAlign: 'center' },
+                          ]}
+                        >
+                          No
+                        </Text>
+                        <Text
+                          style={[
+                            styles.thCell,
+                            { width: 50, textAlign: 'center' },
+                          ]}
+                        >
+                          Waktu
+                        </Text>
+                        <Text
+                          style={[
+                            styles.thCell,
+                            { flex: 1, paddingHorizontal: 4 },
+                          ]}
+                        >
+                          List Topping
+                        </Text>
+                        <Text
+                          style={[
+                            styles.thCell,
+                            { width: 60, textAlign: 'center' },
+                          ]}
+                        >
+                          Jumlah
+                        </Text>
+                        <Text
+                          style={[
+                            styles.thCell,
+                            { width: 88, textAlign: 'right' },
+                          ]}
+                        >
+                          Total Biaya
+                        </Text>
                       </View>
 
                       {harianExpensesList.map((row, idx) => (
@@ -373,29 +461,69 @@ export default function PreviewLaporanModal({
                           style={[
                             styles.tdRow,
                             idx % 2 === 1 && styles.tdRowAlt,
-                            idx === harianExpensesList.length - 1 && styles.tableRowItemLast,
+                            idx === harianExpensesList.length - 1 &&
+                              styles.tableRowItemLast,
                           ]}
                         >
-                          <Text style={[styles.tdCell, { width: 28, textAlign: 'center', color: '#78665E' }]}>
+                          <Text
+                            style={[
+                              styles.tdCell,
+                              {
+                                width: 28,
+                                textAlign: 'center',
+                                color: '#78665E',
+                              },
+                            ]}
+                          >
                             {row.no || idx + 1}
                           </Text>
-                          <Text style={[styles.tdCell, { width: 50, textAlign: 'center', color: '#78665E' }]}>
+
+                          <Text
+                            style={[
+                              styles.tdCell,
+                              {
+                                width: 50,
+                                textAlign: 'center',
+                                color: '#78665E',
+                              },
+                            ]}
+                          >
                             {row.waktu}
                           </Text>
-                          <Text
-                            style={[styles.tdCell, styles.boldCell, { flex: 1, paddingHorizontal: 4 }]}
-                            numberOfLines={1}
-                          >
-                            {row.keterangan}
-                          </Text>
-                          <Text style={[styles.tdCell, { width: 60, textAlign: 'center', color: '#55453E' }]}>
-                            {row.jumlah} {row.satuan || 'kg'}
-                          </Text>
+
                           <Text
                             style={[
                               styles.tdCell,
                               styles.boldCell,
-                              { width: 88, textAlign: 'right', color: WARNA_EXPENSE },
+                              { flex: 1, paddingHorizontal: 4 },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {row.keterangan}
+                          </Text>
+
+                          <Text
+                            style={[
+                              styles.tdCell,
+                              {
+                                width: 60,
+                                textAlign: 'center',
+                                color: '#55453E',
+                              },
+                            ]}
+                          >
+                            {row.jumlah} {row.satuan || 'kg'}
+                          </Text>
+
+                          <Text
+                            style={[
+                              styles.tdCell,
+                              styles.boldCell,
+                              {
+                                width: 88,
+                                textAlign: 'right',
+                                color: WARNA_EXPENSE,
+                              },
                             ]}
                           >
                             {formatCurrency(row.total)}
@@ -403,41 +531,65 @@ export default function PreviewLaporanModal({
                         </View>
                       ))}
 
-                      {/* Footer Total Pengeluaran */}
                       <View style={styles.tfootRow}>
                         <Text style={styles.tfootLabel}>
-                          Total Pengeluaran ({harianExpensesList.length} Pembelian Topping)
+                          Total Pengeluaran ({harianExpensesList.length}{' '}
+                          Pembelian Topping)
                         </Text>
                         <Text style={styles.tfootValue}>
-                          {formatCurrency(totalHarianExpenses || summary.pengeluaran || 1060000)}
+                          {formatCurrency(
+                            totalHarianExpenses ||
+                              summary.pengeluaran ||
+                              1060000
+                          )}
                         </Text>
                       </View>
                     </View>
                   </>
                 ) : (
                   <>
-                    {periodeType === 'bulanan' && ringkasanBulanan.length > 0 && (
-                      <View style={[styles.activityBox, { marginBottom: 10 }]}>
-                        {ringkasanBulanan.map((act, idx) => (
-                          <View key={idx} style={styles.activityItem}>
-                            <Text style={styles.activityItemLabel}>{act.label}</Text>
-                            <Text style={styles.activityItemVal}>
-                              {act.value} {act.unit}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
+                    {periodeType === 'bulanan' &&
+                      ringkasanBulanan.length > 0 && (
+                        <View
+                          style={[
+                            styles.activityBox,
+                            { marginBottom: 10 },
+                          ]}
+                        >
+                          {ringkasanBulanan.map((act, idx) => (
+                            <View key={idx} style={styles.activityItem}>
+                              <Text style={styles.activityItemLabel}>
+                                {act.label}
+                              </Text>
+                              <Text style={styles.activityItemVal}>
+                                {act.value} {act.unit}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
 
                     <View style={styles.tableCard}>
                       <View style={styles.thRow}>
                         <Text style={[styles.thCell, { flex: 1.4 }]}>
                           {periodeType === 'bulanan' ? 'Minggu' : 'Bulan'}
                         </Text>
-                        <Text style={[styles.thCell, { flex: 1.3, textAlign: 'right' }]}>
+
+                        <Text
+                          style={[
+                            styles.thCell,
+                            { flex: 1.3, textAlign: 'right' },
+                          ]}
+                        >
                           Pengeluaran
                         </Text>
-                        <Text style={[styles.thCell, { flex: 1.3, textAlign: 'right' }]}>
+
+                        <Text
+                          style={[
+                            styles.thCell,
+                            { flex: 1.3, textAlign: 'right' },
+                          ]}
+                        >
                           Laba Bersih
                         </Text>
                       </View>
@@ -447,16 +599,47 @@ export default function PreviewLaporanModal({
                           key={idx}
                           style={[
                             styles.tdRow,
-                            idx === rekapTabel.length - 1 && styles.tableRowItemLast,
+                            idx === rekapTabel.length - 1 &&
+                              styles.tableRowItemLast,
                           ]}
                         >
-                          <Text style={[styles.tdCell, styles.boldCell, { flex: 1.4 }]}>
-                            {row.periode.replace(/\s*2026|\s*\(.*?\)/, '')}
+                          <Text
+                            style={[
+                              styles.tdCell,
+                              styles.boldCell,
+                              { flex: 1.4 },
+                            ]}
+                          >
+                            {(row.periode || '').replace(
+                              /\s*2026|\s*\(.*?\)/,
+                              ''
+                            )}
                           </Text>
-                          <Text style={[styles.tdCell, { flex: 1.3, textAlign: 'right', color: WARNA_EXPENSE }]}>
+
+                          <Text
+                            style={[
+                              styles.tdCell,
+                              {
+                                flex: 1.3,
+                                textAlign: 'right',
+                                color: WARNA_EXPENSE,
+                              },
+                            ]}
+                          >
                             {formatCurrency(row.pengeluaran)}
                           </Text>
-                          <Text style={[styles.tdCell, styles.boldCell, { flex: 1.3, textAlign: 'right', color: WARNA_SUCCESS }]}>
+
+                          <Text
+                            style={[
+                              styles.tdCell,
+                              styles.boldCell,
+                              {
+                                flex: 1.3,
+                                textAlign: 'right',
+                                color: WARNA_SUCCESS,
+                              },
+                            ]}
+                          >
                             {formatCurrency(row.labaBersih)}
                           </Text>
                         </View>
@@ -465,39 +648,50 @@ export default function PreviewLaporanModal({
                   </>
                 )}
               </View>
-
-
-              {/* CATATAN: TIDAK ADA CATATAN OWNER SESUAI INSTRUKSI USER */}
             </View>
           </ScrollView>
 
-          {/* FOOTER TOMBOL AKSI: UNDUH FILE PDF ASLI & CETAK DOKUMEN */}
+          {/* FOOTER: UNDUH PDF DAN KEMBALI */}
           <View style={styles.bottomBar}>
-            {/* Tombol Unduh File PDF Asli */}
+            {/* Tombol Unduh File PDF tetap */}
             <TouchableOpacity
-              style={[styles.btnUnduhPdfFull, isDownloading && styles.btnDownloading]}
+              style={[
+                styles.btnUnduhPdfFull,
+                isDownloading && styles.btnDownloading,
+              ]}
               onPress={handleDownloadPDF}
               disabled={isDownloading}
               activeOpacity={0.8}
             >
               <Ionicons
-                name={isDownloading ? "hourglass-outline" : "download-outline"}
+                name={
+                  isDownloading
+                    ? 'hourglass-outline'
+                    : 'download-outline'
+                }
                 size={18}
                 color="#FFFFFF"
               />
               <Text style={styles.btnUnduhPdfFullText}>
-                {isDownloading ? 'Sedang Mengunduh PDF...' : 'Unduh File PDF'}
+                {isDownloading
+                  ? 'Sedang Mengunduh PDF...'
+                  : 'Unduh File PDF'}
               </Text>
             </TouchableOpacity>
 
-            {/* Tombol Cetak Dokumen */}
+            {/* Tombol Cetak bawah diganti menjadi Kembali */}
             <TouchableOpacity
-              style={styles.btnCetakDoc}
-              onPress={handlePrint}
+              style={styles.btnKembali}
+              onPress={onClose}
               activeOpacity={0.7}
+              accessibilityLabel="Kembali"
             >
-              <Ionicons name="print-outline" size={18} color={WARNA_PRIMARY} />
-              <Text style={styles.btnCetakDocText}>Cetak</Text>
+              <Ionicons
+                name="arrow-back"
+                size={18}
+                color={WARNA_PRIMARY}
+              />
+              <Text style={styles.btnKembaliText}>Kembali</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -826,7 +1020,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
   },
-  btnCetakDoc: {
+  btnKembali: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -838,7 +1032,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 10,
   },
-  btnCetakDocText: {
+  btnKembaliText: {
     fontSize: 13,
     fontWeight: '800',
     color: WARNA_PRIMARY,
