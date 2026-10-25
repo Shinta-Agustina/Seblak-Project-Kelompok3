@@ -11,53 +11,70 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useKasir } from '../../context/KasirContext';
 import formatCurrency from '../../utils/formatCurrency';
-import { getTodayFormatted } from '../../utils/dateUtils';
 
 const STATUS_CONFIG = {
   Diproses: { bg: '#FFF3E0', text: '#E65100', border: '#FFE0B2' },
-  Proses: { bg: '#E0F7FA', text: '#00838F', border: '#B2EBF2' },
-  Selesai: { bg: '#EDE7F6', text: '#4527A0', border: '#D1C4E9' },
+  Proses: { bg: '#FFF3E0', text: '#E65100', border: '#FFE0B2' },
+  Selesai: { bg: '#E8F5E9', text: '#2E7D32', border: '#C8E6C9' },
+};
+
+const normalizeStatus = (status) => {
+  if (status === 'Siap Bayar') return 'Diproses';
+  return status || 'Diproses';
+};
+
+const getFormattedToday = () => {
+  try {
+    return new Intl.DateTimeFormat('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(new Date());
+  } catch (e) {
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const months = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    const now = new Date();
+    return `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+  }
 };
 
 export default function PesananAktifScreen({ onOpenDetail }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
-  const { orders, updateOrderStatus, setActiveTab: setNavTab } = useKasir();
+  const { orders, updateOrderStatus } = useKasir();
 
   const [activeTab, setActiveTab] = useState('Semua');
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
 
-  // Normalize any leftover 'Siap Bayar' in memory to 'Diproses'
-  const normalizedOrders = orders.map((o) =>
-    o.status === 'Siap Bayar' ? { ...o, status: 'Diproses' } : o
-  );
-
-  const countDiproses = normalizedOrders.filter(
-    (o) => o.status === 'Diproses' || o.status === 'Proses'
+  const countDiproses = orders.filter(
+    (o) => normalizeStatus(o.status) === 'Diproses' || o.status === 'Proses'
   ).length;
-  const countSelesai = normalizedOrders.filter((o) => o.status === 'Selesai').length;
-  const totalNilaiAktif = normalizedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const countSelesai = orders.filter(
+    (o) => normalizeStatus(o.status) === 'Selesai'
+  ).length;
 
   const tabs = [
-    { id: 'Semua', label: `Semua (${normalizedOrders.length})` },
+    { id: 'Semua', label: `Semua (${orders.length})` },
     { id: 'Diproses', label: `Diproses (${countDiproses})` },
     { id: 'Selesai', label: `Selesai (${countSelesai})` },
   ];
 
-  const filteredOrders = normalizedOrders.filter((o) => {
+  const filteredOrders = orders.filter((o) => {
+    const current = normalizeStatus(o.status);
     if (activeTab === 'Semua') return true;
     if (activeTab === 'Diproses')
-      return o.status === 'Diproses' || o.status === 'Proses';
-    return o.status === activeTab;
+      return current === 'Diproses' || current === 'Proses';
+    return current === activeTab;
   });
 
   const handleCycleStatus = (order) => {
-    let nextStatus = 'Diproses';
-    if (order.status === 'Diproses' || order.status === 'Proses') {
-      nextStatus = 'Selesai';
-    } else {
-      nextStatus = 'Diproses';
-    }
+    const current = normalizeStatus(order.status);
+    const nextStatus =
+      current === 'Diproses' || current === 'Proses' ? 'Selesai' : 'Diproses';
     updateOrderStatus(order.id, nextStatus);
   };
 
@@ -100,261 +117,152 @@ export default function PesananAktifScreen({ onOpenDetail }) {
         })}
       </ScrollView>
 
-      {/* Order Content: Responsive Mobile Card List (HP) or Desktop Table */}
-      {isMobile ? (
-        <View style={styles.mobileList}>
-          {filteredOrders.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyEmoji}>📋</Text>
-              <Text style={styles.emptyText}>Tidak ada pesanan aktif</Text>
+      {/* Responsive Table Container */}
+      <View style={styles.tableCard}>
+        <ScrollView horizontal={isMobile} showsHorizontalScrollIndicator={true}>
+          <View style={[styles.tableInner, isMobile && { width: 700 }]}>
+            {/* Table Head */}
+            <View style={styles.tableHead}>
+              <Text style={[styles.th, { width: 55 }]}>No</Text>
+              <Text style={[styles.th, { width: 65 }]}>Waktu</Text>
+              <Text style={[styles.th, { width: 85 }]}>No. Meja</Text>
+              <Text style={[styles.th, { flex: 1.8 }]}>Item</Text>
+              <Text style={[styles.th, { width: 100, textAlign: 'right' }]}>
+                Total
+              </Text>
+              <Text style={[styles.th, { width: 110, textAlign: 'center' }]}>
+                Status
+              </Text>
+              <Text style={[styles.th, { width: 75, textAlign: 'center' }]}>
+                Aksi
+              </Text>
             </View>
-          ) : (
-            filteredOrders.map((order, idx) => {
-              const cfg =
-                STATUS_CONFIG[order.status] || STATUS_CONFIG['Diproses'];
 
-              return (
-                <View key={order.id || idx} style={styles.mobileOrderCard}>
-                  {/* Top Bar: Order ID, Meja, Jam, Status */}
-                  <View style={styles.mobileCardHeader}>
-                    <View style={styles.mobileMetaRow}>
-                      <View style={styles.orderIdPill}>
-                        <Text style={styles.orderIdPillText}>
-                          {order.id || `#00${idx + 1}`}
-                        </Text>
-                      </View>
-                      <View style={styles.tableBadge}>
-                        <Ionicons name="restaurant-outline" size={11} color="#4A2A22" />
-                        <Text style={styles.tableBadgeText}>
-                          {order.table || 'Meja 1'}
-                        </Text>
-                      </View>
-                      <View style={styles.timeBadge}>
-                        <Ionicons name="time-outline" size={11} color="#8D7B70" />
-                        <Text style={styles.timeBadgeText}>
-                          {order.time || '09:00'}
-                        </Text>
-                      </View>
-                    </View>
+            {/* Table Rows */}
+            {filteredOrders.length === 0 ? (
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyEmoji}>📋</Text>
+                <Text style={styles.emptyText}>Tidak ada pesanan aktif</Text>
+              </View>
+            ) : (
+              filteredOrders.map((order, idx) => {
+                const currentStatus = normalizeStatus(order.status);
+                const cfg =
+                  STATUS_CONFIG[currentStatus] || STATUS_CONFIG['Diproses'];
 
-                    {/* Status Badge */}
-                    <TouchableOpacity
+                return (
+                  <View
+                    key={order.id || idx}
+                    style={[
+                      styles.tableRow,
+                      idx % 2 === 1 && styles.rowAlternate,
+                    ]}
+                  >
+                    <Text
                       style={[
-                        styles.statusBadge,
-                        {
-                          backgroundColor: cfg.bg,
-                          borderColor: cfg.border,
-                        },
+                        styles.td,
+                        { width: 55, fontWeight: '700', color: '#8D7B70' },
                       ]}
-                      onPress={() => handleCycleStatus(order)}
-                      activeOpacity={0.7}
                     >
-                      <Text style={[styles.statusText, { color: cfg.text }]}>
-                        {order.status}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Order Items Description */}
-                  <View style={styles.mobileItemsBox}>
-                    <Ionicons
-                      name="receipt-outline"
-                      size={13}
-                      color="#8D7B70"
-                      style={{ marginTop: 2 }}
-                    />
-                    <Text style={styles.mobileItemsText} numberOfLines={2}>
+                      {order.id || `#00${idx + 1}`}
+                    </Text>
+                    <Text style={[styles.td, { width: 65, color: '#6F5C53' }]}>
+                      {order.time || '09:00'}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.td,
+                        { width: 85, fontWeight: '700', color: '#2C1810' },
+                      ]}
+                    >
+                      {order.table || 'Meja 1'}
+                    </Text>
+                    <Text
+                      style={[styles.td, { flex: 1.8, color: '#3D2820' }]}
+                      numberOfLines={1}
+                    >
                       {order.items}
                     </Text>
-                  </View>
-
-                  {/* Card Bottom: Total Price & Detail Action Button */}
-                  <View style={styles.mobileCardFooter}>
-                    <View>
-                      <Text style={styles.mobilePriceLabel}>Total</Text>
-                      <Text style={styles.mobilePriceValue}>
-                        {formatCurrency(order.total)}
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity
-                      style={styles.detailBtnMobile}
-                      onPress={() =>
-                        onOpenDetail &&
-                        onOpenDetail({
-                          orderNo: order.id,
-                          tableNo: order.table,
-                          date: order.date || getTodayFormatted(),
-                          time: order.time || '09:45',
-                          items: order.details || [
-                            {
-                              name: order.items,
-                              qty: 1,
-                              price: order.total,
-                            },
-                          ],
-                          total: order.total,
-                          method: order.metode || 'QRIS',
-                        })
-                      }
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.detailBtnMobileText}>Detail</Text>
-                      <Ionicons name="chevron-forward" size={12} color="#C62828" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })
-          )}
-        </View>
-      ) : (
-        /* Desktop / Tablet Table Container */
-        <View style={styles.tableCard}>
-          <ScrollView horizontal={false} showsHorizontalScrollIndicator={false}>
-            <View style={styles.tableInner}>
-              {/* Table Head */}
-              <View style={styles.tableHead}>
-                <Text style={[styles.th, { width: 55 }]}>No</Text>
-                <Text style={[styles.th, { width: 65 }]}>Waktu</Text>
-                <Text style={[styles.th, { width: 85 }]}>No. Meja</Text>
-                <Text style={[styles.th, { flex: 1.8 }]}>Item</Text>
-                <Text style={[styles.th, { width: 100, textAlign: 'right' }]}>
-                  Total
-                </Text>
-                <Text style={[styles.th, { width: 110, textAlign: 'center' }]}>
-                  Status
-                </Text>
-                <Text style={[styles.th, { width: 75, textAlign: 'center' }]}>
-                  Aksi
-                </Text>
-              </View>
-
-              {/* Table Rows */}
-              {filteredOrders.length === 0 ? (
-                <View style={styles.emptyBox}>
-                  <Text style={styles.emptyEmoji}>📋</Text>
-                  <Text style={styles.emptyText}>Tidak ada pesanan aktif</Text>
-                </View>
-              ) : (
-                filteredOrders.map((order, idx) => {
-                  const cfg =
-                    STATUS_CONFIG[order.status] || STATUS_CONFIG['Diproses'];
-
-                  return (
-                    <View
-                      key={order.id || idx}
+                    <Text
                       style={[
-                        styles.tableRow,
-                        idx % 2 === 1 && styles.rowAlternate,
+                        styles.td,
+                        {
+                          width: 100,
+                          textAlign: 'right',
+                          fontWeight: '800',
+                          color: '#C62828',
+                        },
                       ]}
                     >
-                      <Text
+                      {formatCurrency(order.total)}
+                    </Text>
+
+                    {/* Status Badge */}
+                    <View style={{ width: 110, alignItems: 'center' }}>
+                      <TouchableOpacity
                         style={[
-                          styles.td,
-                          { width: 55, fontWeight: '700', color: '#8D7B70' },
-                        ]}
-                      >
-                        {order.id || `#00${idx + 1}`}
-                      </Text>
-                      <Text style={[styles.td, { width: 65, color: '#6F5C53' }]}>
-                        {order.time || '09:00'}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.td,
-                          { width: 85, fontWeight: '700', color: '#2C1810' },
-                        ]}
-                      >
-                        {order.table || 'Meja 1'}
-                      </Text>
-                      <Text
-                        style={[styles.td, { flex: 1.8, color: '#3D2820' }]}
-                        numberOfLines={1}
-                      >
-                        {order.items}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.td,
+                          styles.statusBadge,
                           {
-                            width: 100,
-                            textAlign: 'right',
-                            fontWeight: '800',
-                            color: '#C62828',
+                            backgroundColor: cfg.bg,
+                            borderColor: cfg.border,
                           },
                         ]}
+                        onPress={() => handleCycleStatus(order)}
+                        activeOpacity={0.7}
+                        accessibilityHint="Ketuk untuk mengubah status"
                       >
-                        {formatCurrency(order.total)}
-                      </Text>
-
-                      {/* Status Badge */}
-                      <View style={{ width: 110, alignItems: 'center' }}>
-                        <TouchableOpacity
-                          style={[
-                            styles.statusBadge,
-                            {
-                              backgroundColor: cfg.bg,
-                              borderColor: cfg.border,
-                            },
-                          ]}
-                          onPress={() => handleCycleStatus(order)}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={[styles.statusText, { color: cfg.text }]}>
-                            {order.status}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-
-                      {/* Aksi Button: Detail */}
-                      <View style={{ width: 75, alignItems: 'center' }}>
-                        <TouchableOpacity
-                          style={styles.detailBtn}
-                          onPress={() =>
-                            onOpenDetail &&
-                            onOpenDetail({
-                              orderNo: order.id,
-                              tableNo: order.table,
-                              date: order.date || getTodayFormatted(),
-                              time: order.time || '09:45',
-                              items: order.details || [
-                                {
-                                  name: order.items,
-                                  qty: 1,
-                                  price: order.total,
-                                },
-                              ],
-                              total: order.total,
-                              method: order.metode || 'QRIS',
-                            })
-                          }
-                          activeOpacity={0.7}
-                        >
-                          <Text style={styles.detailBtnText}>Detail</Text>
-                        </TouchableOpacity>
-                      </View>
+                        <Text style={[styles.statusText, { color: cfg.text }]}>
+                          {currentStatus}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
-                  );
-                })
-              )}
-            </View>
-          </ScrollView>
-        </View>
-      )}
+
+                    {/* Aksi Button: Detail */}
+                    <View style={{ width: 75, alignItems: 'center' }}>
+                      <TouchableOpacity
+                        style={styles.detailBtn}
+                        onPress={() =>
+                          onOpenDetail &&
+                          onOpenDetail({
+                            orderNo: order.id,
+                            tableNo: order.table,
+                            date: order.date || getFormattedToday(),
+                            time: order.time || '09:45',
+                            items: order.details || [
+                              {
+                                name: order.items,
+                                qty: 1,
+                                price: order.total,
+                              },
+                            ],
+                            total: order.total,
+                            method: order.metode || 'QRIS',
+                          })
+                        }
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.detailBtnText}>Detail</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        </ScrollView>
+      </View>
 
       {/* Bottom Summary: Total Pesanan Hari Ini */}
       <View style={styles.footerSummaryCard}>
-        <View style={styles.footerLeft}>
+        <View style={{ flex: 1 }}>
           <Text style={styles.footerLabel}>Total Pesanan Hari Ini</Text>
           <Text style={styles.footerNumber}>{orders.length}</Text>
         </View>
-
         <TouchableOpacity
           style={styles.footerIconBox}
-          onPress={() => setSummaryModalVisible(true)}
           activeOpacity={0.7}
-          accessibilityLabel="Lihat rincian status pesanan"
+          onPress={() => setSummaryModalVisible(true)}
+          accessibilityLabel="Tampilkan rincian ringkasan pesanan"
         >
           <MaterialCommunityIcons
             name="receipt-text-outline"
@@ -364,7 +272,7 @@ export default function PesananAktifScreen({ onOpenDetail }) {
         </TouchableOpacity>
       </View>
 
-      {/* Modal Rincian Ringkasan Pesanan Hari Ini */}
+      {/* Modal Ringkasan Pesanan Hari Ini */}
       <Modal
         visible={summaryModalVisible}
         transparent={true}
@@ -376,7 +284,10 @@ export default function PesananAktifScreen({ onOpenDetail }) {
           activeOpacity={1}
           onPress={() => setSummaryModalVisible(false)}
         >
-          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+          <View
+            style={styles.modalContent}
+            onStartShouldSetResponder={() => true}
+          >
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={styles.modalHeaderIconBox}>
@@ -388,52 +299,93 @@ export default function PesananAktifScreen({ onOpenDetail }) {
                 </View>
                 <Text style={styles.modalTitle}>Ringkasan Pesanan Hari Ini</Text>
               </View>
-              <TouchableOpacity onPress={() => setSummaryModalVisible(false)}>
+              <TouchableOpacity
+                onPress={() => setSummaryModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
                 <Ionicons name="close" size={20} color="#8D7B70" />
               </TouchableOpacity>
             </View>
 
             <Text style={styles.modalSubtitle}>
-              Rincian status seluruh antrean pesanan aktif di kedai hari ini:
+              Statistik akumulasi pesanan yang sedang aktif dan berjalan:
             </Text>
 
             <View style={styles.summaryList}>
-              {/* Total Pesanan */}
               <View style={styles.summaryRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={{ fontSize: 16 }}>📋</Text>
-                  <Text style={styles.summaryRowLabel}>Total Antrean Pesanan</Text>
-                </View>
+                <Text style={styles.summaryRowLabel}>Total Pesanan</Text>
                 <Text style={styles.summaryRowVal}>{orders.length} Pesanan</Text>
               </View>
 
-              {/* Diproses */}
               <View style={styles.summaryRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={{ fontSize: 16 }}>🍳</Text>
-                  <Text style={styles.summaryRowLabel}>Sedang Diproses (Dapur)</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View
+                    style={[
+                      styles.statusDot,
+                      { backgroundColor: '#E65100' },
+                    ]}
+                  />
+                  <Text style={styles.summaryRowLabel}>Sedang Diproses</Text>
                 </View>
-                <View style={styles.statusPillDiproses}>
-                  <Text style={styles.statusPillTextDiproses}>{countDiproses} Pesanan</Text>
-                </View>
+                <Text
+                  style={[
+                    styles.summaryRowVal,
+                    { color: '#E65100', fontWeight: '800' },
+                  ]}
+                >
+                  {countDiproses}
+                </Text>
               </View>
 
-
-              {/* Selesai */}
               <View style={styles.summaryRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={{ fontSize: 16 }}>✅</Text>
-                  <Text style={styles.summaryRowLabel}>Selesai & Lunas</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View
+                    style={[
+                      styles.statusDot,
+                      { backgroundColor: '#2E7D32' },
+                    ]}
+                  />
+                  <Text style={styles.summaryRowLabel}>Selesai Disajikan</Text>
                 </View>
-                <View style={styles.statusPillSelesai}>
-                  <Text style={styles.statusPillTextSelesai}>{countSelesai} Pesanan</Text>
-                </View>
+                <Text
+                  style={[
+                    styles.summaryRowVal,
+                    { color: '#2E7D32', fontWeight: '800' },
+                  ]}
+                >
+                  {countSelesai}
+                </Text>
               </View>
 
-              {/* Total Nilai Pesanan */}
-              <View style={[styles.summaryRow, styles.summaryRowTotal]}>
-                <Text style={styles.summaryTotalLabel}>Estimasi Omzet Pesanan:</Text>
-                <Text style={styles.summaryTotalVal}>{formatCurrency(totalNilaiAktif)}</Text>
+              <View
+                style={[
+                  styles.summaryRow,
+                  {
+                    backgroundColor: '#FFF5F4',
+                    borderTopWidth: 1,
+                    borderColor: '#FFD6D6',
+                    marginTop: 4,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.summaryRowLabel,
+                    { fontWeight: '800', color: '#2C1810' },
+                  ]}
+                >
+                  Total Nilai Pesanan
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryRowVal,
+                    { color: '#C62828', fontWeight: '900', fontSize: 14 },
+                  ]}
+                >
+                  {formatCurrency(
+                    orders.reduce((acc, o) => acc + (o.total || 0), 0)
+                  )}
+                </Text>
               </View>
             </View>
 
@@ -462,31 +414,6 @@ const styles = StyleSheet.create({
   },
   headerSection: {
     marginBottom: 16,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  addOrderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#C62828',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    elevation: 2,
-    shadowColor: '#C62828',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  addOrderBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
   },
   title: {
     fontSize: 18,
@@ -610,8 +537,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    paddingVertical: 18,
-    paddingHorizontal: 22,
+    padding: 18,
     borderWidth: 1,
     borderColor: '#EDE5DF',
     flexDirection: 'row',
@@ -622,42 +548,24 @@ const styles = StyleSheet.create({
     shadowColor: '#4A2A22',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 6,
+    shadowRadius: 5,
   },
   footerLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#8D7B70',
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    fontWeight: '600',
   },
   footerNumber: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '900',
     color: '#2C1810',
     marginTop: 2,
   },
-  footerLeft: {
-    flex: 1,
-  },
-  footerValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 10,
-    flexWrap: 'wrap',
-  },
-  footerTag: {
-    backgroundColor: '#FFF0F0',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#FFD6D6',
-  },
-  footerTagText: {
+  footerSubText: {
     fontSize: 10,
-    color: '#C62828',
-    fontWeight: '700',
+    color: '#A09088',
+    marginTop: 4,
+    fontWeight: '500',
   },
   footerIconBox: {
     width: 44,
@@ -681,7 +589,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     width: '100%',
-    maxWidth: 440,
+    maxWidth: 420,
     borderWidth: 1,
     borderColor: '#EDE5DF',
     elevation: 6,
@@ -725,7 +633,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 9,
+    paddingVertical: 10,
     paddingHorizontal: 12,
     backgroundColor: '#FAF7F5',
     borderRadius: 10,
@@ -740,61 +648,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#2C1810',
   },
-  statusPillDiproses: {
-    backgroundColor: '#FFF3E0',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#FFE0B2',
-  },
-  statusPillTextDiproses: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#E65100',
-  },
-  statusPillSiapBayar: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#C8E6C9',
-  },
-  statusPillTextSiapBayar: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#2E7D32',
-  },
-  statusPillSelesai: {
-    backgroundColor: '#EDE7F6',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#D1C4E9',
-  },
-  statusPillTextSelesai: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#4527A0',
-  },
-  summaryRowTotal: {
-    backgroundColor: '#FFF5F5',
-    borderWidth: 1,
-    borderColor: '#FFD6D6',
-    paddingVertical: 12,
-    marginTop: 4,
-  },
-  summaryTotalLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#7E6E67',
-  },
-  summaryTotalVal: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#C62828',
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   modalCloseBtn: {
     backgroundColor: '#C62828',
@@ -807,122 +664,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
-  // Mobile Card Styles
-  mobileList: {
-    gap: 12,
-  },
-  mobileOrderCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#EDE5DF',
-    padding: 14,
-    elevation: 2,
-    shadowColor: '#4A2A22',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-  },
-  mobileCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F7F0EB',
-  },
-  mobileMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    flexWrap: 'wrap',
-  },
-  orderIdPill: {
-    backgroundColor: '#F7F0EB',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  orderIdPillText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#5C483F',
-  },
-  tableBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FFF8F0',
-    borderWidth: 1,
-    borderColor: '#FFDEC2',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  tableBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#4A2A22',
-  },
-  timeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  timeBadgeText: {
-    fontSize: 11,
-    color: '#8D7B70',
-    fontWeight: '600',
-  },
-  mobileItemsBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-    backgroundColor: '#FAF7F5',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  mobileItemsText: {
-    fontSize: 12,
-    color: '#3D2820',
-    fontWeight: '600',
-    flex: 1,
-    lineHeight: 18,
-  },
-  mobileCardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  mobilePriceLabel: {
-    fontSize: 10,
-    color: '#8D7B70',
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  mobilePriceValue: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#C62828',
-    marginTop: 1,
-  },
-  detailBtnMobile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FDECEC',
-    borderWidth: 1,
-    borderColor: '#F8D7DA',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  detailBtnMobileText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#C62828',
-  },
 });
-

@@ -11,56 +11,76 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useKasir } from '../../context/KasirContext';
 import formatCurrency from '../../utils/formatCurrency';
-import {
-  getTodayFormatted,
-  getTodayIndonesian,
-  getTodayIndonesianShort,
-  getYesterdayFormatted,
-} from '../../utils/dateUtils';
 
 const METHOD_TABS = ['Semua', 'Tunai', 'Non Tunai'];
+
+const getFormattedToday = () => {
+  try {
+    return new Intl.DateTimeFormat('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(new Date());
+  } catch (e) {
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const months = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    ];
+    const now = new Date();
+    return `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+  }
+};
+
+const getFormattedYesterday = () => {
+  try {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return new Intl.DateTimeFormat('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(yesterday);
+  } catch (e) {
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const months = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    ];
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return `${days[yesterday.getDay()]}, ${yesterday.getDate()} ${months[yesterday.getMonth()]} ${yesterday.getFullYear()}`;
+  }
+};
 
 export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const { transactions } = useKasir();
 
-  const todayStr = getTodayFormatted();
-  const todayIndo = getTodayIndonesian();
-  const todayIndoShort = getTodayIndonesianShort();
-  const yesterdayStr = getYesterdayFormatted();
-
-  // Mode filter tanggal: 'today' (harian sesuai hari aslinya), 'yesterday', atau 'all' (semua)
-  const [dateFilterMode, setDateFilterMode] = useState('today');
-  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const todayFormatted = getFormattedToday();
+  const yesterdayFormatted = getFormattedYesterday();
   const [activeMethod, setActiveMethod] = useState('Semua');
   const [currentPage, setCurrentPage] = useState(1);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [dateFilterMode, setDateFilterMode] = useState('today');
   const pageSize = 5;
 
-  // Filter transaksi berdasarkan tanggal harian (sesuai hari aslinya saat digunakan)
-  const dateFiltered = transactions.filter((t) => {
-    if (dateFilterMode === 'today') {
-      return (t.date || todayStr) === todayStr;
-    }
-    if (dateFilterMode === 'yesterday') {
-      return t.date === yesterdayStr;
-    }
-    return true;
-  });
-
-  // Filter berdasarkan metode pembayaran
-  const filtered = dateFiltered.filter((t) => {
+  // Filter transactions
+  const filtered = transactions.filter((t) => {
     if (activeMethod === 'Semua') return true;
     if (activeMethod === 'Tunai') return t.metode === 'Tunai';
     return t.metode !== 'Tunai';
   });
 
-  // Hitung total ringkasan metrik harian
-  const totalAll = dateFiltered.reduce((acc, t) => acc + (t.total || 0), 0);
-  const totalTunai = dateFiltered
+  // Calculate totals
+  const totalAll = transactions.reduce((acc, t) => acc + (t.total || 0), 0);
+  const totalTunai = transactions
     .filter((t) => t.metode === 'Tunai')
     .reduce((acc, t) => acc + (t.total || 0), 0);
-  const totalNonTunai = dateFiltered
+  const totalNonTunai = transactions
     .filter((t) => t.metode !== 'Tunai')
     .reduce((acc, t) => acc + (t.total || 0), 0);
 
@@ -70,13 +90,6 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
-
-  const filterBoxLabel =
-    dateFilterMode === 'today'
-      ? (isMobile ? todayIndoShort : todayIndo)
-      : dateFilterMode === 'yesterday'
-      ? `Kemarin (${yesterdayStr})`
-      : 'Semua Tanggal';
 
   return (
     <ScrollView
@@ -91,26 +104,34 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
           isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 10 },
         ]}
       >
-        <View>
-          <Text style={styles.title}>Riwayat Transaksi</Text>
-        </View>
+        <Text style={styles.title}>Riwayat Transaksi</Text>
 
         <View style={styles.dateFilterRow}>
           <TouchableOpacity
             style={styles.dateRangeBox}
+            activeOpacity={0.8}
             onPress={() => setFilterModalVisible(true)}
-            activeOpacity={0.7}
           >
-            <Ionicons name="calendar-outline" size={15} color="#C62828" />
-            <Text style={styles.dateRangeText}>{filterBoxLabel}</Text>
-            <Ionicons name="chevron-down" size={12} color="#8D7B70" />
+            <Ionicons name="calendar-outline" size={16} color="#C62828" />
+            <Text style={styles.dateRangeText}>
+              {dateFilterMode === 'today'
+                ? todayFormatted
+                : dateFilterMode === 'yesterday'
+                ? 'Kemarin'
+                : 'Semua Riwayat'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.filterBtn}
-            onPress={() => setFilterModalVisible(true)}
             activeOpacity={0.8}
+            onPress={() => setFilterModalVisible(true)}
           >
-            <Ionicons name="filter-outline" size={13} color="#FFFFFF" />
+            <Ionicons
+              name="filter-outline"
+              size={13}
+              color="#FFFFFF"
+              style={{ marginRight: 4 }}
+            />
             <Text style={styles.filterBtnText}>Filter</Text>
           </TouchableOpacity>
         </View>
@@ -193,78 +214,83 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         })}
       </View>
 
-      {/* Content: Responsive Mobile Cards or Desktop Table */}
-      {isMobile ? (
-        <View style={styles.mobileList}>
-          {paginatedItems.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyEmoji}>📋</Text>
-              <Text style={styles.emptyText}>Tidak ada riwayat transaksi pada tanggal ini</Text>
+      {/* Table Card */}
+      <View style={styles.tableCard}>
+        <ScrollView horizontal={isMobile} showsHorizontalScrollIndicator={true}>
+          <View style={[styles.tableInner, isMobile && { width: 640 }]}>
+            {/* Table Head */}
+            <View style={styles.tableHead}>
+              <Text style={[styles.th, { width: 60 }]}>No</Text>
+              <Text style={[styles.th, { width: 70 }]}>Waktu</Text>
+              <Text style={[styles.th, { width: 90 }]}>No. Meja</Text>
+              <Text style={[styles.th, { flex: 1.5, textAlign: 'right' }]}>
+                Total
+              </Text>
+              <Text style={[styles.th, { width: 110, textAlign: 'center' }]}>
+                Metode
+              </Text>
+              <Text style={[styles.th, { width: 75, textAlign: 'center' }]}>
+                Aksi
+              </Text>
             </View>
-          ) : (
-            paginatedItems.map((trx, idx) => (
-              <View key={trx.id || idx} style={styles.mobileTrxCard}>
-                {/* Header: No, Meja, Jam, Metode */}
-                <View style={styles.mobileCardHeader}>
-                  <View style={styles.mobileMetaRow}>
-                    <View style={styles.trxIdPill}>
-                      <Text style={styles.trxIdPillText}>{trx.no || `#00${idx + 1}`}</Text>
-                    </View>
-                    <View style={styles.tableBadge}>
-                      <Ionicons name="restaurant-outline" size={11} color="#4A2A22" />
-                      <Text style={styles.tableBadgeText}>{trx.meja}</Text>
-                    </View>
-                    <View style={styles.timeBadge}>
-                      <Ionicons name="time-outline" size={11} color="#8D7B70" />
-                      <Text style={styles.timeBadgeText}>{trx.waktu}</Text>
-                    </View>
-                  </View>
 
-                  <View
-                    style={[
-                      styles.methodBadge,
-                      trx.metode === 'Tunai' ? styles.methodTunai : styles.methodNonTunai,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.methodBadgeText,
-                        trx.metode === 'Tunai' ? styles.methodTunaiText : styles.methodNonTunaiText,
-                      ]}
-                    >
-                      {trx.metode}
-                    </Text>
-                  </View>
-                </View>
+            {/* Table Rows */}
+            {paginatedItems.map((trx, idx) => (
+              <View
+                key={trx.id || idx}
+                style={[styles.tableRow, idx % 2 === 1 && styles.rowAlternate]}
+              >
+                <Text
+                  style={[
+                    styles.td,
+                    { width: 60, fontWeight: '700', color: '#8D7B70' },
+                  ]}
+                >
+                  {trx.no || `#00${idx + 1}`}
+                </Text>
+                <Text style={[styles.td, { width: 70, color: '#6F5C53' }]}>
+                  {trx.waktu}
+                </Text>
+                <Text
+                  style={[
+                    styles.td,
+                    { width: 90, fontWeight: '700', color: '#2C1810' },
+                  ]}
+                >
+                  {trx.meja}
+                </Text>
+                <Text
+                  style={[
+                    styles.td,
+                    {
+                      flex: 1.5,
+                      textAlign: 'right',
+                      fontWeight: '800',
+                      color: '#C62828',
+                    },
+                  ]}
+                >
+                  {formatCurrency(trx.total)}
+                </Text>
+                <Text
+                  style={[
+                    styles.td,
+                    { width: 110, textAlign: 'center', color: '#4A3028' },
+                  ]}
+                >
+                  {trx.metode}
+                </Text>
 
-                {/* Items Summary */}
-                <View style={styles.mobileItemsBox}>
-                  <Ionicons
-                    name="receipt-outline"
-                    size={13}
-                    color="#8D7B70"
-                    style={{ marginTop: 2 }}
-                  />
-                  <Text style={styles.mobileItemsText} numberOfLines={2}>
-                    {trx.item || '1 Paket Seblak'}
-                  </Text>
-                </View>
-
-                {/* Card Bottom: Total Price & Struk Action */}
-                <View style={styles.mobileCardFooter}>
-                  <View>
-                    <Text style={styles.mobilePriceLabel}>Total Transaksi</Text>
-                    <Text style={styles.mobilePriceValue}>{formatCurrency(trx.total)}</Text>
-                  </View>
-
+                {/* Detail Aksi */}
+                <View style={{ width: 75, alignItems: 'center' }}>
                   <TouchableOpacity
-                    style={styles.detailBtnMobile}
+                    style={styles.detailBtn}
                     onPress={() =>
                       onOpenReceipt &&
                       onOpenReceipt({
                         orderNo: trx.no,
                         tableNo: trx.meja,
-                        date: trx.date || todayStr,
+                        date: trx.date || todayFormatted,
                         time: trx.waktu,
                         items: [
                           {
@@ -279,125 +305,14 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
                     }
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="receipt-outline" size={13} color="#C62828" />
-                    <Text style={styles.detailBtnMobileText}>Struk</Text>
+                    <Text style={styles.detailBtnText}>Detail</Text>
                   </TouchableOpacity>
                 </View>
               </View>
-            ))
-          )}
-        </View>
-      ) : (
-        /* Desktop Table View */
-        <View style={styles.tableCard}>
-          <View style={styles.tableInner}>
-            {/* Table Head */}
-            <View style={styles.tableHead}>
-              <Text style={[styles.th, { width: 55 }]}>No</Text>
-              <Text style={[styles.th, { width: 90 }]}>Waktu / Tgl</Text>
-              <Text style={[styles.th, { width: 85 }]}>No. Meja</Text>
-              <Text style={[styles.th, { flex: 1.5 }]}>Item</Text>
-              <Text style={[styles.th, { width: 110, textAlign: 'right' }]}>Total</Text>
-              <Text style={[styles.th, { width: 100, textAlign: 'center' }]}>Metode</Text>
-              <Text style={[styles.th, { width: 75, textAlign: 'center' }]}>Aksi</Text>
-            </View>
-
-            {/* Table Rows */}
-            {paginatedItems.length === 0 ? (
-              <View style={styles.emptyBox}>
-                <Text style={styles.emptyEmoji}>📋</Text>
-                <Text style={styles.emptyText}>Tidak ada riwayat transaksi pada tanggal ini</Text>
-              </View>
-            ) : (
-              paginatedItems.map((trx, idx) => (
-                <View
-                  key={trx.id || idx}
-                  style={[styles.tableRow, idx % 2 === 1 && styles.rowAlternate]}
-                >
-                  <Text style={[styles.td, { width: 55, fontWeight: '700', color: '#8D7B70' }]}>
-                    {trx.no || `#00${idx + 1}`}
-                  </Text>
-                  <View style={{ width: 90 }}>
-                    <Text style={[styles.td, { color: '#3D2820', fontWeight: '700' }]}>
-                      {trx.waktu}
-                    </Text>
-                    <Text style={{ fontSize: 10, color: '#8D7B70', marginTop: 1 }}>
-                      {trx.date || todayStr}
-                    </Text>
-                  </View>
-                  <Text style={[styles.td, { width: 85, fontWeight: '700', color: '#2C1810' }]}>
-                    {trx.meja}
-                  </Text>
-                  <Text style={[styles.td, { flex: 1.5, color: '#3D2820' }]} numberOfLines={1}>
-                    {trx.item || '1 Paket Seblak'}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.td,
-                      {
-                        width: 110,
-                        textAlign: 'right',
-                        fontWeight: '800',
-                        color: '#C62828',
-                      },
-                    ]}
-                  >
-                    {formatCurrency(trx.total)}
-                  </Text>
-                  <View style={{ width: 100, alignItems: 'center' }}>
-                    <View
-                      style={[
-                        styles.methodBadge,
-                        trx.metode === 'Tunai' ? styles.methodTunai : styles.methodNonTunai,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.methodBadgeText,
-                          trx.metode === 'Tunai'
-                            ? styles.methodTunaiText
-                            : styles.methodNonTunaiText,
-                        ]}
-                      >
-                        {trx.metode}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Detail Aksi */}
-                  <View style={{ width: 75, alignItems: 'center' }}>
-                    <TouchableOpacity
-                      style={styles.detailBtn}
-                      onPress={() =>
-                        onOpenReceipt &&
-                        onOpenReceipt({
-                          orderNo: trx.no,
-                          tableNo: trx.meja,
-                          date: trx.date || todayStr,
-                          time: trx.waktu,
-                          items: [
-                            {
-                              name: trx.item || '1 Paket Seblak',
-                              qty: 1,
-                              price: trx.total,
-                            },
-                          ],
-                          total: trx.total,
-                          method: trx.metode,
-                        })
-                      }
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.detailBtnText}>Detail</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))
-            )}
+            ))}
           </View>
-        </View>
-      )}
-
+        </ScrollView>
+      </View>
 
       {/* Pagination Footer */}
       <View style={styles.paginationRow}>
@@ -442,7 +357,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         </TouchableOpacity>
       </View>
 
-      {/* Date Filter Modal */}
+      {/* Modal Filter Tanggal */}
       <Modal
         visible={filterModalVisible}
         transparent={true}
@@ -454,22 +369,28 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
           activeOpacity={1}
           onPress={() => setFilterModalVisible(false)}
         >
-          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+          <View
+            style={styles.modalContent}
+            onStartShouldSetResponder={() => true}
+          >
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name="calendar" size={18} color="#C62828" />
-                <Text style={styles.modalTitle}>Filter Tanggal Transaksi</Text>
+                <Ionicons name="calendar-outline" size={18} color="#C62828" />
+                <Text style={styles.modalTitle}>Filter Riwayat Transaksi</Text>
               </View>
-              <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+              <TouchableOpacity
+                onPress={() => setFilterModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
                 <Ionicons name="close" size={20} color="#8D7B70" />
               </TouchableOpacity>
             </View>
 
             <Text style={styles.modalSubtitle}>
-              Gunakan filter ini untuk menyaring riwayat transaksi kasir berdasarkan periode tanggal yang diinginkan:
+              Pilih rentang waktu transaksi yang ingin ditampilkan:
             </Text>
 
-            {/* Opsi 1: Hari Ini (Harian Sesuai Tanggal Aslinya) */}
+            {/* Opsi 1: Hari Ini */}
             <TouchableOpacity
               style={[
                 styles.filterOptionBtn,
@@ -483,7 +404,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
               activeOpacity={0.7}
             >
               <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Text
                     style={[
                       styles.optionTitle,
@@ -493,12 +414,10 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
                     Hari Ini (Harian)
                   </Text>
                   <View style={styles.badgeHarian}>
-                    <Text style={styles.badgeHarianText}>Otomatis Hari Ini</Text>
+                    <Text style={styles.badgeHarianText}>Otomatis</Text>
                   </View>
                 </View>
-                <Text style={styles.optionSub}>
-                  {todayIndo} ({todayStr})
-                </Text>
+                <Text style={styles.optionSub}>{todayFormatted}</Text>
               </View>
               {dateFilterMode === 'today' && (
                 <Ionicons name="checkmark-circle" size={20} color="#C62828" />
@@ -519,17 +438,29 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
               activeOpacity={0.7}
             >
               <View style={{ flex: 1 }}>
-                <Text
-                  style={[
-                    styles.optionTitle,
-                    dateFilterMode === 'yesterday' && styles.optionTitleActive,
-                  ]}
-                >
-                  Kemarin
-                </Text>
-                <Text style={styles.optionSub}>
-                  Rekap transaksi hari sebelumnya ({yesterdayStr})
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text
+                    style={[
+                      styles.optionTitle,
+                      dateFilterMode === 'yesterday' && styles.optionTitleActive,
+                    ]}
+                  >
+                    Kemarin
+                  </Text>
+                  <View
+                    style={[
+                      styles.badgeHarian,
+                      { backgroundColor: '#E3F2FD', borderColor: '#BBDEFB' },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.badgeHarianText, { color: '#1565C0' }]}
+                    >
+                      Otomatis
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.optionSub}>{yesterdayFormatted}</Text>
               </View>
               {dateFilterMode === 'yesterday' && (
                 <Ionicons name="checkmark-circle" size={20} color="#C62828" />
@@ -799,26 +730,6 @@ const styles = StyleSheet.create({
   pageBtnTextActive: {
     color: '#FFFFFF',
   },
-  todaySubText: {
-    fontSize: 12,
-    color: '#C62828',
-    fontWeight: '700',
-    marginTop: 3,
-  },
-  emptyBox: {
-    padding: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyEmoji: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: '#8D7B70',
-    fontWeight: '600',
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(44, 24, 16, 0.45)',
@@ -899,146 +810,5 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#2E7D32',
     fontWeight: '800',
-  },
-  // Mobile Card Styles
-  mobileList: {
-    gap: 12,
-  },
-  mobileTrxCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#EDE5DF',
-    padding: 14,
-    elevation: 2,
-    shadowColor: '#4A2A22',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-  },
-  mobileCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F7F0EB',
-  },
-  mobileMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    flexWrap: 'wrap',
-  },
-  trxIdPill: {
-    backgroundColor: '#F7F0EB',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  trxIdPillText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#5C483F',
-  },
-  tableBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FFF8F0',
-    borderWidth: 1,
-    borderColor: '#FFDEC2',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  tableBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#4A2A22',
-  },
-  timeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  timeBadgeText: {
-    fontSize: 11,
-    color: '#8D7B70',
-    fontWeight: '600',
-  },
-  mobileItemsBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-    backgroundColor: '#FAF7F5',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  mobileItemsText: {
-    fontSize: 12,
-    color: '#3D2820',
-    fontWeight: '600',
-    flex: 1,
-    lineHeight: 18,
-  },
-  mobileCardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  mobilePriceLabel: {
-    fontSize: 10,
-    color: '#8D7B70',
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  mobilePriceValue: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#C62828',
-    marginTop: 1,
-  },
-  detailBtnMobile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#FDECEC',
-    borderWidth: 1,
-    borderColor: '#F8D7DA',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  detailBtnMobileText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#C62828',
-  },
-  methodBadge: {
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  methodTunai: {
-    backgroundColor: '#E8F5E9',
-    borderColor: '#C8E6C9',
-  },
-  methodNonTunai: {
-    backgroundColor: '#E3F2FD',
-    borderColor: '#BBDEFB',
-  },
-  methodTunaiText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#2E7D32',
-  },
-  methodNonTunaiText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#1565C0',
   },
 });
