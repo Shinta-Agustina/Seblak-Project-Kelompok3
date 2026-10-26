@@ -3,6 +3,7 @@ import {
   Modal,
   View,
   Text,
+  Image,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -12,15 +13,26 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import StatusBadge from './StatusBadge';
+import * as ImagePicker from 'expo-image-picker';
 
 const KATEGORI_OPTIONS = [
+  // Kategori topping disamakan dengan TOPPING_CATEGORIES di halaman kasir.
   'Kerupuk & Makaroni',
-  'Frozen & Daging',
-  'Telur',
-  'Bumbu & Sayur',
+  'Seafood & Olahan',
+  'Daging & Jeroan',
+  'Mie & Bihun',
+  'Telur & Tahu',
+  'Sayur & Jamur',
+  'Extra & Taburan',
+  // Bahan dasar yang tidak dijual sebagai topping.
+  'Bumbu & Kuah',
+  'Bahan Dasar',
+  'Minuman',
+  'Lainnya',
 ];
 
-const SATUAN_OPTIONS = ['kg', 'butir', 'pcs', 'pack', 'ikat', 'liter'];
+const JENIS_STOK_OPTIONS = ['Topping', 'Bumbu'];
+const SATUAN_OPTIONS = ['kg', 'gram', 'pcs', 'butir', 'bungkus', 'pack', 'ikat', 'liter', 'ml', 'unit', 'porsi'];
 
 export default function StockFormModal({
   visible,
@@ -30,12 +42,14 @@ export default function StockFormModal({
   isEdit = false,
 }) {
   const [nama, setNama] = useState('');
+  const [jenisStok, setJenisStok] = useState('Topping');
   const [kategori, setKategori] = useState('Kerupuk & Makaroni');
   const [satuan, setSatuan] = useState('kg');
   const [sisa, setSisa] = useState('');
   const [minimum, setMinimum] = useState('');
   const [supplier, setSupplier] = useState('');
   const [hargaBeli, setHargaBeli] = useState('');
+  const [foto, setFoto] = useState(null);
 
   // Visual Focus States
   const [focusedField, setFocusedField] = useState(null);
@@ -47,25 +61,46 @@ export default function StockFormModal({
     if (visible) {
       if (initialData) {
         setNama(initialData.nama || '');
+        setJenisStok(initialData.jenisStok || (['Bumbu & Kuah', 'Bahan Dasar'].includes(initialData.kategori) ? 'Bumbu' : 'Topping'));
         setKategori(initialData.kategori || 'Kerupuk & Makaroni');
         setSatuan(initialData.satuan || 'kg');
         setSisa(String(initialData.sisa ?? ''));
         setMinimum(String(initialData.minimum ?? ''));
         setSupplier(initialData.supplier || '');
         setHargaBeli(String(initialData.hargaBeli ?? ''));
+        setFoto(initialData.foto || initialData.image || null);
       } else {
         setNama('');
+        setJenisStok('Topping');
         setKategori('Kerupuk & Makaroni');
         setSatuan('kg');
         setSisa('');
         setMinimum('');
         setSupplier('');
         setHargaBeli('');
+        setFoto(null);
       }
       setErrors({});
       setFocusedField(null);
     }
   }, [visible, initialData]);
+
+  const handlePilihFoto = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        alert('Izin galeri diperlukan untuk memilih foto bahan.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8,
+      });
+      if (!result.canceled && result.assets?.[0]?.uri) setFoto(result.assets[0].uri);
+    } catch (error) {
+      console.error('Gagal memilih foto bahan:', error);
+      alert('Foto gagal dipilih. Silakan coba kembali.');
+    }
+  };
 
   // Hitung status preview otomatis
   const sisaNum = parseFloat(sisa) || 0;
@@ -106,7 +141,8 @@ export default function StockFormModal({
       ...(initialData || {}),
       id: initialData?.id || `STK-${Date.now().toString().slice(-4)}`,
       nama: nama.trim(),
-      kategori,
+      jenisStok,
+      kategori: jenisStok === 'Bumbu' && !['Bumbu & Kuah', 'Bahan Dasar', 'Lainnya'].includes(kategori) ? 'Bumbu & Kuah' : kategori,
       satuan,
       sisa: sisaNum,
       minimum: minNum,
@@ -115,6 +151,7 @@ export default function StockFormModal({
       estimasiHabisHari: minNum > 0 ? Number((sisaNum / (minNum * 0.8 || 1)).toFixed(1)) : 2.0,
       supplier: supplier.trim(),
       hargaBeli: parseFloat(hargaBeli) || 0,
+      foto: foto || null,
       riwayatRestok: initialData?.riwayatRestok || [
         {
           tanggal: '24 Okt 2026',
@@ -198,11 +235,32 @@ export default function StockFormModal({
               {errors.nama && <Text style={styles.errorText}>{errors.nama}</Text>}
             </View>
 
+            {/* Jenis stok: Topping atau Bumbu */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Jenis Stok</Text>
+              <View style={styles.pillsRow}>
+                {JENIS_STOK_OPTIONS.map((jenis) => (
+                  <TouchableOpacity
+                    key={jenis}
+                    style={[styles.pill, jenisStok === jenis && styles.pillActive]}
+                    onPress={() => {
+                      setJenisStok(jenis);
+                      setKategori(jenis === 'Bumbu' ? 'Bumbu & Kuah' : 'Kerupuk & Makaroni');
+                      setSatuan(jenis === 'Bumbu' ? 'kg' : 'pcs');
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.pillText, jenisStok === jenis && styles.pillTextActive]}>{jenis}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
             {/* Field 2: Kategori */}
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Kategori Bahan</Text>
               <View style={styles.pillsRow}>
-                {KATEGORI_OPTIONS.map((kat) => (
+                {KATEGORI_OPTIONS.filter((kat) => jenisStok === 'Bumbu' ? ['Bumbu & Kuah', 'Bahan Dasar', 'Lainnya'].includes(kat) : !['Bumbu & Kuah', 'Bahan Dasar', 'Minuman'].includes(kat)).map((kat) => (
                   <TouchableOpacity
                     key={kat}
                     style={[
@@ -223,6 +281,24 @@ export default function StockFormModal({
                   </TouchableOpacity>
                 ))}
               </View>
+            </View>
+
+            {/* Foto bahan: upload dari galeri perangkat */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Foto Bahan</Text>
+              <TouchableOpacity style={styles.photoPickerBtn} onPress={handlePilihFoto} activeOpacity={0.8}>
+                <Ionicons name="image-outline" size={18} color="#8D3D2E" />
+                <Text style={styles.photoPickerText}>{foto ? 'Ganti Foto Bahan' : 'Pilih Foto dari Galeri'}</Text>
+              </TouchableOpacity>
+              {foto ? <Image source={{ uri: foto }} style={styles.photoPreview} resizeMode="cover" /> : (
+                <View style={styles.photoPlaceholder}>
+                  <Ionicons name="image-outline" size={26} color="#A89A92" />
+                  <Text style={styles.photoPlaceholderText}>Belum ada foto bahan</Text>
+                </View>
+              )}
+              {foto ? <TouchableOpacity onPress={() => setFoto(null)} style={{ alignSelf: 'flex-start', marginTop: 8 }}>
+                <Text style={{ color: '#C62828', fontWeight: '700' }}>Hapus Foto</Text>
+              </TouchableOpacity> : null}
             </View>
 
             {/* Field 3: Satuan */}
@@ -462,6 +538,11 @@ const styles = StyleSheet.create({
   fieldGroup: {
     marginBottom: 14,
   },
+  photoPickerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#E5D8D0', borderRadius: 10, padding: 12, backgroundColor: '#FFF9F5' },
+  photoPickerText: { color: '#8D3D2E', fontWeight: '700', fontSize: 12 },
+  photoPreview: { width: 120, height: 120, borderRadius: 12, marginTop: 12, backgroundColor: '#F8F5F2' },
+  photoPlaceholder: { width: 120, height: 120, borderRadius: 12, marginTop: 12, backgroundColor: '#F8F5F2', borderWidth: 1, borderColor: '#EFE7E2', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  photoPlaceholderText: { color: '#A89A92', fontSize: 10 },
   label: {
     fontSize: 12,
     fontWeight: '700',

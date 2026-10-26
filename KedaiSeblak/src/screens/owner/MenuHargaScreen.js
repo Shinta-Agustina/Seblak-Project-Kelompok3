@@ -8,6 +8,7 @@ import {
   Image,
   useWindowDimensions,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useKasir } from '../../context/KasirContext';
@@ -17,18 +18,86 @@ import MenuFormModal from '../../components/MenuFormModal';
 import DeleteConfirmationModal from '../../components/DeleteConfirmationModal';
 import Sidebar from '../../components/Sidebar';
 import TopHeader from '../../components/TopHeader';
+import { TOPPING_ITEMS, TOPPING_CATEGORIES } from '../../data/mockData';
 
 const WARNA_CARD_OMZET = '#52141D';
 const WARNA_TOMBOL = '#C62828'; // Warna orange/merah identik button Masuk Login
 const WARNA_HARGA_JRENG = '#DC2626'; // Merah jreng cerah untuk harga (bukan maroon)
 const WARNA_GOLD = '#F59E0B';
 
+// Helper penentu label dan warna kategori topping sesuai data kasir
+export const getCategoryBadge = (kategori = '', nama = '') => {
+  const text = `${kategori} ${nama}`.toLowerCase();
+  if (
+    text.includes('seafood') ||
+    text.includes('olahan') ||
+    text.includes('dumpling') ||
+    text.includes('chikuwa') ||
+    text.includes('fish') ||
+    text.includes('crab') ||
+    text.includes('lobster') ||
+    text.includes('salmon') ||
+    text.includes('shrimp') ||
+    text.includes('scallop') ||
+    text.includes('odeng') ||
+    text.includes('bakso') ||
+    text.includes('sosis')
+  ) {
+    return { label: 'Seafood', color: '#0284C7', bg: '#E0F2FE' };
+  }
+  if (
+    text.includes('kerupuk') ||
+    text.includes('makaroni') ||
+    text.includes('cuanki') ||
+    text.includes('siomay') ||
+    text.includes('fusilli') ||
+    text.includes('penne')
+  ) {
+    return { label: 'Kerupuk', color: '#D97706', bg: '#FEF3C7' };
+  }
+  if (
+    text.includes('daging') ||
+    text.includes('jeroan') ||
+    text.includes('ayam') ||
+    text.includes('ceker') ||
+    text.includes('sayap') ||
+    text.includes('kepala')
+  ) {
+    return { label: 'Daging', color: '#DC2626', bg: '#FEE2E2' };
+  }
+  if (text.includes('telur') || text.includes('tahu')) {
+    return { label: 'Telur & Tahu', color: '#EA580C', bg: '#FFEDD5' };
+  }
+  if (
+    text.includes('sayur') ||
+    text.includes('jamur') ||
+    text.includes('sawi') ||
+    text.includes('kol') ||
+    text.includes('kangkung') ||
+    text.includes('pakcoy') ||
+    text.includes('wortel') ||
+    text.includes('jagung')
+  ) {
+    return { label: 'Sayur & Jamur', color: '#16A34A', bg: '#DCFCE7' };
+  }
+  if (
+    text.includes('mie') ||
+    text.includes('bihun') ||
+    text.includes('kwetiau') ||
+    text.includes('pasta')
+  ) {
+    return { label: 'Mie & Bihun', color: '#CA8A04', bg: '#FEF9C3' };
+  }
+  return { label: kategori || 'Topping', color: '#52141D', bg: '#FBEAEC' };
+};
+
+const FILTER_CATEGORIES = TOPPING_CATEGORIES.filter((c) => c !== 'Extra & Taburan');
+
 export default function MenuHargaScreen({ isEmbedded = false, navigation }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
 
   // Context & Menu Data
-  // TODO: Hubungkan ke REST API / backend Menu saat endpoint sudah siap (misal GET/POST/PUT/DELETE /api/v1/menus)
   const {
     menuItems = [],
     addMenuItem,
@@ -36,8 +105,24 @@ export default function MenuHargaScreen({ isEmbedded = false, navigation }) {
     deleteMenuItem,
   } = useKasir();
 
+  // Inisialisasi daftar menu yang tersinkronisasi 100% dengan data topping kasir (TOPPING_ITEMS)
+  const [localMenuItems, setLocalMenuItems] = useState(() => {
+    return TOPPING_ITEMS.map((item, idx) => ({
+      id: item.id || `menu-${idx + 1}`,
+      nama: item.nama,
+      kategori: item.kategori,
+      harga: item.harga,
+      berat: item.berat || '1 pcs',
+      stok: 20 + ((idx * 7) % 30),
+      status: 'Aktif',
+      emoji: item.emoji || '🍲',
+      image: item.image,
+    }));
+  });
+
   // Local UI States
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('Semua');
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
   // Modal States
@@ -57,17 +142,23 @@ export default function MenuHargaScreen({ isEmbedded = false, navigation }) {
     }, 3500);
   };
 
-  // Filter menu items berdasarkan query pencarian
+  // Filter menu items berdasarkan query pencarian dan kategori kasir
   const filteredMenus = useMemo(() => {
-    if (!searchQuery.trim()) return menuItems;
-    const query = searchQuery.toLowerCase().trim();
-    return menuItems.filter(
-      (item) =>
-        item.nama?.toLowerCase().includes(query) ||
-        item.status?.toLowerCase().includes(query) ||
-        item.kategori?.toLowerCase().includes(query)
-    );
-  }, [menuItems, searchQuery]);
+    return localMenuItems.filter((item) => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchQuery =
+        !q ||
+        item.nama?.toLowerCase().includes(q) ||
+        item.status?.toLowerCase().includes(q) ||
+        item.kategori?.toLowerCase().includes(q);
+
+      const matchCat =
+        selectedCategory === 'Semua' ||
+        item.kategori?.toLowerCase() === selectedCategory.toLowerCase();
+
+      return matchQuery && matchCat;
+    });
+  }, [localMenuItems, searchQuery, selectedCategory]);
 
   // Handlers: Tambah Menu
   const handleOpenAddModal = () => {
@@ -87,11 +178,25 @@ export default function MenuHargaScreen({ isEmbedded = false, navigation }) {
     try {
       if (editingItem) {
         // Edit Menu
-        updateMenuItem(editingItem.id, formData);
+        setLocalMenuItems((prev) =>
+          prev.map((item) =>
+            item.id === editingItem.id ? { ...item, ...formData } : item
+          )
+        );
+        if (updateMenuItem) updateMenuItem(editingItem.id, formData);
         showFeedback(`Menu "${formData.nama}" berhasil diperbarui.`);
       } else {
         // Tambah Menu
-        addMenuItem(formData);
+        const newItem = {
+          id: `menu-${Date.now()}`,
+          ...formData,
+          stok: formData.stok ? Number(formData.stok) : 25,
+          status: formData.status || 'Aktif',
+          berat: formData.berat || '1 pcs',
+          emoji: formData.emoji || '🍲',
+        };
+        setLocalMenuItems((prev) => [newItem, ...prev]);
+        if (addMenuItem) addMenuItem(newItem);
         showFeedback(`Menu "${formData.nama}" berhasil ditambahkan.`);
       }
       setFormModalVisible(false);
@@ -115,7 +220,10 @@ export default function MenuHargaScreen({ isEmbedded = false, navigation }) {
     setModalLoading(true);
     try {
       const deletedName = itemToDelete.nama;
-      deleteMenuItem(itemToDelete.id);
+      setLocalMenuItems((prev) =>
+        prev.filter((item) => item.id !== itemToDelete.id)
+      );
+      if (deleteMenuItem) deleteMenuItem(itemToDelete.id);
       setDeleteModalVisible(false);
       setItemToDelete(null);
       showFeedback(`Menu "${deletedName}" berhasil dihapus.`);
@@ -180,7 +288,7 @@ export default function MenuHargaScreen({ isEmbedded = false, navigation }) {
             />
             <TextInput
               style={styles.searchInput}
-              placeholder="Cari menu..."
+              placeholder="Cari topping / menu kasir..."
               placeholderTextColor="#A69A90"
               value={searchQuery}
               onChangeText={(text) => setSearchQuery(text)}
@@ -205,6 +313,38 @@ export default function MenuHargaScreen({ isEmbedded = false, navigation }) {
             <Text style={styles.addMenuBtnText}>Tambah Menu</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Chips Filter Kategori Topping Sesuai Kasir */}
+        <ScrollView
+          horizontal={true}
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryScroll}
+          contentContainerStyle={styles.categoryScrollContent}
+        >
+          {FILTER_CATEGORIES.map((cat) => {
+            const isSelected = selectedCategory === cat;
+            return (
+              <TouchableOpacity
+                key={cat}
+                style={[
+                  styles.categoryChip,
+                  isSelected && styles.categoryChipActive,
+                ]}
+                onPress={() => setSelectedCategory(cat)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.categoryChipText,
+                    isSelected && styles.categoryChipTextActive,
+                  ]}
+                >
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* 2. AREA SCROLLABLE: KARTU-KARTU MENU (SCROLL TANPA PAGINASI) */}
@@ -340,6 +480,7 @@ export default function MenuHargaScreen({ isEmbedded = false, navigation }) {
 function MenuItemCard({ item, onEdit, onDelete }) {
   const [imageError, setImageError] = useState(false);
   const isAktif = item.status === 'Aktif';
+  const catBadge = getCategoryBadge(item.kategori, item.nama);
 
   return (
     <View style={styles.card}>
@@ -354,17 +495,22 @@ function MenuItemCard({ item, onEdit, onDelete }) {
           />
         ) : (
           <View style={styles.placeholderContainer}>
-            <Text style={styles.placeholderEmoji}>{item.emoji || '🍘'}</Text>
+            <Text style={styles.placeholderEmoji}>{item.emoji || '🍲'}</Text>
           </View>
         )}
       </View>
 
-      {/* 2. Informasi Menu (Nama, Harga, Stok) */}
+      {/* 2. Informasi Menu (Nama, Harga, Satuan, Stok) */}
       <View style={styles.cardInfo}>
         <Text style={styles.cardName} numberOfLines={1}>
           {item.nama}
         </Text>
-        <Text style={styles.cardPrice}>{formatCurrency(item.harga)}</Text>
+
+        <View style={styles.cardPriceRow}>
+          <Text style={styles.cardPrice}>{formatCurrency(item.harga)}</Text>
+          <Text style={styles.cardSatuan}>/ {item.berat || 'pcs'}</Text>
+        </View>
+
         <View style={styles.stockBadge}>
           <Text style={styles.stockText}>Stok: {item.stok ?? 0}</Text>
         </View>
@@ -447,15 +593,73 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F5F2',
   },
 
-  // 1. Sticky Header Section (Search & Tambah Button)
+  // 1. Sticky Header Section (Search, Kategori & Tambah Button)
   stickyHeaderSection: {
     backgroundColor: '#F8F5F2',
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 14,
+    paddingBottom: 12,
     zIndex: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#EDE5E0',
+    ...(Platform.OS === 'web' ? { position: 'sticky', top: 0 } : {}),
+  },
+  categoryScroll: {
+    marginTop: 10,
+  },
+  categoryScrollContent: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingBottom: 2,
+  },
+  categoryChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E8DCD4',
+  },
+  categoryChipActive: {
+    backgroundColor: WARNA_CARD_OMZET,
+    borderColor: WARNA_CARD_OMZET,
+  },
+  categoryChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#78665E',
+  },
+  categoryChipTextActive: {
+    color: '#FFFFFF',
+  },
+  cardNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+    marginBottom: 4,
+  },
+  categoryBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  categoryBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  cardPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+    marginBottom: 6,
+  },
+  cardSatuan: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#78665E',
   },
   feedbackBanner: {
     flexDirection: 'row',

@@ -439,68 +439,75 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation }) {
             style={styles.catatPengeluaranBtn}
           />
 
-          {/* TABEL PENGELUARAN HARIAN (LIST TOPPING, FIT PENUH TANPA HORIZONTAL SCROLL) */}
+          {/* TABEL PENGELUARAN HARIAN (Dapat digeser menyamping jika nama/label panjang) */}
           <View style={styles.tableCard}>
-            {/* Header Kolom Tetap / Sticky */}
-            <View style={styles.tableHeaderRow}>
-              <Text style={[styles.headerColText, styles.colNo]}>No</Text>
-              <Text style={[styles.headerColText, styles.colWaktu]}>Waktu</Text>
-              <Text style={[styles.headerColText, styles.colKet]}>
-                List Topping
-              </Text>
-              <Text style={[styles.headerColText, styles.colJumlah]}>
-                Jumlah
-              </Text>
-              <Text style={[styles.headerColText, styles.colTotal]}>Total</Text>
-              <View style={styles.headerSwipeSpacer} />
-            </View>
-
-            {/* Daftar Baris Pengeluaran (FlatList dengan Swipe Action) */}
-            <FlatList
-              data={currentHarianItems}
-              keyExtractor={(item) => String(item.id)}
-              showsVerticalScrollIndicator={true}
-              style={styles.tableBodyScroll}
-              contentContainerStyle={styles.tableBodyContent}
-              renderItem={({ item, index }) => (
-                <SwipeableExpenseRow
-                  item={item}
-                  index={index}
-                  isLast={index === currentHarianItems.length - 1}
-                  onEdit={handleOpenEditModal}
-                  onDelete={handleOpenDeleteModal}
-                />
-              )}
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <View style={styles.emptyIconCircle}>
-                    <Ionicons name="receipt-outline" size={32} color={WARNA.abu} />
-                  </View>
-                  <Text style={styles.emptyTitle}>
-                    Belum Ada Catatan Pengeluaran
+            <ScrollView
+              horizontal={true}
+              showsHorizontalScrollIndicator={true}
+              contentContainerStyle={styles.tableHorizontalScroll}
+            >
+              <View style={styles.tableInnerWrapper}>
+                {/* Header Kolom Tetap / Sticky */}
+                <View style={styles.tableHeaderRow}>
+                  <Text style={[styles.headerColText, styles.colNo]}>No</Text>
+                  <Text style={[styles.headerColText, styles.colWaktu]}>Waktu</Text>
+                  <Text style={[styles.headerColText, styles.colKet]}>
+                    List Topping
                   </Text>
-                  <Text style={styles.emptySubtitle}>
-                    Tidak ada pengeluaran topping pada {harianDate}.
+                  <Text style={[styles.headerColText, styles.colJumlah]}>
+                    Jumlah
                   </Text>
-                  <TouchableOpacity
-                    style={styles.emptyAddBtn}
-                    onPress={handleOpenCreateModal}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons
-                      name="add-circle-outline"
-                      size={16}
-                      color="#FFFFFF"
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text style={styles.emptyAddBtnText}>
-                      Catat Topping Pertama
-                    </Text>
-                  </TouchableOpacity>
+                  <Text style={[styles.headerColText, styles.colTotal]}>Total</Text>
+                  <View style={styles.headerSwipeSpacer} />
                 </View>
-              }
-            />
 
+                {/* Daftar Baris Pengeluaran (FlatList dengan Swipe Action) */}
+                <FlatList
+                  data={currentHarianItems}
+                  keyExtractor={(item) => String(item.id)}
+                  showsVerticalScrollIndicator={true}
+                  style={styles.tableBodyScroll}
+                  contentContainerStyle={styles.tableBodyContent}
+                  renderItem={({ item, index }) => (
+                    <SwipeableExpenseRow
+                      item={item}
+                      index={index}
+                      isLast={index === currentHarianItems.length - 1}
+                      onEdit={handleOpenEditModal}
+                      onDelete={handleOpenDeleteModal}
+                    />
+                  )}
+                  ListEmptyComponent={
+                    <View style={styles.emptyContainer}>
+                      <View style={styles.emptyIconCircle}>
+                        <Ionicons name="receipt-outline" size={32} color={WARNA.abu} />
+                      </View>
+                      <Text style={styles.emptyTitle}>
+                        Belum Ada Catatan Pengeluaran
+                      </Text>
+                      <Text style={styles.emptySubtitle}>
+                        Tidak ada pengeluaran topping pada {harianDate}.
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.emptyAddBtn}
+                        onPress={handleOpenCreateModal}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons
+                          name="add-circle-outline"
+                          size={16}
+                          color="#FFFFFF"
+                          style={{ marginRight: 6 }}
+                        />
+                        <Text style={styles.emptyAddBtnText}>
+                          Catat Topping Pertama
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  }
+                />
+              </View>
+            </ScrollView>
           </View>
         </View>
       ) : null}
@@ -929,6 +936,14 @@ const styles = StyleSheet.create({
     borderColor: '#EDE5E0',
     overflow: 'hidden',
   },
+  tableHorizontalScroll: {
+    minWidth: 540,
+    flexGrow: 1,
+  },
+  tableInnerWrapper: {
+    minWidth: 540,
+    flex: 1,
+  },
   tableHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -937,6 +952,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#D8CBC3',
     paddingVertical: 10,
     paddingHorizontal: 8,
+    minWidth: 540,
   },
   headerColText: {
     fontSize: 12,
@@ -944,29 +960,30 @@ const styles = StyleSheet.create({
     color: WARNA.teks,
   },
   headerSwipeSpacer: {
-    width: 12,
+    width: 18,
   },
   colNo: {
-    width: 24,
+    width: 28,
     textAlign: 'center',
   },
   colWaktu: {
-    width: 48,
+    width: 50,
     textAlign: 'center',
   },
   colKet: {
     flex: 1,
+    minWidth: 240,
     paddingHorizontal: 6,
     textAlign: 'left',
   },
   colJumlah: {
-    width: 54,
+    width: 75,
     textAlign: 'center',
   },
   colTotal: {
-    width: 80,
+    width: 90,
     textAlign: 'right',
-    paddingRight: 2,
+    paddingRight: 4,
   },
   tableBodyScroll: {
     flex: 1,

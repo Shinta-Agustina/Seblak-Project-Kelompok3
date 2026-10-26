@@ -1,5 +1,5 @@
 // Master Mock Data Pengeluaran Topping Kedai Seblak (Oktober 2026)
-// 16 Oktober memiliki tepat 11 transaksi pembelian topping sesuai instruksi
+// Diselaraskan 100% dengan master data Kasir (TOPPING_ITEMS)
 
 export const MASTER_EXPENSES = [
   {
@@ -8,10 +8,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "1 Oktober 2026",
     "hari": "Kamis, 1 Oktober",
     "waktu": "08:15",
-    "keterangan": "Bakso",
+    "keterangan": "Bakso Sapi Polos",
     "jumlah": 4,
-    "satuan": "kg",
-    "total": 128000
+    "satuan": "pack",
+    "total": 128000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-2",
@@ -21,8 +22,9 @@ export const MASTER_EXPENSES = [
     "waktu": "09:45",
     "keterangan": "Chikuwa",
     "jumlah": 4,
-    "satuan": "kg",
-    "total": 100000
+    "satuan": "pack",
+    "total": 100000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-3",
@@ -30,10 +32,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "1 Oktober 2026",
     "hari": "Kamis, 1 Oktober",
     "waktu": "11:12",
-    "keterangan": "Sawi",
+    "keterangan": "Sawi Hijau (Caisim)",
     "jumlah": 6,
     "satuan": "kg",
-    "total": 60000
+    "total": 60000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-4",
@@ -41,10 +44,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "1 Oktober 2026",
     "hari": "Kamis, 1 Oktober",
     "waktu": "12:30",
-    "keterangan": "Siomay kering",
+    "keterangan": "Siomay Kering Bulat",
     "jumlah": 2,
-    "satuan": "kg",
-    "total": 44000
+    "satuan": "pack",
+    "total": 44000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-5",
@@ -52,10 +56,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "2 Oktober 2026",
     "hari": "Jumat, 2 Oktober",
     "waktu": "08:15",
-    "keterangan": "Telur",
+    "keterangan": "Telur Ayam Negeri",
     "jumlah": 5,
     "satuan": "kg",
-    "total": 130000
+    "total": 130000,
+    "kategori": "Telur & Tahu"
   },
   {
     "id": "EXP-6",
@@ -63,10 +68,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "2 Oktober 2026",
     "hari": "Jumat, 2 Oktober",
     "waktu": "09:45",
-    "keterangan": "Dumpling keju",
+    "keterangan": "Dumpling Keju",
     "jumlah": 5,
-    "satuan": "kg",
-    "total": 175000
+    "satuan": "pack",
+    "total": 175000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-7",
@@ -74,10 +80,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "2 Oktober 2026",
     "hari": "Jumat, 2 Oktober",
     "waktu": "11:12",
-    "keterangan": "Kwetiau",
+    "keterangan": "Kwetiau Basah Putih",
     "jumlah": 7,
     "satuan": "kg",
-    "total": 98000
+    "total": 98000,
+    "kategori": "Mie & Bihun"
   },
   {
     "id": "EXP-8",
@@ -85,10 +92,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "2 Oktober 2026",
     "hari": "Jumat, 2 Oktober",
     "waktu": "12:30",
-    "keterangan": "Sosis",
+    "keterangan": "Sosis Sapi Jumbo",
     "jumlah": 2,
-    "satuan": "kg",
-    "total": 56000
+    "satuan": "pack",
+    "total": 56000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-9",
@@ -96,10 +104,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "2 Oktober 2026",
     "hari": "Jumat, 2 Oktober",
     "waktu": "14:20",
-    "keterangan": "Fish roll",
+    "keterangan": "Fish Roll",
     "jumlah": 4,
-    "satuan": "kg",
-    "total": 112000
+    "satuan": "pack",
+    "total": 112000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-10",
@@ -107,10 +116,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "3 Oktober 2026",
     "hari": "Sabtu, 3 Oktober",
     "waktu": "08:15",
-    "keterangan": "Crab stick",
+    "keterangan": "Crabstick",
     "jumlah": 2,
-    "satuan": "kg",
-    "total": 60000
+    "satuan": "pack",
+    "total": 60000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-11",
@@ -118,10 +128,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "3 Oktober 2026",
     "hari": "Sabtu, 3 Oktober",
     "waktu": "09:45",
-    "keterangan": "Jamur enoki",
+    "keterangan": "Jamur Enoki Putih",
     "jumlah": 2,
-    "satuan": "kg",
-    "total": 60000
+    "satuan": "pack",
+    "total": 60000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-12",
@@ -129,10 +140,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "3 Oktober 2026",
     "hari": "Sabtu, 3 Oktober",
     "waktu": "11:12",
-    "keterangan": "Kerupuk",
+    "keterangan": "Kerupuk Bawang (Mawar)",
     "jumlah": 8,
     "satuan": "kg",
-    "total": 128000
+    "total": 128000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-13",
@@ -140,10 +152,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "4 Oktober 2026",
     "hari": "Minggu, 4 Oktober",
     "waktu": "08:15",
-    "keterangan": "Otak-otak",
+    "keterangan": "Cuanki Lidah",
     "jumlah": 2,
-    "satuan": "kg",
-    "total": 48000
+    "satuan": "pack",
+    "total": 48000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-14",
@@ -151,10 +164,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "4 Oktober 2026",
     "hari": "Minggu, 4 Oktober",
     "waktu": "09:45",
-    "keterangan": "Mie",
+    "keterangan": "Mie Kuning Keriting",
     "jumlah": 8,
     "satuan": "kg",
-    "total": 112000
+    "total": 112000,
+    "kategori": "Mie & Bihun"
   },
   {
     "id": "EXP-15",
@@ -162,10 +176,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "4 Oktober 2026",
     "hari": "Minggu, 4 Oktober",
     "waktu": "11:12",
-    "keterangan": "Bakso",
+    "keterangan": "Bakso Sapi Polos",
     "jumlah": 4,
-    "satuan": "kg",
-    "total": 128000
+    "satuan": "pack",
+    "total": 128000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-16",
@@ -175,8 +190,9 @@ export const MASTER_EXPENSES = [
     "waktu": "12:30",
     "keterangan": "Chikuwa",
     "jumlah": 4,
-    "satuan": "kg",
-    "total": 100000
+    "satuan": "pack",
+    "total": 100000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-17",
@@ -184,10 +200,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "5 Oktober 2026",
     "hari": "Senin, 5 Oktober",
     "waktu": "08:15",
-    "keterangan": "Jamur salju",
+    "keterangan": "Jamur Salju",
     "jumlah": 2,
     "satuan": "kg",
-    "total": 72000
+    "total": 72000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-18",
@@ -195,10 +212,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "5 Oktober 2026",
     "hari": "Senin, 5 Oktober",
     "waktu": "09:45",
-    "keterangan": "Makaroni",
+    "keterangan": "Makaroni Kondang / Spiral",
     "jumlah": 3,
     "satuan": "kg",
-    "total": 45000
+    "total": 45000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-19",
@@ -206,10 +224,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "5 Oktober 2026",
     "hari": "Senin, 5 Oktober",
     "waktu": "11:12",
-    "keterangan": "Telur",
+    "keterangan": "Telur Ayam Negeri",
     "jumlah": 4,
     "satuan": "kg",
-    "total": 104000
+    "total": 104000,
+    "kategori": "Telur & Tahu"
   },
   {
     "id": "EXP-20",
@@ -217,10 +236,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "5 Oktober 2026",
     "hari": "Senin, 5 Oktober",
     "waktu": "12:30",
-    "keterangan": "Dumpling keju",
+    "keterangan": "Dumpling Keju",
     "jumlah": 5,
-    "satuan": "kg",
-    "total": 175000
+    "satuan": "pack",
+    "total": 175000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-21",
@@ -228,10 +248,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "5 Oktober 2026",
     "hari": "Senin, 5 Oktober",
     "waktu": "14:20",
-    "keterangan": "Kwetiau",
+    "keterangan": "Kwetiau Basah Putih",
     "jumlah": 7,
     "satuan": "kg",
-    "total": 98000
+    "total": 98000,
+    "kategori": "Mie & Bihun"
   },
   {
     "id": "EXP-22",
@@ -239,10 +260,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "6 Oktober 2026",
     "hari": "Selasa, 6 Oktober",
     "waktu": "08:15",
-    "keterangan": "Siomay kering",
+    "keterangan": "Siomay Kering Bulat",
     "jumlah": 4,
-    "satuan": "kg",
-    "total": 88000
+    "satuan": "pack",
+    "total": 88000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-23",
@@ -250,10 +272,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "6 Oktober 2026",
     "hari": "Selasa, 6 Oktober",
     "waktu": "09:45",
-    "keterangan": "Ceker",
+    "keterangan": "Ceker Ayam Empuk",
     "jumlah": 5,
     "satuan": "kg",
-    "total": 110000
+    "total": 110000,
+    "kategori": "Daging & Jeroan"
   },
   {
     "id": "EXP-24",
@@ -261,10 +284,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "6 Oktober 2026",
     "hari": "Selasa, 6 Oktober",
     "waktu": "11:12",
-    "keterangan": "Crab stick",
+    "keterangan": "Crabstick",
     "jumlah": 4,
-    "satuan": "kg",
-    "total": 120000
+    "satuan": "pack",
+    "total": 120000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-25",
@@ -272,10 +296,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "7 Oktober 2026",
     "hari": "Rabu, 7 Oktober",
     "waktu": "08:15",
-    "keterangan": "Sosis",
+    "keterangan": "Sosis Sapi Jumbo",
     "jumlah": 4,
-    "satuan": "kg",
-    "total": 112000
+    "satuan": "pack",
+    "total": 112000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-26",
@@ -283,10 +308,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "7 Oktober 2026",
     "hari": "Rabu, 7 Oktober",
     "waktu": "09:45",
-    "keterangan": "Fish roll",
+    "keterangan": "Fish Roll",
     "jumlah": 2,
-    "satuan": "kg",
-    "total": 56000
+    "satuan": "pack",
+    "total": 56000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-27",
@@ -294,10 +320,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "7 Oktober 2026",
     "hari": "Rabu, 7 Oktober",
     "waktu": "11:12",
-    "keterangan": "Otak-otak",
+    "keterangan": "Cuanki Lidah",
     "jumlah": 3,
-    "satuan": "kg",
-    "total": 72000
+    "satuan": "pack",
+    "total": 72000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-28",
@@ -305,10 +332,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "7 Oktober 2026",
     "hari": "Rabu, 7 Oktober",
     "waktu": "12:30",
-    "keterangan": "Mie",
+    "keterangan": "Mie Kuning Keriting",
     "jumlah": 7,
     "satuan": "kg",
-    "total": 98000
+    "total": 98000,
+    "kategori": "Mie & Bihun"
   },
   {
     "id": "EXP-29",
@@ -316,10 +344,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "8 Oktober 2026",
     "hari": "Kamis, 8 Oktober",
     "waktu": "08:15",
-    "keterangan": "Tahu",
+    "keterangan": "Tahu Putih Lembut",
     "jumlah": 6,
     "satuan": "kg",
-    "total": 90000
+    "total": 90000,
+    "kategori": "Telur & Tahu"
   },
   {
     "id": "EXP-30",
@@ -327,10 +356,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "8 Oktober 2026",
     "hari": "Kamis, 8 Oktober",
     "waktu": "09:45",
-    "keterangan": "Dumpling ayam",
+    "keterangan": "Dumpling Ayam",
     "jumlah": 3,
-    "satuan": "kg",
-    "total": 96000
+    "satuan": "pack",
+    "total": 96000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-31",
@@ -338,10 +368,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "8 Oktober 2026",
     "hari": "Kamis, 8 Oktober",
     "waktu": "11:12",
-    "keterangan": "Jamur salju",
+    "keterangan": "Jamur Salju",
     "jumlah": 3,
     "satuan": "kg",
-    "total": 108000
+    "total": 108000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-32",
@@ -349,10 +380,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "8 Oktober 2026",
     "hari": "Kamis, 8 Oktober",
     "waktu": "12:30",
-    "keterangan": "Makaroni",
+    "keterangan": "Makaroni Kondang / Spiral",
     "jumlah": 3,
     "satuan": "kg",
-    "total": 45000
+    "total": 45000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-33",
@@ -360,10 +392,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "8 Oktober 2026",
     "hari": "Kamis, 8 Oktober",
     "waktu": "14:20",
-    "keterangan": "Telur",
+    "keterangan": "Telur Ayam Negeri",
     "jumlah": 3,
     "satuan": "kg",
-    "total": 78000
+    "total": 78000,
+    "kategori": "Telur & Tahu"
   },
   {
     "id": "EXP-34",
@@ -373,8 +406,9 @@ export const MASTER_EXPENSES = [
     "waktu": "08:15",
     "keterangan": "Chikuwa",
     "jumlah": 6,
-    "satuan": "kg",
-    "total": 150000
+    "satuan": "pack",
+    "total": 150000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-35",
@@ -382,10 +416,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "9 Oktober 2026",
     "hari": "Jumat, 9 Oktober",
     "waktu": "09:45",
-    "keterangan": "Sawi",
+    "keterangan": "Sawi Hijau (Caisim)",
     "jumlah": 7,
     "satuan": "kg",
-    "total": 70000
+    "total": 70000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-36",
@@ -393,10 +428,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "9 Oktober 2026",
     "hari": "Jumat, 9 Oktober",
     "waktu": "11:12",
-    "keterangan": "Siomay kering",
+    "keterangan": "Siomay Kering Bulat",
     "jumlah": 5,
-    "satuan": "kg",
-    "total": 110000
+    "satuan": "pack",
+    "total": 110000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-37",
@@ -404,10 +440,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "10 Oktober 2026",
     "hari": "Sabtu, 10 Oktober",
     "waktu": "08:15",
-    "keterangan": "Dumpling keju",
+    "keterangan": "Dumpling Keju",
     "jumlah": 2,
-    "satuan": "kg",
-    "total": 70000
+    "satuan": "pack",
+    "total": 70000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-38",
@@ -415,10 +452,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "10 Oktober 2026",
     "hari": "Sabtu, 10 Oktober",
     "waktu": "09:45",
-    "keterangan": "Kwetiau",
+    "keterangan": "Kwetiau Basah Putih",
     "jumlah": 4,
     "satuan": "kg",
-    "total": 56000
+    "total": 56000,
+    "kategori": "Mie & Bihun"
   },
   {
     "id": "EXP-39",
@@ -426,10 +464,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "10 Oktober 2026",
     "hari": "Sabtu, 10 Oktober",
     "waktu": "11:12",
-    "keterangan": "Sosis",
+    "keterangan": "Sosis Sapi Jumbo",
     "jumlah": 4,
-    "satuan": "kg",
-    "total": 112000
+    "satuan": "pack",
+    "total": 112000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-40",
@@ -437,10 +476,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "10 Oktober 2026",
     "hari": "Sabtu, 10 Oktober",
     "waktu": "12:30",
-    "keterangan": "Fish roll",
+    "keterangan": "Fish Roll",
     "jumlah": 3,
-    "satuan": "kg",
-    "total": 84000
+    "satuan": "pack",
+    "total": 84000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-41",
@@ -448,10 +488,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "11 Oktober 2026",
     "hari": "Minggu, 11 Oktober",
     "waktu": "08:15",
-    "keterangan": "Jamur enoki",
+    "keterangan": "Jamur Enoki Putih",
     "jumlah": 5,
-    "satuan": "kg",
-    "total": 150000
+    "satuan": "pack",
+    "total": 150000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-42",
@@ -459,10 +500,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "11 Oktober 2026",
     "hari": "Minggu, 11 Oktober",
     "waktu": "09:45",
-    "keterangan": "Kerupuk",
+    "keterangan": "Kerupuk Bawang (Mawar)",
     "jumlah": 3,
     "satuan": "kg",
-    "total": 48000
+    "total": 48000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-43",
@@ -470,10 +512,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "11 Oktober 2026",
     "hari": "Minggu, 11 Oktober",
     "waktu": "11:12",
-    "keterangan": "Tahu",
+    "keterangan": "Tahu Putih Lembut",
     "jumlah": 6,
     "satuan": "kg",
-    "total": 90000
+    "total": 90000,
+    "kategori": "Telur & Tahu"
   },
   {
     "id": "EXP-44",
@@ -481,10 +524,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "11 Oktober 2026",
     "hari": "Minggu, 11 Oktober",
     "waktu": "12:30",
-    "keterangan": "Dumpling ayam",
+    "keterangan": "Dumpling Ayam",
     "jumlah": 4,
-    "satuan": "kg",
-    "total": 128000
+    "satuan": "pack",
+    "total": 128000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-45",
@@ -492,10 +536,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "11 Oktober 2026",
     "hari": "Minggu, 11 Oktober",
     "waktu": "14:20",
-    "keterangan": "Jamur salju",
+    "keterangan": "Jamur Salju",
     "jumlah": 4,
     "satuan": "kg",
-    "total": 144000
+    "total": 144000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-46",
@@ -503,10 +548,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "12 Oktober 2026",
     "hari": "Senin, 12 Oktober",
     "waktu": "08:15",
-    "keterangan": "Mie",
+    "keterangan": "Mie Kuning Keriting",
     "jumlah": 3,
     "satuan": "kg",
-    "total": 42000
+    "total": 42000,
+    "kategori": "Mie & Bihun"
   },
   {
     "id": "EXP-47",
@@ -514,10 +560,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "12 Oktober 2026",
     "hari": "Senin, 12 Oktober",
     "waktu": "09:45",
-    "keterangan": "Bakso",
+    "keterangan": "Bakso Sapi Polos",
     "jumlah": 6,
-    "satuan": "kg",
-    "total": 192000
+    "satuan": "pack",
+    "total": 192000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-48",
@@ -527,8 +574,9 @@ export const MASTER_EXPENSES = [
     "waktu": "11:12",
     "keterangan": "Chikuwa",
     "jumlah": 6,
-    "satuan": "kg",
-    "total": 150000
+    "satuan": "pack",
+    "total": 150000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-49",
@@ -536,10 +584,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "13 Oktober 2026",
     "hari": "Selasa, 13 Oktober",
     "waktu": "08:15",
-    "keterangan": "Makaroni",
+    "keterangan": "Makaroni Kondang / Spiral",
     "jumlah": 5,
     "satuan": "kg",
-    "total": 75000
+    "total": 75000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-50",
@@ -547,10 +596,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "13 Oktober 2026",
     "hari": "Selasa, 13 Oktober",
     "waktu": "09:45",
-    "keterangan": "Telur",
+    "keterangan": "Telur Ayam Negeri",
     "jumlah": 5,
     "satuan": "kg",
-    "total": 130000
+    "total": 130000,
+    "kategori": "Telur & Tahu"
   },
   {
     "id": "EXP-51",
@@ -558,10 +608,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "13 Oktober 2026",
     "hari": "Selasa, 13 Oktober",
     "waktu": "11:12",
-    "keterangan": "Dumpling keju",
+    "keterangan": "Dumpling Keju",
     "jumlah": 2,
-    "satuan": "kg",
-    "total": 70000
+    "satuan": "pack",
+    "total": 70000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-52",
@@ -569,10 +620,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "13 Oktober 2026",
     "hari": "Selasa, 13 Oktober",
     "waktu": "12:30",
-    "keterangan": "Kwetiau",
+    "keterangan": "Kwetiau Basah Putih",
     "jumlah": 4,
     "satuan": "kg",
-    "total": 56000
+    "total": 56000,
+    "kategori": "Mie & Bihun"
   },
   {
     "id": "EXP-53",
@@ -580,10 +632,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "14 Oktober 2026",
     "hari": "Rabu, 14 Oktober",
     "waktu": "08:15",
-    "keterangan": "Ceker",
+    "keterangan": "Ceker Ayam Empuk",
     "jumlah": 4,
     "satuan": "kg",
-    "total": 88000
+    "total": 88000,
+    "kategori": "Daging & Jeroan"
   },
   {
     "id": "EXP-54",
@@ -591,10 +644,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "14 Oktober 2026",
     "hari": "Rabu, 14 Oktober",
     "waktu": "09:45",
-    "keterangan": "Crab stick",
+    "keterangan": "Crabstick",
     "jumlah": 2,
-    "satuan": "kg",
-    "total": 60000
+    "satuan": "pack",
+    "total": 60000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-55",
@@ -602,10 +656,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "14 Oktober 2026",
     "hari": "Rabu, 14 Oktober",
     "waktu": "11:12",
-    "keterangan": "Jamur enoki",
+    "keterangan": "Jamur Enoki Putih",
     "jumlah": 2,
-    "satuan": "kg",
-    "total": 60000
+    "satuan": "pack",
+    "total": 60000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-56",
@@ -613,10 +668,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "14 Oktober 2026",
     "hari": "Rabu, 14 Oktober",
     "waktu": "12:30",
-    "keterangan": "Kerupuk",
+    "keterangan": "Kerupuk Bawang (Mawar)",
     "jumlah": 8,
     "satuan": "kg",
-    "total": 128000
+    "total": 128000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-57",
@@ -624,10 +680,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "14 Oktober 2026",
     "hari": "Rabu, 14 Oktober",
     "waktu": "14:20",
-    "keterangan": "Tahu",
+    "keterangan": "Tahu Putih Lembut",
     "jumlah": 6,
     "satuan": "kg",
-    "total": 90000
+    "total": 90000,
+    "kategori": "Telur & Tahu"
   },
   {
     "id": "EXP-58",
@@ -635,10 +692,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "15 Oktober 2026",
     "hari": "Kamis, 15 Oktober",
     "waktu": "08:15",
-    "keterangan": "Fish roll",
+    "keterangan": "Fish Roll",
     "jumlah": 5,
-    "satuan": "kg",
-    "total": 140000
+    "satuan": "pack",
+    "total": 140000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-59",
@@ -646,10 +704,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "15 Oktober 2026",
     "hari": "Kamis, 15 Oktober",
     "waktu": "09:45",
-    "keterangan": "Otak-otak",
+    "keterangan": "Cuanki Lidah",
     "jumlah": 2,
-    "satuan": "kg",
-    "total": 48000
+    "satuan": "pack",
+    "total": 48000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-60",
@@ -657,10 +716,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "15 Oktober 2026",
     "hari": "Kamis, 15 Oktober",
     "waktu": "11:12",
-    "keterangan": "Mie",
+    "keterangan": "Mie Kuning Keriting",
     "jumlah": 8,
     "satuan": "kg",
-    "total": 112000
+    "total": 112000,
+    "kategori": "Mie & Bihun"
   },
   {
     "id": "EXP-61",
@@ -668,7 +728,8 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "16 Oktober 2026",
     "hari": "Jumat, 16 Oktober",
     "waktu": "08:10",
-    "keterangan": "Kerupuk",
+    "keterangan": "Kerupuk Bawang (Mawar)",
+    "kategori": "Kerupuk & Makaroni",
     "jumlah": 3,
     "satuan": "kg",
     "total": 48000
@@ -679,7 +740,8 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "16 Oktober 2026",
     "hari": "Jumat, 16 Oktober",
     "waktu": "08:50",
-    "keterangan": "Makaroni",
+    "keterangan": "Makaroni Kondang / Spiral",
+    "kategori": "Kerupuk & Makaroni",
     "jumlah": 2,
     "satuan": "kg",
     "total": 30000
@@ -690,9 +752,10 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "16 Oktober 2026",
     "hari": "Jumat, 16 Oktober",
     "waktu": "09:30",
-    "keterangan": "Sosis",
+    "keterangan": "Sosis Sapi Jumbo",
+    "kategori": "Seafood & Olahan",
     "jumlah": 4,
-    "satuan": "kg",
+    "satuan": "pack",
     "total": 112000
   },
   {
@@ -701,9 +764,10 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "16 Oktober 2026",
     "hari": "Jumat, 16 Oktober",
     "waktu": "10:15",
-    "keterangan": "Bakso",
+    "keterangan": "Bakso Sapi Polos",
+    "kategori": "Seafood & Olahan",
     "jumlah": 5,
-    "satuan": "kg",
+    "satuan": "pack",
     "total": 160000
   },
   {
@@ -712,7 +776,8 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "16 Oktober 2026",
     "hari": "Jumat, 16 Oktober",
     "waktu": "11:00",
-    "keterangan": "Ceker",
+    "keterangan": "Ceker Ayam Empuk",
+    "kategori": "Daging & Jeroan",
     "jumlah": 3,
     "satuan": "kg",
     "total": 66000
@@ -723,7 +788,8 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "16 Oktober 2026",
     "hari": "Jumat, 16 Oktober",
     "waktu": "11:45",
-    "keterangan": "Tahu",
+    "keterangan": "Tahu Putih Lembut",
+    "kategori": "Telur & Tahu",
     "jumlah": 4,
     "satuan": "kg",
     "total": 60000
@@ -734,7 +800,8 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "16 Oktober 2026",
     "hari": "Jumat, 16 Oktober",
     "waktu": "12:30",
-    "keterangan": "Telur",
+    "keterangan": "Telur Ayam Negeri",
+    "kategori": "Telur & Tahu",
     "jumlah": 5,
     "satuan": "kg",
     "total": 130000
@@ -745,9 +812,10 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "16 Oktober 2026",
     "hari": "Jumat, 16 Oktober",
     "waktu": "13:20",
-    "keterangan": "Fish roll",
+    "keterangan": "Fish Roll",
+    "kategori": "Seafood & Olahan",
     "jumlah": 3,
-    "satuan": "kg",
+    "satuan": "pack",
     "total": 84000
   },
   {
@@ -757,8 +825,9 @@ export const MASTER_EXPENSES = [
     "hari": "Jumat, 16 Oktober",
     "waktu": "14:05",
     "keterangan": "Chikuwa",
+    "kategori": "Seafood & Olahan",
     "jumlah": 3,
-    "satuan": "kg",
+    "satuan": "pack",
     "total": 75000
   },
   {
@@ -767,9 +836,10 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "16 Oktober 2026",
     "hari": "Jumat, 16 Oktober",
     "waktu": "15:00",
-    "keterangan": "Jamur enoki",
+    "keterangan": "Jamur Enoki Putih",
+    "kategori": "Sayur & Jamur",
     "jumlah": 4,
-    "satuan": "kg",
+    "satuan": "pack",
     "total": 120000
   },
   {
@@ -778,9 +848,10 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "16 Oktober 2026",
     "hari": "Jumat, 16 Oktober",
     "waktu": "16:15",
-    "keterangan": "Dumpling keju",
+    "keterangan": "Dumpling Keju",
+    "kategori": "Seafood & Olahan",
     "jumlah": 5,
-    "satuan": "kg",
+    "satuan": "pack",
     "total": 175000
   },
   {
@@ -789,10 +860,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "17 Oktober 2026",
     "hari": "Sabtu, 17 Oktober",
     "waktu": "08:15",
-    "keterangan": "Sawi",
+    "keterangan": "Sawi Hijau (Caisim)",
     "jumlah": 8,
     "satuan": "kg",
-    "total": 80000
+    "total": 80000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-73",
@@ -800,10 +872,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "17 Oktober 2026",
     "hari": "Sabtu, 17 Oktober",
     "waktu": "09:45",
-    "keterangan": "Siomay kering",
+    "keterangan": "Siomay Kering Bulat",
     "jumlah": 4,
-    "satuan": "kg",
-    "total": 88000
+    "satuan": "pack",
+    "total": 88000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-74",
@@ -811,10 +884,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "17 Oktober 2026",
     "hari": "Sabtu, 17 Oktober",
     "waktu": "11:12",
-    "keterangan": "Ceker",
+    "keterangan": "Ceker Ayam Empuk",
     "jumlah": 5,
     "satuan": "kg",
-    "total": 110000
+    "total": 110000,
+    "kategori": "Daging & Jeroan"
   },
   {
     "id": "EXP-75",
@@ -822,10 +896,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "17 Oktober 2026",
     "hari": "Sabtu, 17 Oktober",
     "waktu": "12:30",
-    "keterangan": "Crab stick",
+    "keterangan": "Crabstick",
     "jumlah": 4,
-    "satuan": "kg",
-    "total": 120000
+    "satuan": "pack",
+    "total": 120000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-76",
@@ -833,10 +908,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "17 Oktober 2026",
     "hari": "Sabtu, 17 Oktober",
     "waktu": "14:20",
-    "keterangan": "Jamur enoki",
+    "keterangan": "Jamur Enoki Putih",
     "jumlah": 3,
-    "satuan": "kg",
-    "total": 90000
+    "satuan": "pack",
+    "total": 90000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-77",
@@ -844,10 +920,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "18 Oktober 2026",
     "hari": "Minggu, 18 Oktober",
     "waktu": "08:15",
-    "keterangan": "Kwetiau",
+    "keterangan": "Kwetiau Basah Putih",
     "jumlah": 6,
     "satuan": "kg",
-    "total": 84000
+    "total": 84000,
+    "kategori": "Mie & Bihun"
   },
   {
     "id": "EXP-78",
@@ -855,10 +932,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "18 Oktober 2026",
     "hari": "Minggu, 18 Oktober",
     "waktu": "09:45",
-    "keterangan": "Sosis",
+    "keterangan": "Sosis Sapi Jumbo",
     "jumlah": 6,
-    "satuan": "kg",
-    "total": 168000
+    "satuan": "pack",
+    "total": 168000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-79",
@@ -866,10 +944,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "18 Oktober 2026",
     "hari": "Minggu, 18 Oktober",
     "waktu": "11:12",
-    "keterangan": "Fish roll",
+    "keterangan": "Fish Roll",
     "jumlah": 2,
-    "satuan": "kg",
-    "total": 56000
+    "satuan": "pack",
+    "total": 56000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-80",
@@ -877,10 +956,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "19 Oktober 2026",
     "hari": "Senin, 19 Oktober",
     "waktu": "08:15",
-    "keterangan": "Kerupuk",
+    "keterangan": "Kerupuk Bawang (Mawar)",
     "jumlah": 4,
     "satuan": "kg",
-    "total": 64000
+    "total": 64000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-81",
@@ -888,10 +968,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "19 Oktober 2026",
     "hari": "Senin, 19 Oktober",
     "waktu": "09:45",
-    "keterangan": "Tahu",
+    "keterangan": "Tahu Putih Lembut",
     "jumlah": 3,
     "satuan": "kg",
-    "total": 45000
+    "total": 45000,
+    "kategori": "Telur & Tahu"
   },
   {
     "id": "EXP-82",
@@ -899,10 +980,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "19 Oktober 2026",
     "hari": "Senin, 19 Oktober",
     "waktu": "11:12",
-    "keterangan": "Dumpling ayam",
+    "keterangan": "Dumpling Ayam",
     "jumlah": 3,
-    "satuan": "kg",
-    "total": 96000
+    "satuan": "pack",
+    "total": 96000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-83",
@@ -910,10 +992,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "19 Oktober 2026",
     "hari": "Senin, 19 Oktober",
     "waktu": "12:30",
-    "keterangan": "Jamur salju",
+    "keterangan": "Jamur Salju",
     "jumlah": 3,
     "satuan": "kg",
-    "total": 108000
+    "total": 108000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-84",
@@ -921,10 +1004,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "20 Oktober 2026",
     "hari": "Selasa, 20 Oktober",
     "waktu": "08:15",
-    "keterangan": "Bakso",
+    "keterangan": "Bakso Sapi Polos",
     "jumlah": 3,
-    "satuan": "kg",
-    "total": 96000
+    "satuan": "pack",
+    "total": 96000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-85",
@@ -934,8 +1018,9 @@ export const MASTER_EXPENSES = [
     "waktu": "09:45",
     "keterangan": "Chikuwa",
     "jumlah": 3,
-    "satuan": "kg",
-    "total": 75000
+    "satuan": "pack",
+    "total": 75000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-86",
@@ -943,10 +1028,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "20 Oktober 2026",
     "hari": "Selasa, 20 Oktober",
     "waktu": "11:12",
-    "keterangan": "Sawi",
+    "keterangan": "Sawi Hijau (Caisim)",
     "jumlah": 7,
     "satuan": "kg",
-    "total": 70000
+    "total": 70000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-87",
@@ -954,10 +1040,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "20 Oktober 2026",
     "hari": "Selasa, 20 Oktober",
     "waktu": "12:30",
-    "keterangan": "Siomay kering",
+    "keterangan": "Siomay Kering Bulat",
     "jumlah": 5,
-    "satuan": "kg",
-    "total": 110000
+    "satuan": "pack",
+    "total": 110000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-88",
@@ -965,10 +1052,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "20 Oktober 2026",
     "hari": "Selasa, 20 Oktober",
     "waktu": "14:20",
-    "keterangan": "Ceker",
+    "keterangan": "Ceker Ayam Empuk",
     "jumlah": 2,
     "satuan": "kg",
-    "total": 44000
+    "total": 44000,
+    "kategori": "Daging & Jeroan"
   },
   {
     "id": "EXP-89",
@@ -976,10 +1064,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "21 Oktober 2026",
     "hari": "Rabu, 21 Oktober",
     "waktu": "08:15",
-    "keterangan": "Telur",
+    "keterangan": "Telur Ayam Negeri",
     "jumlah": 6,
     "satuan": "kg",
-    "total": 156000
+    "total": 156000,
+    "kategori": "Telur & Tahu"
   },
   {
     "id": "EXP-90",
@@ -987,10 +1076,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "21 Oktober 2026",
     "hari": "Rabu, 21 Oktober",
     "waktu": "09:45",
-    "keterangan": "Dumpling keju",
+    "keterangan": "Dumpling Keju",
     "jumlah": 4,
-    "satuan": "kg",
-    "total": 140000
+    "satuan": "pack",
+    "total": 140000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-91",
@@ -998,10 +1088,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "21 Oktober 2026",
     "hari": "Rabu, 21 Oktober",
     "waktu": "11:12",
-    "keterangan": "Kwetiau",
+    "keterangan": "Kwetiau Basah Putih",
     "jumlah": 6,
     "satuan": "kg",
-    "total": 84000
+    "total": 84000,
+    "kategori": "Mie & Bihun"
   },
   {
     "id": "EXP-92",
@@ -1009,10 +1100,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "22 Oktober 2026",
     "hari": "Kamis, 22 Oktober",
     "waktu": "08:15",
-    "keterangan": "Crab stick",
+    "keterangan": "Crabstick",
     "jumlah": 3,
-    "satuan": "kg",
-    "total": 90000
+    "satuan": "pack",
+    "total": 90000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-93",
@@ -1020,10 +1112,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "22 Oktober 2026",
     "hari": "Kamis, 22 Oktober",
     "waktu": "09:45",
-    "keterangan": "Jamur enoki",
+    "keterangan": "Jamur Enoki Putih",
     "jumlah": 5,
-    "satuan": "kg",
-    "total": 150000
+    "satuan": "pack",
+    "total": 150000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-94",
@@ -1031,10 +1124,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "22 Oktober 2026",
     "hari": "Kamis, 22 Oktober",
     "waktu": "11:12",
-    "keterangan": "Kerupuk",
+    "keterangan": "Kerupuk Bawang (Mawar)",
     "jumlah": 3,
     "satuan": "kg",
-    "total": 48000
+    "total": 48000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-95",
@@ -1042,10 +1136,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "22 Oktober 2026",
     "hari": "Kamis, 22 Oktober",
     "waktu": "12:30",
-    "keterangan": "Tahu",
+    "keterangan": "Tahu Putih Lembut",
     "jumlah": 3,
     "satuan": "kg",
-    "total": 45000
+    "total": 45000,
+    "kategori": "Telur & Tahu"
   },
   {
     "id": "EXP-96",
@@ -1053,10 +1148,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "23 Oktober 2026",
     "hari": "Jumat, 23 Oktober",
     "waktu": "08:15",
-    "keterangan": "Otak-otak",
+    "keterangan": "Cuanki Lidah",
     "jumlah": 5,
-    "satuan": "kg",
-    "total": 120000
+    "satuan": "pack",
+    "total": 120000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-97",
@@ -1064,10 +1160,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "23 Oktober 2026",
     "hari": "Jumat, 23 Oktober",
     "waktu": "09:45",
-    "keterangan": "Mie",
+    "keterangan": "Mie Kuning Keriting",
     "jumlah": 3,
     "satuan": "kg",
-    "total": 42000
+    "total": 42000,
+    "kategori": "Mie & Bihun"
   },
   {
     "id": "EXP-98",
@@ -1075,10 +1172,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "23 Oktober 2026",
     "hari": "Jumat, 23 Oktober",
     "waktu": "11:12",
-    "keterangan": "Bakso",
+    "keterangan": "Bakso Sapi Polos",
     "jumlah": 3,
-    "satuan": "kg",
-    "total": 96000
+    "satuan": "pack",
+    "total": 96000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-99",
@@ -1088,8 +1186,9 @@ export const MASTER_EXPENSES = [
     "waktu": "12:30",
     "keterangan": "Chikuwa",
     "jumlah": 3,
-    "satuan": "kg",
-    "total": 75000
+    "satuan": "pack",
+    "total": 75000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-100",
@@ -1097,10 +1196,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "23 Oktober 2026",
     "hari": "Jumat, 23 Oktober",
     "waktu": "14:20",
-    "keterangan": "Sawi",
+    "keterangan": "Sawi Hijau (Caisim)",
     "jumlah": 6,
     "satuan": "kg",
-    "total": 60000
+    "total": 60000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-101",
@@ -1108,10 +1208,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "24 Oktober 2026",
     "hari": "Sabtu, 24 Oktober",
     "waktu": "08:15",
-    "keterangan": "Jamur salju",
+    "keterangan": "Jamur Salju",
     "jumlah": 1,
     "satuan": "kg",
-    "total": 36000
+    "total": 36000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-102",
@@ -1119,10 +1220,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "24 Oktober 2026",
     "hari": "Sabtu, 24 Oktober",
     "waktu": "09:45",
-    "keterangan": "Makaroni",
+    "keterangan": "Makaroni Kondang / Spiral",
     "jumlah": 2,
     "satuan": "kg",
-    "total": 30000
+    "total": 30000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-103",
@@ -1130,10 +1232,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "24 Oktober 2026",
     "hari": "Sabtu, 24 Oktober",
     "waktu": "11:12",
-    "keterangan": "Telur",
+    "keterangan": "Telur Ayam Negeri",
     "jumlah": 5,
     "satuan": "kg",
-    "total": 130000
+    "total": 130000,
+    "kategori": "Telur & Tahu"
   },
   {
     "id": "EXP-104",
@@ -1141,10 +1244,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "25 Oktober 2026",
     "hari": "Minggu, 25 Oktober",
     "waktu": "08:15",
-    "keterangan": "Siomay kering",
+    "keterangan": "Siomay Kering Bulat",
     "jumlah": 3,
-    "satuan": "kg",
-    "total": 66000
+    "satuan": "pack",
+    "total": 66000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-105",
@@ -1152,10 +1256,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "25 Oktober 2026",
     "hari": "Minggu, 25 Oktober",
     "waktu": "09:45",
-    "keterangan": "Ceker",
+    "keterangan": "Ceker Ayam Empuk",
     "jumlah": 4,
     "satuan": "kg",
-    "total": 88000
+    "total": 88000,
+    "kategori": "Daging & Jeroan"
   },
   {
     "id": "EXP-106",
@@ -1163,10 +1268,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "25 Oktober 2026",
     "hari": "Minggu, 25 Oktober",
     "waktu": "11:12",
-    "keterangan": "Crab stick",
+    "keterangan": "Crabstick",
     "jumlah": 2,
-    "satuan": "kg",
-    "total": 60000
+    "satuan": "pack",
+    "total": 60000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-107",
@@ -1174,10 +1280,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "25 Oktober 2026",
     "hari": "Minggu, 25 Oktober",
     "waktu": "12:30",
-    "keterangan": "Jamur enoki",
+    "keterangan": "Jamur Enoki Putih",
     "jumlah": 2,
-    "satuan": "kg",
-    "total": 60000
+    "satuan": "pack",
+    "total": 60000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-108",
@@ -1185,10 +1292,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "26 Oktober 2026",
     "hari": "Senin, 26 Oktober",
     "waktu": "08:15",
-    "keterangan": "Sosis",
+    "keterangan": "Sosis Sapi Jumbo",
     "jumlah": 3,
-    "satuan": "kg",
-    "total": 84000
+    "satuan": "pack",
+    "total": 84000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-109",
@@ -1196,10 +1304,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "26 Oktober 2026",
     "hari": "Senin, 26 Oktober",
     "waktu": "09:45",
-    "keterangan": "Fish roll",
+    "keterangan": "Fish Roll",
     "jumlah": 5,
-    "satuan": "kg",
-    "total": 140000
+    "satuan": "pack",
+    "total": 140000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-110",
@@ -1207,10 +1316,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "26 Oktober 2026",
     "hari": "Senin, 26 Oktober",
     "waktu": "11:12",
-    "keterangan": "Otak-otak",
+    "keterangan": "Cuanki Lidah",
     "jumlah": 2,
-    "satuan": "kg",
-    "total": 48000
+    "satuan": "pack",
+    "total": 48000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-111",
@@ -1218,10 +1328,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "26 Oktober 2026",
     "hari": "Senin, 26 Oktober",
     "waktu": "12:30",
-    "keterangan": "Mie",
+    "keterangan": "Mie Kuning Keriting",
     "jumlah": 8,
     "satuan": "kg",
-    "total": 112000
+    "total": 112000,
+    "kategori": "Mie & Bihun"
   },
   {
     "id": "EXP-112",
@@ -1229,10 +1340,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "26 Oktober 2026",
     "hari": "Senin, 26 Oktober",
     "waktu": "14:20",
-    "keterangan": "Bakso",
+    "keterangan": "Bakso Sapi Polos",
     "jumlah": 3,
-    "satuan": "kg",
-    "total": 96000
+    "satuan": "pack",
+    "total": 96000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-113",
@@ -1240,10 +1352,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "27 Oktober 2026",
     "hari": "Selasa, 27 Oktober",
     "waktu": "08:15",
-    "keterangan": "Tahu",
+    "keterangan": "Tahu Putih Lembut",
     "jumlah": 5,
     "satuan": "kg",
-    "total": 75000
+    "total": 75000,
+    "kategori": "Telur & Tahu"
   },
   {
     "id": "EXP-114",
@@ -1251,10 +1364,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "27 Oktober 2026",
     "hari": "Selasa, 27 Oktober",
     "waktu": "09:45",
-    "keterangan": "Dumpling ayam",
+    "keterangan": "Dumpling Ayam",
     "jumlah": 2,
-    "satuan": "kg",
-    "total": 64000
+    "satuan": "pack",
+    "total": 64000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-115",
@@ -1262,10 +1376,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "27 Oktober 2026",
     "hari": "Selasa, 27 Oktober",
     "waktu": "11:12",
-    "keterangan": "Jamur salju",
+    "keterangan": "Jamur Salju",
     "jumlah": 2,
     "satuan": "kg",
-    "total": 72000
+    "total": 72000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-116",
@@ -1275,8 +1390,9 @@ export const MASTER_EXPENSES = [
     "waktu": "08:15",
     "keterangan": "Chikuwa",
     "jumlah": 5,
-    "satuan": "kg",
-    "total": 125000
+    "satuan": "pack",
+    "total": 125000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-117",
@@ -1284,10 +1400,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "28 Oktober 2026",
     "hari": "Rabu, 28 Oktober",
     "waktu": "09:45",
-    "keterangan": "Sawi",
+    "keterangan": "Sawi Hijau (Caisim)",
     "jumlah": 8,
     "satuan": "kg",
-    "total": 80000
+    "total": 80000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-118",
@@ -1295,10 +1412,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "28 Oktober 2026",
     "hari": "Rabu, 28 Oktober",
     "waktu": "11:12",
-    "keterangan": "Siomay kering",
+    "keterangan": "Siomay Kering Bulat",
     "jumlah": 4,
-    "satuan": "kg",
-    "total": 88000
+    "satuan": "pack",
+    "total": 88000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-119",
@@ -1306,10 +1424,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "28 Oktober 2026",
     "hari": "Rabu, 28 Oktober",
     "waktu": "12:30",
-    "keterangan": "Ceker",
+    "keterangan": "Ceker Ayam Empuk",
     "jumlah": 5,
     "satuan": "kg",
-    "total": 110000
+    "total": 110000,
+    "kategori": "Daging & Jeroan"
   },
   {
     "id": "EXP-120",
@@ -1317,10 +1436,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "29 Oktober 2026",
     "hari": "Kamis, 29 Oktober",
     "waktu": "08:15",
-    "keterangan": "Dumpling keju",
+    "keterangan": "Dumpling Keju",
     "jumlah": 6,
-    "satuan": "kg",
-    "total": 210000
+    "satuan": "pack",
+    "total": 210000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-121",
@@ -1328,10 +1448,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "29 Oktober 2026",
     "hari": "Kamis, 29 Oktober",
     "waktu": "09:45",
-    "keterangan": "Kwetiau",
+    "keterangan": "Kwetiau Basah Putih",
     "jumlah": 3,
     "satuan": "kg",
-    "total": 42000
+    "total": 42000,
+    "kategori": "Mie & Bihun"
   },
   {
     "id": "EXP-122",
@@ -1339,10 +1460,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "29 Oktober 2026",
     "hari": "Kamis, 29 Oktober",
     "waktu": "11:12",
-    "keterangan": "Sosis",
+    "keterangan": "Sosis Sapi Jumbo",
     "jumlah": 3,
-    "satuan": "kg",
-    "total": 84000
+    "satuan": "pack",
+    "total": 84000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-123",
@@ -1350,10 +1472,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "29 Oktober 2026",
     "hari": "Kamis, 29 Oktober",
     "waktu": "12:30",
-    "keterangan": "Fish roll",
+    "keterangan": "Fish Roll",
     "jumlah": 2,
-    "satuan": "kg",
-    "total": 56000
+    "satuan": "pack",
+    "total": 56000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-124",
@@ -1361,10 +1484,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "29 Oktober 2026",
     "hari": "Kamis, 29 Oktober",
     "waktu": "14:20",
-    "keterangan": "Otak-otak",
+    "keterangan": "Cuanki Lidah",
     "jumlah": 3,
-    "satuan": "kg",
-    "total": 72000
+    "satuan": "pack",
+    "total": 72000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-125",
@@ -1372,10 +1496,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "30 Oktober 2026",
     "hari": "Jumat, 30 Oktober",
     "waktu": "08:15",
-    "keterangan": "Jamur enoki",
+    "keterangan": "Jamur Enoki Putih",
     "jumlah": 4,
-    "satuan": "kg",
-    "total": 120000
+    "satuan": "pack",
+    "total": 120000,
+    "kategori": "Sayur & Jamur"
   },
   {
     "id": "EXP-126",
@@ -1383,10 +1508,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "30 Oktober 2026",
     "hari": "Jumat, 30 Oktober",
     "waktu": "09:45",
-    "keterangan": "Kerupuk",
+    "keterangan": "Kerupuk Bawang (Mawar)",
     "jumlah": 4,
     "satuan": "kg",
-    "total": 64000
+    "total": 64000,
+    "kategori": "Kerupuk & Makaroni"
   },
   {
     "id": "EXP-127",
@@ -1394,10 +1520,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "30 Oktober 2026",
     "hari": "Jumat, 30 Oktober",
     "waktu": "11:12",
-    "keterangan": "Tahu",
+    "keterangan": "Tahu Putih Lembut",
     "jumlah": 5,
     "satuan": "kg",
-    "total": 75000
+    "total": 75000,
+    "kategori": "Telur & Tahu"
   },
   {
     "id": "EXP-128",
@@ -1405,10 +1532,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "31 Oktober 2026",
     "hari": "Sabtu, 31 Oktober",
     "waktu": "08:15",
-    "keterangan": "Mie",
+    "keterangan": "Mie Kuning Keriting",
     "jumlah": 4,
     "satuan": "kg",
-    "total": 56000
+    "total": 56000,
+    "kategori": "Mie & Bihun"
   },
   {
     "id": "EXP-129",
@@ -1416,10 +1544,11 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "31 Oktober 2026",
     "hari": "Sabtu, 31 Oktober",
     "waktu": "09:45",
-    "keterangan": "Bakso",
+    "keterangan": "Bakso Sapi Polos",
     "jumlah": 5,
-    "satuan": "kg",
-    "total": 160000
+    "satuan": "pack",
+    "total": 160000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-130",
@@ -1429,8 +1558,9 @@ export const MASTER_EXPENSES = [
     "waktu": "11:12",
     "keterangan": "Chikuwa",
     "jumlah": 5,
-    "satuan": "kg",
-    "total": 125000
+    "satuan": "pack",
+    "total": 125000,
+    "kategori": "Seafood & Olahan"
   },
   {
     "id": "EXP-131",
@@ -1438,9 +1568,10 @@ export const MASTER_EXPENSES = [
     "tanggalStr": "31 Oktober 2026",
     "hari": "Sabtu, 31 Oktober",
     "waktu": "12:30",
-    "keterangan": "Sawi",
+    "keterangan": "Sawi Hijau (Caisim)",
     "jumlah": 7,
     "satuan": "kg",
-    "total": 70000
+    "total": 70000,
+    "kategori": "Sayur & Jamur"
   }
 ];

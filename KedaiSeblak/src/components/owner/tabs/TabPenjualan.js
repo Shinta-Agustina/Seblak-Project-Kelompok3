@@ -1,923 +1,1311 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import StatCard from '../StatCard';
 import FilterChips from '../FilterChips';
-import {
-  PERIOD_SUMMARY,
-  TOP_PRODUCTS,
-  HOURLY_SALES_DATA,
-  PAYMENT_METHODS_DATA,
-  ORDER_TYPES_DATA,
-  SEBLAK_PREFERENCES,
-} from '../../../data/ownerData';
+
+const WARNA = {
+  merah: '#C62828',
+  merahGelap: '#52141D',
+  merahMuda: '#FBEAEC',
+  hijau: '#168653',
+  biru: '#0284C7',
+  oranye: '#D97706',
+  ungu: '#7C3AED',
+  teks: '#2C1810',
+  sekunder: '#78665E',
+  garis: '#EFE7E2',
+  latar: '#F8F6F4',
+  putih: '#FFFFFF',
+};
+
+const MENU = [
+  { nama: 'Seblak Original', kategori: 'Menu Utama', harga: 12000 },
+  { nama: 'Seblak Seafood', kategori: 'Menu Utama', harga: 18000 },
+  { nama: 'Seblak Komplit', kategori: 'Menu Utama', harga: 20000 },
+  { nama: 'Kerupuk', kategori: 'Topping', harga: 2000 },
+  { nama: 'Makaroni', kategori: 'Topping', harga: 2000 },
+  { nama: 'Bakso', kategori: 'Topping', harga: 3000 },
+  { nama: 'Sosis', kategori: 'Topping', harga: 3000 },
+  { nama: 'Seafood', kategori: 'Topping', harga: 5000 },
+  { nama: 'Es Teh', kategori: 'Minuman', harga: 5000 },
+  { nama: 'Es Jeruk', kategori: 'Minuman', harga: 6000 },
+];
+
+const METODE = ['Tunai', 'QRIS', 'E-Wallet'];
+const VARIAN_KUAH = [
+  'Kuah Original',
+  'Kuah Mentai',
+  'Kuah Suki',
+  'Kuah Kari',
+];
+
+const rupiah = (angka) =>
+  `Rp ${Number(angka || 0).toLocaleString('id-ID')}`;
+
+const buatTransaksi = () => {
+  const hasil = [];
+  const sekarang = new Date();
+
+  for (let mundur = 30; mundur >= 0; mundur--) {
+    const tanggal = new Date(sekarang);
+    tanggal.setDate(sekarang.getDate() - mundur);
+    tanggal.setHours(0, 0, 0, 0);
+
+    const jumlah = 5 + (
+      (tanggal.getDate() + tanggal.getMonth()) % 7
+    );
+
+    for (let i = 0; i < jumlah; i++) {
+      const seed =
+        tanggal.getDate() * 13 +
+        tanggal.getMonth() * 7 +
+        i * 11;
+
+      const menuUtama = MENU[seed % 3];
+      const topping = MENU[3 + (seed % 5)];
+      const minuman = MENU[8 + (seed % 2)];
+
+      const items = [
+        { ...menuUtama, qty: 1 + (seed % 2) },
+        { ...topping, qty: 1 + (i % 3) },
+      ];
+
+      if (i % 2 === 0) {
+        items.push({ ...minuman, qty: 1 });
+      }
+
+      if (i % 3 === 0) {
+        items.push({
+          nama: VARIAN_KUAH[seed % VARIAN_KUAH.length],
+          kategori: 'Kuah',
+          harga: 3000,
+          qty: 1,
+        });
+      }
+
+      const total = items.reduce(
+        (sum, item) => sum + item.harga * item.qty,
+        0
+      );
+
+      const jam = 10 + ((i * 2 + tanggal.getDate()) % 13);
+      const menit = [0, 10, 15, 20, 30, 40, 45, 50][
+        (i + seed) % 8
+      ];
+
+      hasil.push({
+        id: `TRX-${tanggal.getFullYear()}${String(
+          tanggal.getMonth() + 1
+        ).padStart(2, '0')}${String(
+          tanggal.getDate()
+        ).padStart(2, '0')}-${i + 1}`,
+        tanggal,
+        waktu: `${String(jam).padStart(2, '0')}:${String(
+          menit
+        ).padStart(2, '0')}`,
+        status: 'Lunas',
+        items,
+        total,
+        metode: METODE[seed % METODE.length],
+        tipe: (i + seed) % 4 === 0 ? 'Bungkus' : 'Makan di Tempat',
+        kuah: VARIAN_KUAH[seed % VARIAN_KUAH.length],
+        pedas: String(seed % 5),
+      });
+    }
+  }
+
+  return hasil;
+};
+
+function KartuRingkasan({
+  judul,
+  nilai,
+  keterangan,
+  ikon,
+  warna,
+  latarIkon,
+}) {
+  return (
+    <View style={styles.summaryCard}>
+      <View style={styles.summaryTop}>
+        <Text style={styles.summaryTitle}>{judul}</Text>
+        <View
+          style={[
+            styles.summaryIcon,
+            { backgroundColor: latarIkon },
+          ]}
+        >
+          <Ionicons name={ikon} size={21} color={warna} />
+        </View>
+      </View>
+
+      <Text style={styles.summaryValue}>{nilai}</Text>
+      <Text style={styles.summaryCaption}>{keterangan}</Text>
+    </View>
+  );
+}
+
+function JudulBagian({ judul, deskripsi, kanan }) {
+  return (
+    <View style={styles.sectionHeader}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.sectionTitle}>{judul}</Text>
+        {!!deskripsi && (
+          <Text style={styles.sectionSubtitle}>{deskripsi}</Text>
+        )}
+      </View>
+      {kanan}
+    </View>
+  );
+}
+
+function KartuKosong({ pesan }) {
+  return (
+    <View style={styles.emptyBox}>
+      <Ionicons
+        name="bar-chart-outline"
+        size={28}
+        color="#B8AAA2"
+      />
+      <Text style={styles.emptyText}>{pesan}</Text>
+    </View>
+  );
+}
 
 export default function TabPenjualan() {
   const [selectedPeriod, setSelectedPeriod] = useState('Hari ini');
   const [selectedCategory, setSelectedCategory] = useState('Semua');
 
+  const semuaTransaksi = useMemo(() => buatTransaksi(), []);
+
   const periodOptions = [
     { id: 'Hari ini', label: 'Hari ini' },
     { id: '7 Hari', label: '7 Hari Terakhir' },
-    { id: 'Bulan ini', label: 'Bulan ini (Okt)' },
+    { id: 'Bulan ini', label: 'Bulan ini' },
   ];
 
   const categoryOptions = [
     { id: 'Semua', label: 'Semua Menu' },
-    { id: 'Topping', label: 'Topping Prasmanan' },
+    { id: 'Menu Utama', label: 'Menu Utama' },
+    { id: 'Topping', label: 'Topping' },
     { id: 'Kuah', label: 'Varian Kuah' },
-    { id: 'Minuman', label: 'Minuman Dingin' },
+    { id: 'Minuman', label: 'Minuman' },
   ];
 
-  const summary = PERIOD_SUMMARY[selectedPeriod] || PERIOD_SUMMARY['Hari ini'];
-  const products = TOP_PRODUCTS[selectedCategory] || TOP_PRODUCTS.Semua;
+  const transaksiPeriode = useMemo(() => {
+    const sekarang = new Date();
+    const awal = new Date(sekarang);
+    awal.setHours(0, 0, 0, 0);
 
-  // Max value untuk chart per jam
-  const maxHourlyCount = Math.max(...HOURLY_SALES_DATA.map((h) => h.jumlah));
+    if (selectedPeriod === '7 Hari') {
+      awal.setDate(awal.getDate() - 6);
+    } else if (selectedPeriod === 'Bulan ini') {
+      awal.setDate(1);
+    }
+
+    const akhir = new Date(sekarang);
+    akhir.setHours(23, 59, 59, 999);
+
+    return semuaTransaksi.filter((trx) => (
+      trx.tanggal >= awal &&
+      trx.tanggal <= akhir &&
+      trx.status === 'Lunas'
+    ));
+  }, [semuaTransaksi, selectedPeriod]);
+
+  const ringkasan = useMemo(() => {
+    const omzet = transaksiPeriode.reduce(
+      (total, trx) => total + trx.total,
+      0
+    );
+
+    const jumlahItem = transaksiPeriode.reduce(
+      (total, trx) => total + trx.items.reduce(
+        (subtotal, item) => subtotal + item.qty,
+        0
+      ),
+      0
+    );
+
+    const transaksi = transaksiPeriode.length;
+
+    return {
+      omzet,
+      jumlahItem,
+      transaksi,
+      rataRata: transaksi ? omzet / transaksi : 0,
+    };
+  }, [transaksiPeriode]);
+
+  const produkTerlaris = useMemo(() => {
+    const map = {};
+
+    transaksiPeriode.forEach((trx) => {
+      trx.items.forEach((item) => {
+        const nama = item.nama;
+        const kategori = item.kategori;
+
+        const cocok =
+          selectedCategory === 'Semua' ||
+          kategori === selectedCategory ||
+          (selectedCategory === 'Topping' &&
+            kategori === 'Topping') ||
+          (selectedCategory === 'Kuah' &&
+            kategori === 'Kuah');
+
+        if (!cocok) return;
+
+        if (!map[nama]) {
+          map[nama] = {
+            nama,
+            kategori,
+            qty: 0,
+            omzet: 0,
+          };
+        }
+
+        map[nama].qty += item.qty;
+        map[nama].omzet += item.harga * item.qty;
+      });
+    });
+
+    return Object.values(map)
+      .sort((a, b) => b.qty - a.qty)
+      .map((item, index) => ({
+        ...item,
+        peringkat: index + 1,
+      }));
+  }, [transaksiPeriode, selectedCategory]);
+
+  const dataPerJam = useMemo(() => {
+    const data = Array.from({ length: 13 }, (_, index) => ({
+      jam: index + 10,
+      jumlah: 0,
+      omzet: 0,
+    }));
+
+    transaksiPeriode.forEach((trx) => {
+      const jam = Number(trx.waktu.split(':')[0]);
+
+      if (jam >= 10 && jam <= 22) {
+        data[jam - 10].jumlah += 1;
+        data[jam - 10].omzet += trx.total;
+      }
+    });
+
+    return data;
+  }, [transaksiPeriode]);
+
+  const jamMaksimum = Math.max(
+    1,
+    ...dataPerJam.map((item) => item.jumlah)
+  );
+
+  const jamRamai = dataPerJam.reduce(
+    (terbaik, item) =>
+      item.jumlah > terbaik.jumlah ? item : terbaik,
+    dataPerJam[0]
+  );
+
+  const metodePembayaran = useMemo(() => {
+    const map = {};
+
+    transaksiPeriode.forEach((trx) => {
+      const nama = trx.metode;
+
+      if (!map[nama]) {
+        map[nama] = {
+          nama,
+          jumlah: 0,
+          omzet: 0,
+        };
+      }
+
+      map[nama].jumlah += 1;
+      map[nama].omzet += trx.total;
+    });
+
+    return Object.values(map).map((item) => ({
+      ...item,
+      persen: ringkasan.omzet
+        ? Math.round(item.omzet / ringkasan.omzet * 100)
+        : 0,
+      warna:
+        item.nama === 'Tunai'
+          ? WARNA.hijau
+          : item.nama === 'QRIS'
+          ? WARNA.biru
+          : WARNA.ungu,
+      ikon:
+        item.nama === 'Tunai'
+          ? 'cash-outline'
+          : item.nama === 'QRIS'
+          ? 'qr-code-outline'
+          : 'wallet-outline',
+    }));
+  }, [transaksiPeriode, ringkasan.omzet]);
+
+  const jenisPesanan = useMemo(() => {
+    const data = [
+      {
+        nama: 'Makan di Tempat',
+        ikon: 'restaurant-outline',
+        warna: WARNA.hijau,
+        jumlah: 0,
+        omzet: 0,
+      },
+      {
+        nama: 'Bungkus',
+        ikon: 'bag-handle-outline',
+        warna: WARNA.oranye,
+        jumlah: 0,
+        omzet: 0,
+      },
+    ];
+
+    transaksiPeriode.forEach((trx) => {
+      const item = data.find((x) => x.nama === trx.tipe);
+      if (item) {
+        item.jumlah += 1;
+        item.omzet += trx.total;
+      }
+    });
+
+    return data.map((item) => ({
+      ...item,
+      persen: ringkasan.transaksi
+        ? Math.round(item.jumlah / ringkasan.transaksi * 100)
+        : 0,
+    }));
+  }, [transaksiPeriode, ringkasan.transaksi]);
+
+  const preferensi = useMemo(() => {
+    const hitung = (field) => {
+      const map = {};
+
+      transaksiPeriode.forEach((trx) => {
+        const nilai = trx[field];
+        map[nilai] = (map[nilai] || 0) + 1;
+      });
+
+      const total = Object.values(map).reduce(
+        (sum, jumlah) => sum + jumlah,
+        0
+      );
+
+      return Object.entries(map)
+        .map(([nama, jumlah]) => ({
+          nama,
+          jumlah,
+          persen: total ? Math.round(jumlah / total * 100) : 0,
+        }))
+        .sort((a, b) => b.jumlah - a.jumlah);
+    };
+
+    return {
+      kuah: hitung('kuah'),
+      pedas: hitung('pedas'),
+    };
+  }, [transaksiPeriode]);
 
   return (
-    <View style={styles.container}>
-      {/* Header & Filter Periode */}
-      <View style={styles.headerArea}>
-        <View style={styles.headerTitles}>
-          <Text style={styles.pageTitle}>Analisis Penjualan Kedai</Text>
-          <Text style={styles.pageSubtitle}>
-            Pantau menu terlaris, jam ramai kedai, dan preferensi pelanggan seblak
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.pageContent}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* HEADER */}
+      <View style={styles.pageHeader}>
+        <View style={styles.pageHeading}>
+          <Text style={styles.pageTitle}>Ringkasan Penjualan</Text>
+          <Text style={styles.pageDescription}>
+            Pantau omzet, menu favorit, dan aktivitas kedai
           </Text>
         </View>
 
-        {/* Filter Periode: Hari ini, 7 Hari, Bulan ini */}
-        <View style={styles.periodSelectorWrap}>
-          <Text style={styles.periodFilterLabel}>Periode Laporan:</Text>
+        <View style={styles.periodBox}>
+          <Text style={styles.filterLabel}>Periode laporan</Text>
           <FilterChips
             options={periodOptions}
             selectedId={selectedPeriod}
             onSelect={setSelectedPeriod}
-            accentColor="#C62828"
+            accentColor={WARNA.merah}
           />
         </View>
       </View>
 
-      {/* 3 KARTU RINGKASAN PENJUALAN PERIODE */}
+      {/* RINGKASAN */}
       <View style={styles.summaryGrid}>
-        <StatCard
-          title="Total Porsi Terjual"
-          value={`${summary.porsi.toLocaleString('id-ID')} Porsi`}
-          subtitle={`Periode: ${summary.labelPeriode}`}
-          iconName="restaurant-outline"
-          iconColor="#C62828"
-          iconBg="#FBEAEC"
+        <KartuRingkasan
+          judul="Total Omzet"
+          nilai={rupiah(ringkasan.omzet)}
+          keterangan="Pendapatan pada periode ini"
+          ikon="wallet-outline"
+          warna={WARNA.hijau}
+          latarIkon="#E3F5EB"
         />
 
-        <StatCard
-          title="Jumlah Transaksi"
-          value={`${summary.transaksi.toLocaleString('id-ID')} Trx`}
-          subtitle={`Rata-rata Rp ${Math.round(summary.rataRata).toLocaleString('id-ID')}/trx`}
-          iconName="receipt-outline"
-          iconColor="#0284C7"
-          iconBg="#E0F2FE"
+        <KartuRingkasan
+          judul="Total Transaksi"
+          nilai={ringkasan.transaksi.toLocaleString('id-ID')}
+          keterangan={`Rata-rata ${rupiah(ringkasan.rataRata)} / transaksi`}
+          ikon="receipt-outline"
+          warna={WARNA.biru}
+          latarIkon="#E3F3FC"
         />
 
-        <StatCard
-          title="Omzet Periode Ini"
-          value={`Rp ${summary.omzet.toLocaleString('id-ID')}`}
-          subtitle="Total pemasukan kotor"
-          iconName="cash-outline"
-          iconColor="#168653"
-          iconBg="#DCFCE7"
+        <KartuRingkasan
+          judul="Item Terjual"
+          nilai={ringkasan.jumlahItem.toLocaleString('id-ID')}
+          keterangan="Jumlah item dari seluruh pesanan"
+          ikon="fast-food-outline"
+          warna={WARNA.merah}
+          latarIkon={WARNA.merahMuda}
         />
       </View>
 
-      {/* PENJUALAN PER JAM & JAM RAMAI (PEAK HOUR) */}
+      {/* GRAFIK PER JAM */}
       <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.cardHeaderText}>
-            <Text style={styles.cardTitle}>Penjualan per Jam Buka Kedai</Text>
-            <Text style={styles.cardSubtitle}>
-              Distribusi transaksi dari jam 10.00 hingga kedai tutup (22.00)
-            </Text>
-          </View>
+        <JudulBagian
+          judul="Aktivitas Penjualan"
+          deskripsi="Distribusi transaksi berdasarkan jam operasional"
+          kanan={
+            <View style={styles.peakBadge}>
+              <Ionicons
+                name="flame"
+                size={15}
+                color={WARNA.merah}
+              />
+              <Text style={styles.peakBadgeText}>
+                Ramai {String(jamRamai.jam).padStart(2, '0')}.00
+              </Text>
+            </View>
+          }
+        />
 
-          <View style={styles.peakTag}>
-            <Ionicons name="flame" size={14} color="#C62828" />
-            <Text style={styles.peakTagText}>Jam Ramai Ditandai Merah</Text>
-          </View>
-        </View>
+        {ringkasan.transaksi === 0 ? (
+          <KartuKosong pesan="Belum ada transaksi pada periode ini." />
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chartContent}
+          >
+            {dataPerJam.map((item) => {
+              const tinggi = Math.max(
+                item.jumlah > 0 ? 8 : 3,
+                item.jumlah / jamMaksimum * 135
+              );
 
-        {/* Bar Chart Jam Buka */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.hourlyScroll}
-          contentContainerStyle={styles.hourlyChartContainer}
-        >
-          {HOURLY_SALES_DATA.map((item) => {
-            const heightPercent = Math.round((item.jumlah / maxHourlyCount) * 100);
-            return (
-              <View key={item.jam} style={styles.barColumn}>
-                {item.peak && (
-                  <View style={styles.peakFlameBubble}>
-                    <Ionicons name="flame" size={12} color="#C62828" />
-                  </View>
-                )}
+              const puncak =
+                item.jumlah > 0 &&
+                item.jumlah === jamRamai.jumlah;
 
-                <Text style={[styles.barCountText, item.peak && styles.barCountTextPeak]}>
-                  {item.jumlah}
-                </Text>
-
-                <View style={styles.barPillarTrack}>
-                  <View
-                    style={[
-                      styles.barPillar,
-                      {
-                        height: `${heightPercent}%`,
-                        backgroundColor: item.peak ? '#C62828' : '#D1C7BD',
-                      },
-                    ]}
-                  />
-                </View>
-
-                <Text style={[styles.barHourText, item.peak && styles.barHourTextPeak]}>
-                  {item.jam}
-                </Text>
-                <Text style={styles.barLabelDesc}>{item.label}</Text>
-              </View>
-            );
-          })}
-        </ScrollView>
-
-        <View style={styles.chartTipBox}>
-          <Ionicons name="bulb-outline" size={16} color="#B45309" />
-          <Text style={styles.chartTipText}>
-            <Text style={{ fontWeight: '700' }}>Rekomendasi Dapur:</Text> Jam sibuk kedai terjadi pada{' '}
-            <Text style={{ fontWeight: '800', color: '#C62828' }}>12.00–14.00 (Makan Siang)</Text> dan{' '}
-            <Text style={{ fontWeight: '800', color: '#C62828' }}>18.00–20.00 (Makan Malam)</Text>. Pastikan bumbu kencur dan kuah jeletot siap sebelum jam tersebut.
-          </Text>
-        </View>
-      </View>
-
-      {/* PRODUK TERLARIS (DENGAN FILTER KATEGORI) */}
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.cardHeaderText}>
-            <Text style={styles.cardTitle}>Peringkat Produk Terlaris</Text>
-            <Text style={styles.cardSubtitle}>
-              Urutan menu paling diminati pelanggan seblak pada periode {selectedPeriod.toLowerCase()}
-            </Text>
-          </View>
-        </View>
-
-        {/* Filter Kategori: Semua, Topping, Kuah, Minuman */}
-        <View style={styles.categoryFilterRow}>
-          <FilterChips
-            options={categoryOptions}
-            selectedId={selectedCategory}
-            onSelect={setSelectedCategory}
-            accentColor="#52141D"
-            scrollable={true}
-          />
-        </View>
-
-        {/* Daftar Peringkat Produk */}
-        <View style={styles.rankingList}>
-          {products.map((item) => {
-            const isTop3 = item.rank <= 3;
-            return (
-              <View key={item.nama} style={styles.productRow}>
-                <View
-                  style={[
-                    styles.rankNumberCircle,
-                    isTop3 ? styles.rankNumberTop : styles.rankNumberRegular,
-                  ]}
-                >
+              return (
+                <View key={item.jam} style={styles.barColumn}>
                   <Text
                     style={[
-                      styles.rankNumberText,
-                      isTop3 ? styles.rankNumberTextTop : styles.rankNumberTextRegular,
+                      styles.barCount,
+                      puncak && { color: WARNA.merah },
                     ]}
                   >
-                    {item.rank}
+                    {item.jumlah}
                   </Text>
-                </View>
 
-                <View style={styles.productInfoCol}>
-                  <View style={styles.productNameRow}>
-                    <Text style={styles.productName}>{item.nama}</Text>
-                    <View style={styles.productQtyBadge}>
-                      <Text style={styles.productQtyText}>
-                        {item.porsi} {item.unit}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Progress Bar Proporsi */}
-                  <View style={styles.proportionBarTrack}>
+                  <View style={styles.barTrack}>
                     <View
                       style={[
-                        styles.proportionBarFill,
+                        styles.barFill,
                         {
-                          width: `${item.proporsi}%`,
-                          backgroundColor:
-                            item.rank === 1 ? '#C62828' : item.rank === 2 ? '#EA580C' : '#78665E',
+                          height: tinggi,
+                          backgroundColor: puncak
+                            ? WARNA.merah
+                            : '#D9CEC8',
                         },
                       ]}
                     />
                   </View>
 
-                  <View style={styles.productBottomRow}>
-                    <Text style={styles.productCategoryLabel}>
-                      Kategori: {item.kategori}
-                    </Text>
-                    <Text style={styles.productRevenueText}>
-                      Omzet: Rp {item.omzet.toLocaleString('id-ID')}
-                    </Text>
-                  </View>
+                  <Text
+                    style={[
+                      styles.barHour,
+                      puncak && {
+                        color: WARNA.merah,
+                        fontWeight: '800',
+                      },
+                    ]}
+                  >
+                    {String(item.jam).padStart(2, '0')}.00
+                  </Text>
                 </View>
-              </View>
-            );
-          })}
+              );
+            })}
+          </ScrollView>
+        )}
+
+        <View style={styles.chartFooter}>
+          <View style={styles.chartLegend}>
+            <View
+              style={[
+                styles.legendDot,
+                { backgroundColor: WARNA.merah },
+              ]}
+            />
+            <Text style={styles.legendText}>Jam paling ramai</Text>
+          </View>
+
+          <Text style={styles.chartFooterText}>
+            {ringkasan.transaksi} transaksi tercatat
+          </Text>
         </View>
       </View>
 
-      {/* 2 GRID: METODE PEMBAYARAN & TIPE PESANAN */}
-      <View style={styles.twoColumnGrid}>
-        {/* Metode Pembayaran */}
-        <View style={[styles.card, { flexGrow: 1, flexShrink: 1, flexBasis: 260, minWidth: 0 }]}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardHeaderText}>
-              <Text style={styles.cardTitle}>Metode Pembayaran</Text>
-              <Text style={styles.cardSubtitle}>Tunai, QRIS, dan E-Wallet</Text>
-            </View>
-          </View>
+      {/* MENU TERLARIS */}
+      <View style={styles.card}>
+        <JudulBagian
+          judul="Menu Terlaris"
+          deskripsi="Peringkat menu berdasarkan jumlah item terjual"
+        />
 
-          <View style={styles.paymentMethodsList}>
-            {PAYMENT_METHODS_DATA.map((pm) => (
-              <View key={pm.nama} style={styles.paymentMethodItem}>
-                <View style={styles.pmHeaderRow}>
-                  <View style={styles.pmLeft}>
-                    <View style={[styles.pmIconBox, { backgroundColor: `${pm.warna}15` }]}>
-                      <Ionicons name={pm.icon} size={18} color={pm.warna} />
-                    </View>
-                    <View>
-                      <Text style={styles.pmName}>{pm.nama}</Text>
-                      <Text style={styles.pmSub}>
-                        {pm.jumlah} Transaksi · Rp {pm.nominal.toLocaleString('id-ID')}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={[styles.pmPercent, { color: pm.warna }]}>{pm.persen}%</Text>
-                </View>
-
-                <View style={styles.pmBarTrack}>
-                  <View
-                    style={[
-                      styles.pmBarFill,
-                      { width: `${pm.persen}%`, backgroundColor: pm.warna },
-                    ]}
-                  />
-                </View>
-              </View>
-            ))}
-          </View>
+        <View style={styles.categoryFilters}>
+          <FilterChips
+            options={categoryOptions}
+            selectedId={selectedCategory}
+            onSelect={setSelectedCategory}
+            accentColor={WARNA.merahGelap}
+            scrollable
+          />
         </View>
 
-        {/* Tipe Pesanan: Dine-in vs Bungkus */}
-        <View style={[styles.card, { flexGrow: 1, flexShrink: 1, flexBasis: 260, minWidth: 0 }]}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardHeaderText}>
-              <Text style={styles.cardTitle}>Tipe Pesanan</Text>
-              <Text style={styles.cardSubtitle}>Makan di tempat vs Bungkus</Text>
-            </View>
-          </View>
+        {produkTerlaris.length === 0 ? (
+          <KartuKosong pesan="Tidak ada menu untuk kategori ini." />
+        ) : (
+          <View style={styles.productList}>
+            {produkTerlaris.map((item) => {
+              const maksimum = Math.max(
+                1,
+                ...produkTerlaris.map((produk) => produk.qty)
+              );
 
-          <View style={styles.orderTypesList}>
-            {ORDER_TYPES_DATA.map((ot) => (
-              <View key={ot.nama} style={styles.orderTypeItem}>
-                <View style={styles.otHeader}>
-                  <View style={styles.otTitleRow}>
-                    <Ionicons name={ot.icon} size={18} color={ot.warna} />
-                    <Text style={styles.otName}>{ot.nama}</Text>
-                  </View>
-                  <Text style={[styles.otPercent, { color: ot.warna }]}>{ot.persen}%</Text>
-                </View>
+              const persen = Math.round(
+                item.qty / maksimum * 100
+              );
 
-                <View style={styles.otBarTrack}>
+              return (
+                <View key={item.nama} style={styles.productRow}>
                   <View
                     style={[
-                      styles.otBarFill,
-                      { width: `${ot.persen}%`, backgroundColor: ot.warna },
+                      styles.rankCircle,
+                      item.peringkat === 1
+                        ? styles.rankFirst
+                        : styles.rankOther,
                     ]}
+                  >
+                    {item.peringkat === 1 ? (
+                      <Ionicons
+                        name="trophy"
+                        size={17}
+                        color="#FFFFFF"
+                      />
+                    ) : (
+                      <Text style={styles.rankNumber}>
+                        {item.peringkat}
+                      </Text>
+                    )}
+                  </View>
+
+                  <View style={styles.productMain}>
+                    <View style={styles.productTop}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.productName}>
+                          {item.nama}
+                        </Text>
+                        <Text style={styles.productCategory}>
+                          {item.kategori}
+                        </Text>
+                      </View>
+
+                      <Text style={styles.productQty}>
+                        {item.qty} item
+                      </Text>
+                    </View>
+
+                    <View style={styles.progressTrack}>
+                      <View
+                        style={[
+                          styles.progressFill,
+                          {
+                            width: `${persen}%`,
+                            backgroundColor:
+                              item.peringkat === 1
+                                ? WARNA.merah
+                                : item.peringkat === 2
+                                ? WARNA.oranye
+                                : '#B8AAA2',
+                          },
+                        ]}
+                      />
+                    </View>
+
+                    <Text style={styles.productRevenue}>
+                      Omzet {rupiah(item.omzet)}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </View>
+
+      {/* METODE PEMBAYARAN */}
+      <View style={styles.twoColumns}>
+        <View style={[styles.card, styles.columnCard]}>
+          <JudulBagian
+            judul="Metode Pembayaran"
+            deskripsi="Rincian berdasarkan metode pembayaran"
+          />
+
+          {metodePembayaran.length === 0 ? (
+            <KartuKosong pesan="Belum ada data pembayaran." />
+          ) : (
+            metodePembayaran.map((item) => (
+              <View key={item.nama} style={styles.paymentRow}>
+                <View
+                  style={[
+                    styles.paymentIcon,
+                    { backgroundColor: `${item.warna}15` },
+                  ]}
+                >
+                  <Ionicons
+                    name={item.ikon}
+                    size={20}
+                    color={item.warna}
                   />
                 </View>
 
-                <Text style={styles.otDetails}>
-                  {ot.jumlah} Transaksi ({ot.porsi} porsi seblak)
+                <View style={styles.paymentMain}>
+                  <View style={styles.paymentNameRow}>
+                    <Text style={styles.paymentName}>
+                      {item.nama}
+                    </Text>
+                    <Text style={styles.paymentPercent}>
+                      {item.persen}%
+                    </Text>
+                  </View>
+
+                  <Text style={styles.paymentAmount}>
+                    {rupiah(item.omzet)}
+                  </Text>
+
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        {
+                          width: `${item.persen}%`,
+                          backgroundColor: item.warna,
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  <Text style={styles.paymentCount}>
+                    {item.jumlah} transaksi
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+
+        {/* JENIS PESANAN */}
+        <View style={[styles.card, styles.columnCard]}>
+          <JudulBagian
+            judul="Jenis Pesanan"
+            deskripsi="Makan di tempat dan bungkus"
+          />
+
+          {jenisPesanan.map((item) => (
+            <View key={item.nama} style={styles.orderCard}>
+              <View
+                style={[
+                  styles.orderIcon,
+                  { backgroundColor: `${item.warna}15` },
+                ]}
+              >
+                <Ionicons
+                  name={item.ikon}
+                  size={23}
+                  color={item.warna}
+                />
+              </View>
+
+              <View style={styles.orderInfo}>
+                <Text style={styles.orderName}>{item.nama}</Text>
+                <Text style={styles.orderCount}>
+                  {item.jumlah} pesanan
+                </Text>
+                <Text style={styles.orderRevenue}>
+                  {rupiah(item.omzet)}
                 </Text>
               </View>
-            ))}
-          </View>
 
-          <View style={styles.dineInNote}>
-            <Ionicons name="information-circle-outline" size={16} color="#78665E" />
-            <Text style={styles.dineInNoteText}>
-              Mayoritas pelanggan memilih makan di tempat (dine-in) untuk menikmati kuah panas mendidih.
-            </Text>
-          </View>
+              <Text style={styles.orderPercent}>
+                {item.persen}%
+              </Text>
+            </View>
+          ))}
         </View>
       </View>
 
-      {/* KHAS SEBLAK: KUAH & LEVEL PEDAS FAVORIT */}
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.cardHeaderText}>
-            <View style={styles.seblakBrandBadge}>
-              <Ionicons name="flame" size={13} color="#C62828" />
-              <Text style={styles.seblakBrandBadgeText}>Karakter Kuliner Nusantara</Text>
-            </View>
-            <Text style={styles.cardTitle}>Preferensi Kuah & Tingkat Kepedasan</Text>
-            <Text style={styles.cardSubtitle}>
-              Khas kedai seblak: racikan kuah kencur dan level cabai rawit yang paling disukai
-            </Text>
-          </View>
+      {/* PREFERENSI PELANGGAN */}
+      <View style={styles.twoColumns}>
+        <View style={[styles.card, styles.columnCard]}>
+          <JudulBagian
+            judul="Favorit Kuah"
+            deskripsi="Varian kuah yang dipilih"
+          />
+
+          {preferensi.kuah.length === 0 ? (
+            <KartuKosong pesan="Belum ada preferensi kuah." />
+          ) : (
+            preferensi.kuah.map((item, index) => (
+              <View key={item.nama} style={styles.preferenceRow}>
+                <View
+                  style={[
+                    styles.preferenceNumber,
+                    index === 0 && {
+                      backgroundColor: WARNA.merahMuda,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.preferenceNumberText,
+                      index === 0 && { color: WARNA.merah },
+                    ]}
+                  >
+                    {index + 1}
+                  </Text>
+                </View>
+
+                <View style={styles.preferenceMain}>
+                  <View style={styles.preferenceTop}>
+                    <Text style={styles.preferenceName}>
+                      {item.nama}
+                    </Text>
+                    <Text style={styles.preferencePercent}>
+                      {item.persen}%
+                    </Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        {
+                          width: `${item.persen}%`,
+                          backgroundColor: WARNA.merah,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.preferenceCount}>
+                    {item.jumlah} pesanan
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
         </View>
 
-        <View style={styles.preferencesGrid}>
-          {/* Kuah Favorit */}
-          <View style={styles.prefSection}>
-            <View style={styles.prefTitleRow}>
-              <Ionicons name="restaurant-outline" size={16} color="#C62828" />
-              <Text style={styles.prefTitleText}>Varian Kuah Favorit Pelanggan</Text>
-            </View>
-            <View style={styles.prefList}>
-              {SEBLAK_PREFERENCES.kuah.map((k) => (
-                <View key={k.nama} style={styles.prefItem}>
-                  <View style={styles.prefTopRow}>
-                    <Text style={styles.prefName}>{k.nama}</Text>
-                    <Text style={[styles.prefPercent, { color: k.warna }]}>{k.persen}%</Text>
+        <View style={[styles.card, styles.columnCard]}>
+          <JudulBagian
+            judul="Level Pedas"
+            deskripsi="Tingkat pedas yang dipilih"
+          />
+
+          {preferensi.pedas.length === 0 ? (
+            <KartuKosong pesan="Belum ada preferensi level pedas." />
+          ) : (
+            preferensi.pedas.map((item, index) => (
+              <View key={item.nama} style={styles.preferenceRow}>
+                <View
+                  style={[
+                    styles.preferenceNumber,
+                    index === 0 && {
+                      backgroundColor: '#FEE2E2',
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="flame"
+                    size={16}
+                    color={index === 0 ? WARNA.merah : '#8D7B70'}
+                  />
+                </View>
+
+                <View style={styles.preferenceMain}>
+                  <View style={styles.preferenceTop}>
+                    <Text style={styles.preferenceName}>
+                      Level {item.nama}
+                    </Text>
+                    <Text style={styles.preferencePercent}>
+                      {item.persen}%
+                    </Text>
                   </View>
-                  <View style={styles.prefBarTrack}>
+                  <View style={styles.progressTrack}>
                     <View
                       style={[
-                        styles.prefBarFill,
-                        { width: `${k.persen}%`, backgroundColor: k.warna },
+                        styles.progressFill,
+                        {
+                          width: `${item.persen}%`,
+                          backgroundColor:
+                            index === 0
+                              ? WARNA.merah
+                              : WARNA.oranye,
+                        },
                       ]}
                     />
                   </View>
-                  <Text style={styles.prefCatatan}>{k.catatan}</Text>
+                  <Text style={styles.preferenceCount}>
+                    {item.jumlah} pesanan
+                  </Text>
                 </View>
-              ))}
-            </View>
-          </View>
-
-          {/* Level Pedas Favorit */}
-          <View style={styles.prefSection}>
-            <View style={styles.prefTitleRow}>
-              <Ionicons name="flame-outline" size={16} color="#C62828" />
-              <Text style={styles.prefTitleText}>Sebaran Level Kepedasan</Text>
-            </View>
-            <View style={styles.pedasList}>
-              {SEBLAK_PREFERENCES.pedas.map((p) => (
-                <View key={p.level} style={styles.pedasItem}>
-                  <View style={styles.pedasTopRow}>
-                    <View style={styles.pedasLabelRow}>
-                      <Text style={[styles.pedasLabel, p.favorite && styles.pedasLabelFav]}>
-                        {p.label}
-                      </Text>
-                      {p.favorite && (
-                        <View style={styles.favBadge}>
-                          <Text style={styles.favBadgeText}>TERFAVORIT</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={[styles.pedasPercent, { color: p.warna }]}>{p.persen}%</Text>
-                  </View>
-
-                  <View style={styles.pedasBarTrack}>
-                    <View
-                      style={[
-                        styles.pedasBarFill,
-                        { width: `${p.persen}%`, backgroundColor: p.warna },
-                      ]}
-                    />
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
+              </View>
+            ))
+          )}
         </View>
       </View>
-    </View>
+
+      {/* FOOTER */}
+      <View style={styles.footer}>
+        <Ionicons
+          name="calendar-outline"
+          size={15}
+          color={WARNA.sekunder}
+        />
+        <Text style={styles.footerText}>
+          Periode laporan: {selectedPeriod}
+        </Text>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
+    flex: 1,
+    backgroundColor: WARNA.latar,
   },
-  headerArea: {
-    marginBottom: 20,
-    gap: 14,
+  pageContent: {
+    padding: 22,
+    paddingBottom: 36,
+    gap: 18,
   },
-  headerTitles: {
-    gap: 4,
+  pageHeader: {
+    gap: 18,
+  },
+  pageHeading: {
+    gap: 5,
   },
   pageTitle: {
-    fontSize: 24,
+    fontSize: 25,
     fontWeight: '900',
-    color: '#2C1810',
-    letterSpacing: -0.3,
+    color: WARNA.teks,
   },
-  pageSubtitle: {
+  pageDescription: {
     fontSize: 13,
-    color: '#78665E',
+    lineHeight: 20,
+    color: WARNA.sekunder,
   },
-  periodSelectorWrap: {
-    gap: 8,
+  periodBox: {
+    backgroundColor: WARNA.putih,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: WARNA.garis,
+    padding: 14,
+    gap: 10,
   },
-  periodFilterLabel: {
+  filterLabel: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#2C1810',
+    fontWeight: '800',
+    color: WARNA.teks,
   },
   summaryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 8,
+    gap: 14,
   },
-  card: {
-    backgroundColor: '#FFFFFF',
+  summaryCard: {
+    flexGrow: 1,
+    flexBasis: 210,
+    minWidth: 0,
+    backgroundColor: WARNA.putih,
     borderRadius: 16,
-    padding: 20,
     borderWidth: 1,
-    borderColor: '#EFE7E2',
-    marginBottom: 18,
-    shadowColor: '#3D2922',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: WARNA.garis,
+    padding: 18,
+    gap: 10,
   },
-  cardHeader: {
+  summaryTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    flexWrap: 'wrap',
-    marginBottom: 16,
+    alignItems: 'center',
     gap: 8,
   },
-  cardHeaderText: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 200,
-    minWidth: 0,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#2C1810',
-  },
-  cardSubtitle: {
+  summaryTitle: {
     fontSize: 12,
-    color: '#78665E',
-    marginTop: 2,
+    fontWeight: '700',
+    color: WARNA.sekunder,
   },
-  peakTag: {
+  summaryIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  summaryValue: {
+    fontSize: 23,
+    fontWeight: '900',
+    color: WARNA.teks,
+  },
+  summaryCaption: {
+    fontSize: 11,
+    color: WARNA.sekunder,
+    lineHeight: 17,
+  },
+  card: {
+    backgroundColor: WARNA.putih,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: WARNA.garis,
+    padding: 18,
+    gap: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: WARNA.teks,
+  },
+  sectionSubtitle: {
+    fontSize: 11,
+    color: WARNA.sekunder,
+    lineHeight: 17,
+    marginTop: 4,
+  },
+  peakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FBEAEC',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    gap: 5,
+    backgroundColor: WARNA.merahMuda,
     borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
   },
-  peakTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#C62828',
+  peakBadgeText: {
+    color: WARNA.merah,
+    fontSize: 10,
+    fontWeight: '800',
   },
-  hourlyScroll: {
-    flexGrow: 0,
-    marginBottom: 14,
-  },
-  hourlyChartContainer: {
-    flexGrow: 1,
-    flexDirection: 'row',
+  chartContent: {
     alignItems: 'flex-end',
-    height: 180,
-    paddingTop: 20,
-    paddingBottom: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EFE7E2',
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    gap: 12,
   },
   barColumn: {
-    flexGrow: 1,
-    flexBasis: 56,
-    minWidth: 56,
+    width: 40,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    height: '100%',
-    paddingHorizontal: 2,
+    gap: 8,
   },
-  peakFlameBubble: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#FBEAEC',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 2,
-  },
-  barCountText: {
+  barCount: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#78665E',
-    marginBottom: 6,
+    fontWeight: '800',
+    color: WARNA.sekunder,
   },
-  barCountTextPeak: {
-    color: '#C62828',
-    fontWeight: '900',
-  },
-  barPillarTrack: {
-    width: '55%',
-    height: 100,
+  barTrack: {
+    height: 145,
+    width: 22,
     backgroundColor: '#F4EFEB',
+    borderRadius: 7,
     justifyContent: 'flex-end',
-    borderRadius: 6,
     overflow: 'hidden',
   },
-  barPillar: {
+  barFill: {
     width: '100%',
-    borderRadius: 6,
+    borderRadius: 7,
   },
-  barHourText: {
+  barHour: {
     fontSize: 10,
-    fontWeight: '600',
-    color: '#78665E',
-    marginTop: 8,
-    textAlign: 'center',
+    color: WARNA.sekunder,
   },
-  barHourTextPeak: {
-    color: '#C62828',
-    fontWeight: '800',
-  },
-  barLabelDesc: {
-    fontSize: 9,
-    color: '#A89A92',
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  chartTipBox: {
+  chartFooter: {
+    borderTopWidth: 1,
+    borderTopColor: WARNA.garis,
+    paddingTop: 13,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
-    backgroundColor: '#FFFBEB',
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
   },
-  chartTipText: {
-    flex: 1,
-    fontSize: 12,
-    color: '#92400E',
-    lineHeight: 18,
+  chartLegend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
   },
-  categoryFilterRow: {
-    marginBottom: 16,
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  rankingList: {
-    gap: 12,
+  legendText: {
+    fontSize: 11,
+    color: WARNA.sekunder,
+  },
+  chartFooterText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: WARNA.sekunder,
+  },
+  categoryFilters: {
+    marginTop: -4,
+  },
+  productList: {
+    gap: 17,
   },
   productRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F8F5F2',
   },
-  rankNumberCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  rankCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  rankNumberTop: {
-    backgroundColor: '#C62828',
+  rankFirst: {
+    backgroundColor: WARNA.merah,
   },
-  rankNumberRegular: {
+  rankOther: {
     backgroundColor: '#F4EFEB',
   },
-  rankNumberText: {
-    fontSize: 12,
+  rankNumber: {
+    fontSize: 13,
     fontWeight: '900',
+    color: WARNA.sekunder,
   },
-  rankNumberTextTop: {
-    color: '#FFFFFF',
-  },
-  rankNumberTextRegular: {
-    color: '#78665E',
-  },
-  productInfoCol: {
+  productMain: {
     flex: 1,
+    gap: 8,
   },
-  productNameRow: {
+  productTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-    gap: 8,
+    alignItems: 'flex-start',
+    gap: 12,
   },
   productName: {
-    flex: 1,
-    minWidth: 0,
     fontSize: 13,
-    fontWeight: '700',
-    color: '#2C1810',
-  },
-  productQtyBadge: {
-    backgroundColor: '#F8F5F2',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  productQtyText: {
-    fontSize: 11,
     fontWeight: '800',
-    color: '#52141D',
+    color: WARNA.teks,
   },
-  proportionBarTrack: {
-    height: 7,
-    backgroundColor: '#F4EFEB',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 6,
-  },
-  proportionBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  productBottomRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 4,
-  },
-  productCategoryLabel: {
-    fontSize: 11,
-    color: '#8D7B70',
-  },
-  productRevenueText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#2C1810',
-  },
-  twoColumnGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 14,
-  },
-  paymentMethodsList: {
-    gap: 14,
-  },
-  paymentMethodItem: {
-    gap: 6,
-  },
-  pmHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
-  },
-  pmLeft: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  pmIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pmName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#2C1810',
-  },
-  pmSub: {
-    fontSize: 11,
-    color: '#78665E',
-    marginTop: 1,
-  },
-  pmPercent: {
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  pmBarTrack: {
-    height: 7,
-    backgroundColor: '#F4EFEB',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  pmBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  orderTypesList: {
-    gap: 14,
-  },
-  orderTypeItem: {
-    gap: 6,
-  },
-  otHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  otTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  otName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#2C1810',
-  },
-  otPercent: {
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  otBarTrack: {
-    height: 7,
-    backgroundColor: '#F4EFEB',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  otBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  otDetails: {
-    fontSize: 11,
-    color: '#78665E',
-  },
-  dineInNote: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: '#F8F5F2',
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 14,
-  },
-  dineInNoteText: {
-    flex: 1,
-    fontSize: 11,
-    color: '#78665E',
-    lineHeight: 16,
-  },
-  seblakBrandBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FBEAEC',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-    marginBottom: 4,
-  },
-  seblakBrandBadgeText: {
+  productCategory: {
     fontSize: 10,
-    fontWeight: '800',
-    color: '#C62828',
+    color: WARNA.sekunder,
+    marginTop: 3,
   },
-  preferencesGrid: {
+  productQty: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: WARNA.merah,
+  },
+  progressTrack: {
+    height: 7,
+    borderRadius: 10,
+    backgroundColor: '#F0EAE6',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 10,
+  },
+  productRevenue: {
+    fontSize: 10,
+    color: WARNA.sekunder,
+  },
+  twoColumns: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
+    alignItems: 'stretch',
   },
-  prefSection: {
+  columnCard: {
     flexGrow: 1,
     flexShrink: 1,
-    flexBasis: 240,
+    flexBasis: 300,
     minWidth: 0,
   },
-  prefTitleRow: {
+  paymentRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 11,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3EEEA',
+  },
+  paymentIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 11,
+    justifyContent: 'center',
     alignItems: 'center',
+  },
+  paymentMain: {
+    flex: 1,
     gap: 6,
-    marginBottom: 12,
   },
-  prefTitleText: {
-    flexShrink: 1,
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#2C1810',
-  },
-  prefSectionTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#2C1810',
-    marginBottom: 12,
-  },
-  prefList: {
-    gap: 12,
-  },
-  prefItem: {
-    gap: 4,
-  },
-  prefTopRow: {
+  paymentNameRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 8,
   },
-  prefName: {
+  paymentName: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: WARNA.teks,
+  },
+  paymentPercent: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: WARNA.teks,
+  },
+  paymentAmount: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2C1810',
+    color: WARNA.sekunder,
   },
-  prefPercent: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  prefBarTrack: {
-    height: 6,
-    backgroundColor: '#F4EFEB',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  prefBarFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  prefCatatan: {
+  paymentCount: {
     fontSize: 10,
-    color: '#8D7B70',
-    marginTop: 2,
+    color: WARNA.sekunder,
   },
-  pedasList: {
+  orderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: WARNA.garis,
+    borderRadius: 12,
   },
-  pedasItem: {
+  orderIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orderInfo: {
+    flex: 1,
     gap: 4,
   },
-  pedasTopRow: {
+  orderName: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: WARNA.teks,
+  },
+  orderCount: {
+    fontSize: 10,
+    color: WARNA.sekunder,
+  },
+  orderRevenue: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: WARNA.teks,
+  },
+  orderPercent: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: WARNA.sekunder,
+  },
+  preferenceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  preferenceNumber: {
+    width: 31,
+    height: 31,
+    borderRadius: 10,
+    backgroundColor: '#F4EFEB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  preferenceNumberText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: WARNA.sekunder,
+  },
+  preferenceMain: {
+    flex: 1,
+    gap: 7,
+  },
+  preferenceTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 8,
   },
-  pedasLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  pedasLabel: {
+  preferenceName: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#523C34',
+    fontWeight: '700',
+    color: WARNA.teks,
   },
-  pedasLabelFav: {
-    fontWeight: '800',
-    color: '#C62828',
-  },
-  favBadge: {
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  favBadgeText: {
-    fontSize: 9,
+  preferencePercent: {
+    fontSize: 11,
     fontWeight: '900',
-    color: '#DC2626',
+    color: WARNA.sekunder,
   },
-  pedasPercent: {
+  preferenceCount: {
+    fontSize: 10,
+    color: WARNA.sekunder,
+  },
+  emptyBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 28,
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: WARNA.sekunder,
     fontSize: 12,
-    fontWeight: '800',
   },
-  pedasBarTrack: {
-    height: 6,
-    backgroundColor: '#F4EFEB',
-    borderRadius: 3,
-    overflow: 'hidden',
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 7,
+    paddingVertical: 5,
   },
-  pedasBarFill: {
-    height: '100%',
-    borderRadius: 3,
+  footerText: {
+    fontSize: 11,
+    color: WARNA.sekunder,
   },
 });

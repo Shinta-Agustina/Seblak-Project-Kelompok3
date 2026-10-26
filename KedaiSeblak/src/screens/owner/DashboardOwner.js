@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -15,7 +16,11 @@ import TabStok from '../../components/owner/tabs/TabStok';
 import MenuHargaScreen from './MenuHargaScreen';
 import PengeluaranScreen from './PengeluaranScreen';
 import LaporanKeuanganScreen from './LaporanKeuanganScreen';
-import { INITIAL_STOCK_ITEMS, INITIAL_EXPENSES } from '../../data/ownerData';
+
+import {
+  INITIAL_STOCK_ITEMS,
+  INITIAL_EXPENSES,
+} from '../../data/ownerData';
 
 const WARNA = {
   merah: '#C62828',
@@ -34,126 +39,180 @@ export default function DashboardOwnerScreen() {
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  // State Inventaris Stok (CRUD Lengkap)
+  // State inventaris stok
   const [stockItems, setStockItems] = useState(INITIAL_STOCK_ITEMS);
   const [stockPresetFilter, setStockPresetFilter] = useState('Semua');
 
-  // State Pengeluaran Modal Belanja Bahan Baku (Topping)
+  // State pengeluaran modal belanja bahan baku
   const [expenses, setExpenses] = useState(INITIAL_EXPENSES);
 
   useEffect(() => {
     setSidebarOpen(!isMobile);
   }, [isMobile]);
 
+  // Navigasi tab
   const handleChangeTab = (tab) => {
     setActiveTab(tab);
+
     if (tab !== 'stok') {
       setStockPresetFilter('Semua');
     }
+
     if (isMobile) {
       setSidebarOpen(false);
     }
   };
 
-  // Navigasi cepat dari Peringatan Stok di Dashboard ke Tab Stok
+  // Navigasi dari peringatan stok di Dashboard ke filter stok
   const handleNavigateToStockFilter = (filterStatus) => {
     setStockPresetFilter(filterStatus);
     setActiveTab('stok');
+
     if (isMobile) {
       setSidebarOpen(false);
     }
   };
 
   // ==========================================
-  // HANDLERS CRUD INVENTARIS STOK (OWNER)
+  // HANDLERS CRUD INVENTARIS STOK
   // ==========================================
+
   const handleAddItem = (newItem) => {
     setStockItems((prev) => [newItem, ...prev]);
   };
 
   const handleUpdateItem = (updatedItem) => {
     setStockItems((prev) =>
-      prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
+      prev.map((item) =>
+        item.id === updatedItem.id ? updatedItem : item
+      )
     );
   };
 
   const handleDeleteItem = (itemId) => {
-    setStockItems((prev) => prev.filter((item) => item.id !== itemId));
+    setStockItems((prev) =>
+      prev.filter((item) => item.id !== itemId)
+    );
   };
 
-  // RESTOK: Tambah stok dan otomatis catat modal belanja bahan keluar!
+  // Restok: menambah stok dan mencatat pengeluaran
   const handleRestockItem = (itemId, addedQty, restockRecord) => {
-    let targetItem = null;
+    const targetItem = stockItems.find(
+      (item) => item.id === itemId
+    );
+
+    if (!targetItem) {
+      return;
+    }
 
     setStockItems((prev) =>
       prev.map((item) => {
-        if (item.id === itemId) {
-          targetItem = item;
-          const newSisa = Number(((item.sisa || 0) + addedQty).toFixed(1));
-          const min = item.minimum || 1;
-          const newEst = Number((newSisa / (min * 0.8 || 1)).toFixed(1));
-          const updatedLogs = [restockRecord, ...(item.riwayatRestok || [])];
-
-          return {
-            ...item,
-            sisa: newSisa,
-            estimasiHabisHari: newEst,
-            riwayatRestok: updatedLogs,
-            supplier: restockRecord.supplier || item.supplier,
-            hargaBeli: restockRecord.hargaBeli || item.hargaBeli,
-          };
+        if (item.id !== itemId) {
+          return item;
         }
-        return item;
+
+        const newSisa = Number(
+          ((Number(item.sisa) || 0) + Number(addedQty)).toFixed(1)
+        );
+
+        const minimum = Number(item.minimum) || 1;
+        const newEst = Number(
+          (newSisa / (minimum * 0.8)).toFixed(1)
+        );
+
+        return {
+          ...item,
+          sisa: newSisa,
+          estimasiHabisHari: newEst,
+          riwayatRestok: [
+            restockRecord,
+            ...(item.riwayatRestok || []),
+          ],
+          supplier:
+            restockRecord.supplier || item.supplier,
+          hargaBeli:
+            restockRecord.hargaBeli || item.hargaBeli,
+        };
       })
     );
 
-    // Otomatis sinkronisasi ke catatan Pengeluaran Modal Belanja Bahan
-    if (targetItem) {
-      const hargaBeli = restockRecord.hargaBeli || targetItem.hargaBeli || 0;
-      const totalBiayaModal = addedQty * hargaBeli;
+    // Sinkronisasi ke catatan pengeluaran modal belanja
+    const hargaBeli =
+      Number(restockRecord.hargaBeli) ||
+      Number(targetItem.hargaBeli) ||
+      0;
 
-      const modalExpense = {
-        id: `MODAL-${Date.now().toString().slice(-4)}`,
-        tanggal: '24 Okt 2026',
-        waktu: 'Baru saja (Restok)',
-        keterangan: `Restok ${targetItem.nama} (+${addedQty} ${targetItem.satuan})`,
-        kategori: targetItem.kategori || 'Kerupuk & Makaroni',
-        nominal: totalBiayaModal,
-        supplier: restockRecord.supplier || targetItem.supplier || 'Supplier Langganan',
-        metode: 'Tunai',
-        pic: 'Dewi (Owner)',
-      };
+    const totalBiayaModal =
+      Number(addedQty) * hargaBeli;
 
-      setExpenses((prev) => [modalExpense, ...prev]);
-    }
+    const modalExpense = {
+      id: `MODAL-${Date.now()}`,
+      tanggal: new Date().toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      }),
+      waktu: 'Baru saja (Restok)',
+      keterangan: `Restok ${targetItem.nama} (+${addedQty} ${targetItem.satuan})`,
+      kategori: targetItem.kategori || 'Bahan Baku',
+      nominal: totalBiayaModal,
+      supplier:
+        restockRecord.supplier ||
+        targetItem.supplier ||
+        'Supplier Langganan',
+      metode: 'Tunai',
+      pic: 'Owner',
+    };
+
+    setExpenses((prev) => [modalExpense, ...prev]);
   };
 
   // ==========================================
-  // HANDLERS PENGELUARAN MODAL BELANJA
+  // HANDLERS PENGELUARAN
   // ==========================================
+
   const handleAddExpense = (newExpense) => {
     setExpenses((prev) => [newExpense, ...prev]);
   };
 
   const handleDeleteExpense = (expenseId) => {
-    setExpenses((prev) => prev.filter((e) => e.id !== expenseId));
+    setExpenses((prev) =>
+      prev.filter((expense) => expense.id !== expenseId)
+    );
   };
 
-  // Header Title
+  // ==========================================
+  // HEADER TITLE
+  // ==========================================
+
   const getHeaderTitle = () => {
     switch (activeTab) {
       case 'dashboard':
         return 'Owner Portal · Ringkasan Kesehatan Kedai';
+
       case 'penjualan':
         return 'Owner Portal · Laporan Penjualan Seblak';
+
       case 'stok':
         return 'Owner Portal · Inventaris Stok Bahan Baku';
+
+      case 'menu_harga':
+        return 'Owner Portal · Manajemen Menu & Harga';
+
       case 'pengeluaran':
         return 'Owner Portal · Modal Belanja Bahan Baku';
+
+      case 'laporan_keuangan':
+        return 'Owner Portal · Laporan Keuangan';
+
       default:
         return 'Owner Portal · Kedai Seblak Prasmanan';
     }
   };
+
+  // ==========================================
+  // RENDER
+  // ==========================================
 
   return (
     <View style={styles.container}>
@@ -167,7 +226,7 @@ export default function DashboardOwnerScreen() {
         />
       )}
 
-      {/* Sidebar Mobile Backdrop Drawer */}
+      {/* Sidebar Mobile */}
       {isMobile && sidebarOpen && (
         <View style={styles.mobileBackdrop}>
           <TouchableOpacity
@@ -189,63 +248,71 @@ export default function DashboardOwnerScreen() {
 
       <View style={styles.mainWrapper}>
         <TopHeader
-          onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+          onToggleSidebar={() =>
+            setSidebarOpen((prev) => !prev)
+          }
           isSidebarOpen={sidebarOpen}
           title={getHeaderTitle()}
           role="Owner"
         />
 
-        <ScrollView
-          style={styles.scrollArea}
-          contentContainerStyle={[
-            styles.scrollContent,
-            isMobile && styles.scrollContentMobile,
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* FITUR 1: DASHBOARD KEDAI */}
-          {activeTab === 'dashboard' && (
-            <TabDashboard
-              setActiveTab={handleChangeTab}
-              stockItems={stockItems}
+        {/* Tab Menu Harga */}
+        {activeTab === 'menu_harga' ? (
+          <View style={styles.embeddedTabContainer}>
+            <MenuHargaScreen isEmbedded={true} />
+          </View>
+        ) : activeTab === 'pengeluaran' ? (
+          /* Tab Pengeluaran */
+          <View style={styles.embeddedTabContainer}>
+            <PengeluaranScreen
+              isEmbedded={true}
               expenses={expenses}
-              onNavigateToStockFilter={handleNavigateToStockFilter}
+              onAddExpense={handleAddExpense}
+              onDeleteExpense={handleDeleteExpense}
             />
-          )}
+          </View>
+        ) : activeTab === 'laporan_keuangan' ? (
+          /* Tab Laporan Keuangan */
+          <View style={styles.embeddedTabContainer}>
+            <LaporanKeuanganScreen isEmbedded={true} />
+          </View>
+        ) : (
+          /* Tab Dashboard, Penjualan, dan Stok */
+          <ScrollView
+            style={styles.scrollArea}
+            contentContainerStyle={[
+              styles.scrollContent,
+              isMobile && styles.scrollContentMobile,
+            ]}
+            showsVerticalScrollIndicator={false}
+          >
+            {activeTab === 'dashboard' && (
+              <TabDashboard
+                setActiveTab={handleChangeTab}
+                stockItems={stockItems}
+                expenses={expenses}
+                onNavigateToStockFilter={
+                  handleNavigateToStockFilter
+                }
+              />
+            )}
 
-          {/* FITUR 2: LAPORAN PENJUALAN */}
-          {activeTab === 'penjualan' && <TabPenjualan />}
+            {activeTab === 'penjualan' && (
+              <TabPenjualan />
+            )}
 
-          {/* FITUR 3: INVENTARIS STOK (DENGAN CRUD LENGKAP) */}
-          {activeTab === 'stok' && (
-            <TabStok
-              stockItems={stockItems}
-              onAddItem={handleAddItem}
-              onUpdateItem={handleUpdateItem}
-              onDeleteItem={handleDeleteItem}
-              onRestockItem={handleRestockItem}
-              initialFilterStatus={stockPresetFilter}
-            />
-          )}
-
-          
-       
-          {/* FITUR 4: PENGELUARAN MODAL BELANJA */}
-          {activeTab === 'pengeluaran' && (
-            <PengeluaranScreen isEmbedded={true} />
-          )}
-
-
-          {activeTab === 'menu_harga' && (
-            <MenuHargaScreen isEmbedded />
-          )}
-
-          {activeTab === 'laporan_keuangan' && (
-            <LaporanKeuanganScreen isEmbedded />
-          )}
-
-
-        </ScrollView>
+            {activeTab === 'stok' && (
+              <TabStok
+                stockItems={stockItems}
+                onAddItem={handleAddItem}
+                onUpdateItem={handleUpdateItem}
+                onDeleteItem={handleDeleteItem}
+                onRestockItem={handleRestockItem}
+                initialFilterStatus={stockPresetFilter}
+              />
+            )}
+          </ScrollView>
+        )}
       </View>
     </View>
   );
@@ -257,23 +324,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: WARNA.latar,
   },
+
   mobileBackdrop: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 999,
     flexDirection: 'row',
   },
+
   backdropTouch: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(44, 24, 16, 0.45)',
   },
+
   mainWrapper: {
     flex: 1,
     minWidth: 0,
     height: '100%',
   },
+
   scrollArea: {
     flex: 1,
   },
+
   scrollContent: {
     padding: 22,
     paddingBottom: 60,
@@ -281,8 +353,16 @@ const styles = StyleSheet.create({
     maxWidth: 1200,
     alignSelf: 'center',
   },
+
   scrollContentMobile: {
     padding: 14,
     paddingBottom: 40,
+  },
+
+  embeddedTabContainer: {
+    flex: 1,
+    minWidth: 0,
+    width: '100%',
+    height: '100%',
   },
 });
