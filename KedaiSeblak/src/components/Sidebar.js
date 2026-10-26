@@ -49,9 +49,9 @@ export default function Sidebar({
         contextLogout();
       }
 
-      navigation.reset({
+    navigation.reset({
         index: 0,
-        routes: [{ name: 'Login' }],
+        routes: [{ name: 'LoginScreen' }],
       });
     });
 

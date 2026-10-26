@@ -8,6 +8,7 @@ import DashboardOwnerScreen from '../screens/owner/DashboardOwner';
 import MenuHargaScreen from '../screens/owner/MenuHargaScreen';
 import PengeluaranScreen from '../screens/owner/PengeluaranScreen';
 import LaporanKeuanganScreen from '../screens/owner/LaporanKeuanganScreen';
+import DetailTransaksiScreen from '../screens/kasir/DetailTransaksiScreen';
 import { useKasir } from '../context/KasirContext';
 
 const Stack = createNativeStackNavigator();
@@ -34,10 +35,16 @@ export default function AppNavigator() {
           />
         </>
       ) : (
-        <Stack.Screen
-          name="DashboardKasir"
-          component={DashboardKasirScreen}
-        />
+        <>
+          <Stack.Screen
+            name="DashboardKasir"
+            component={DashboardKasirScreen}
+          />
+          <Stack.Screen
+            name="DetailTransaksi"
+            component={DetailTransaksiScreen}
+          />
+        </>
       )}
     </Stack.Navigator>
   );

@@ -19,34 +19,36 @@ export default function ReceiptModal({
   onPrint,
   onNewOrder,
 }) {
-  const orderNumber = transactionData?.orderNo || '#001';
-  const tableNo = transactionData?.tableNo || 'Meja 2';
-  const dateStr = transactionData?.date || '16/10/2025';
-  const timeStr = transactionData?.time || '09:45';
-  const paymentMethod = transactionData?.method || 'Tunai';
+  const orderNumber = transactionData?.orderNo || transactionData?.no || transactionData?.id || '-';
+  const tableNo = transactionData?.tableNo || transactionData?.meja || transactionData?.table || '-';
+  const dateStr = transactionData?.date || transactionData?.tanggal || '-';
+  const timeStr = transactionData?.time || transactionData?.waktu || '-';
+  const paymentMethod = transactionData?.method || transactionData?.metode || transactionData?.paymentMethod || '-';
   const kuah = transactionData?.kuah || 'Original';
-  const pedas = transactionData?.pedas ?? 3;
+  const pedas = Number(transactionData?.pedas ?? 3);
   const catatan = transactionData?.catatan || '';
-  const cashPaid = transactionData?.cashPaid || 0;
-  const change = transactionData?.change || 0;
-  const kasir = transactionData?.kasir || 'Siti Aisyah';
+  const cashPaid = Number(transactionData?.cashPaid ?? transactionData?.cashAmount ?? 0);
+  const change = Number(transactionData?.change ?? 0);
+  const kasir = transactionData?.kasir || '-';
 
-  const items =
-    transactionData?.items && transactionData.items.length > 0
-      ? transactionData.items
-      : [
-        { name: 'Topping Lengkap', qty: 1, price: 28000 },
-        { name: 'Telur', qty: 1, price: 4000 },
-      ];
+  const items = Array.isArray(transactionData?.items)
+    ? transactionData.items
+    : Array.isArray(transactionData?.details)
+      ? transactionData.details
+      : [];
 
-  const totalPrice =
-    transactionData?.total !== undefined
-      ? transactionData.total
-      : items.reduce(
-        (acc, item) =>
-          acc + (item.price || item.harga || 0) * (item.qty || 1),
-        0
-      );
+  const totalPrice = Number(
+    transactionData?.total ??
+    items.reduce((sum, item) => {
+      const price = Number(item.price ?? item.harga ?? 0);
+      const qty = Number(item.qty ?? item.quantity ?? 1);
+      return sum + price * qty;
+    }, 0)
+  );
+
+  const amountPaid = paymentMethod.toLowerCase().includes('tunai')
+    ? cashPaid
+    : Number(transactionData?.amountPaid ?? totalPrice);
 
   const handlePrint = () => {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && window.print) {
@@ -133,33 +135,26 @@ export default function ReceiptModal({
                 <Text style={[styles.itemHeaderCol, { width: 85, textAlign: 'right' }]}>Subtotal</Text>
               </View>
 
-              {items.map((item, idx) => {
-                const itemTotal =
-                  (item.price || item.harga || 0) * (item.qty || 1);
+              {items.length > 0 ? items.map((item, idx) => {
+                const qty = Number(item.qty ?? item.quantity ?? 1);
+                const price = Number(item.price ?? item.harga ?? 0);
+                const itemTotal = price * qty;
                 return (
-                  <View key={idx} style={styles.itemRow}>
+                  <View key={item.id ?? `${item.name || item.nama || 'item'}-${idx}`} style={styles.itemRow}>
                     <Text style={[styles.itemText, { flex: 2 }]} numberOfLines={1}>
-                      {item.name || item.nama}
+                      {item.name || item.nama || 'Item'}
                     </Text>
-                    <Text
-                      style={[
-                        styles.itemText,
-                        { width: 35, textAlign: 'center' },
-                      ]}
-                    >
-                      {item.qty || 1}
+                    <Text style={[styles.itemText, { width: 35, textAlign: 'center' }]}>
+                      {qty}
                     </Text>
-                    <Text
-                      style={[
-                        styles.itemText,
-                        { width: 85, textAlign: 'right' },
-                      ]}
-                    >
-                      {itemTotal.toLocaleString('id-ID')}
+                    <Text style={[styles.itemText, { width: 85, textAlign: 'right' }]}>
+                      {formatCurrency(itemTotal)}
                     </Text>
                   </View>
                 );
-              })}
+              }) : (
+                <Text style={styles.itemText}>Tidak ada rincian item transaksi.</Text>
+              )}
 
               {/* Pilihan Kuah & Level Pedas */}
               <View style={styles.specReceiptRow}>
@@ -202,7 +197,7 @@ export default function ReceiptModal({
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>BAYARNYA BERAPA</Text>
                   <Text style={styles.summaryValCash}>
-                    : {formatCurrency(cashPaid)}
+                    : {formatCurrency(amountPaid)}
                   </Text>
                 </View>
 

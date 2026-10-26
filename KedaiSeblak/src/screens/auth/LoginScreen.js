@@ -11,7 +11,12 @@ import {
   TouchableOpacity,
   TextInput,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+
+import {
+  Ionicons,
+  MaterialCommunityIcons,
+} from '@expo/vector-icons';
+
 import { useKasir } from '../../context/KasirContext';
 
 export default function LoginScreen({ onLogin }) {
@@ -32,11 +37,12 @@ export default function LoginScreen({ onLogin }) {
     setRole(newRole);
     setUsername('');
     setPassword('');
+    setShowPassword(false);
     setErrors({});
     setFocusedField(null);
   };
 
-  // Mengisi akun demo tanpa langsung login
+  // Mengisi akun demo untuk pengujian
   const fillDemoAccount = (demoRole) => {
     setRole(demoRole);
     setUsername(
@@ -45,7 +51,9 @@ export default function LoginScreen({ onLogin }) {
     setPassword(
       demoRole === 'Kasir' ? 'kasir123' : 'owner123'
     );
+    setShowPassword(false);
     setErrors({});
+    setFocusedField(null);
   };
 
   // Validasi form login
@@ -68,7 +76,11 @@ export default function LoginScreen({ onLogin }) {
       return;
     }
 
-    // Akun demo lokal untuk pengujian UI
+    /*
+     * Akun demo untuk pengujian UI.
+     * Sesuaikan bagian ini jika project menggunakan
+     * autentikasi dari database atau API.
+     */
     const demoAccounts = {
       Kasir: {
         username: 'Siti Aisyah',
@@ -139,9 +151,11 @@ export default function LoginScreen({ onLogin }) {
             <View style={styles.heroTopBrand}>
               <View style={styles.heroLogoRow}>
                 <View style={styles.heroLogoCircle}>
-                  <Text style={styles.heroLogoEmoji}>
-                    🍲
-                  </Text>
+                  <MaterialCommunityIcons
+                    name="food"
+                    size={25}
+                    color="#FFFFFF"
+                  />
                 </View>
 
                 <View>
@@ -159,13 +173,20 @@ export default function LoginScreen({ onLogin }) {
             <View style={styles.heroTaglineBox}>
               <Text style={styles.heroTagline}>
                 Rasa pedas,{"\n"}
-                selalu jadi cerita! ❤️
+                selalu jadi cerita!
               </Text>
             </View>
 
             <View style={styles.heroFooter}>
+              <MaterialCommunityIcons
+                name="bowl-mix"
+                size={18}
+                color="#ECC4C8"
+                style={styles.footerIcon}
+              />
+
               <Text style={styles.heroFooterText}>
-                🍲 Seblak Prasmanan
+                Seblak Prasmanan
               </Text>
             </View>
           </View>
@@ -206,11 +227,12 @@ export default function LoginScreen({ onLogin }) {
                 <TouchableOpacity
                   style={[
                     styles.roleTab,
-                    role === 'Kasir' &&
-                    styles.roleTabActive,
+                    role === 'Kasir' && styles.roleTabActive,
                   ]}
                   onPress={() => handleSelectRole('Kasir')}
                   activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Pilih login Kasir"
                 >
                   <MaterialCommunityIcons
                     name="point-of-sale"
@@ -226,7 +248,7 @@ export default function LoginScreen({ onLogin }) {
                     style={[
                       styles.roleTabText,
                       role === 'Kasir' &&
-                      styles.roleTabTextActive,
+                        styles.roleTabTextActive,
                     ]}
                   >
                     Kasir
@@ -236,11 +258,12 @@ export default function LoginScreen({ onLogin }) {
                 <TouchableOpacity
                   style={[
                     styles.roleTab,
-                    role === 'Owner' &&
-                    styles.roleTabActive,
+                    role === 'Owner' && styles.roleTabActive,
                   ]}
                   onPress={() => handleSelectRole('Owner')}
                   activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Pilih login Owner"
                 >
                   <Ionicons
                     name="shield-checkmark-outline"
@@ -256,7 +279,7 @@ export default function LoginScreen({ onLogin }) {
                     style={[
                       styles.roleTabText,
                       role === 'Owner' &&
-                      styles.roleTabTextActive,
+                        styles.roleTabTextActive,
                     ]}
                   >
                     Owner
@@ -277,9 +300,8 @@ export default function LoginScreen({ onLogin }) {
                   style={[
                     styles.inputBox,
                     focusedField === 'username' &&
-                    styles.inputBoxFocused,
-                    errors.username &&
-                    styles.inputBoxError,
+                      styles.inputBoxFocused,
+                    errors.username && styles.inputBoxError,
                   ]}
                 >
                   <Ionicons
@@ -290,9 +312,11 @@ export default function LoginScreen({ onLogin }) {
                     }
                     size={19}
                     color={
-                      focusedField === 'username'
-                        ? '#C62828'
-                        : '#8D7B70'
+                      errors.username
+                        ? '#D32F2F'
+                        : focusedField === 'username'
+                          ? '#C62828'
+                          : '#8D7B70'
                     }
                     style={styles.inputIcon}
                   />
@@ -308,6 +332,7 @@ export default function LoginScreen({ onLogin }) {
                     value={username}
                     onChangeText={(value) => {
                       setUsername(value);
+
                       setErrors((prev) => ({
                         ...prev,
                         username: '',
@@ -323,11 +348,15 @@ export default function LoginScreen({ onLogin }) {
                     autoCapitalize="none"
                     autoCorrect={false}
                     returnKeyType="next"
+                    accessibilityLabel="Username"
                   />
                 </View>
 
                 {errors.username ? (
-                  <Text style={styles.errorText}>
+                  <Text
+                    style={styles.errorText}
+                    accessibilityRole="alert"
+                  >
                     {errors.username}
                   </Text>
                 ) : null}
@@ -346,18 +375,19 @@ export default function LoginScreen({ onLogin }) {
                   style={[
                     styles.inputBox,
                     focusedField === 'password' &&
-                    styles.inputBoxFocused,
-                    errors.password &&
-                    styles.inputBoxError,
+                      styles.inputBoxFocused,
+                    errors.password && styles.inputBoxError,
                   ]}
                 >
                   <Ionicons
                     name="lock-closed-outline"
                     size={19}
                     color={
-                      focusedField === 'password'
-                        ? '#C62828'
-                        : '#8D7B70'
+                      errors.password
+                        ? '#D32F2F'
+                        : focusedField === 'password'
+                          ? '#C62828'
+                          : '#8D7B70'
                     }
                     style={styles.inputIcon}
                   />
@@ -369,6 +399,7 @@ export default function LoginScreen({ onLogin }) {
                     value={password}
                     onChangeText={(value) => {
                       setPassword(value);
+
                       setErrors((prev) => ({
                         ...prev,
                         password: '',
@@ -386,6 +417,7 @@ export default function LoginScreen({ onLogin }) {
                     autoCorrect={false}
                     returnKeyType="done"
                     onSubmitEditing={handleLogin}
+                    accessibilityLabel="Password"
                   />
 
                   <TouchableOpacity
@@ -393,6 +425,8 @@ export default function LoginScreen({ onLogin }) {
                       setShowPassword((prev) => !prev)
                     }
                     style={styles.eyeBtn}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
                     accessibilityLabel={
                       showPassword
                         ? 'Sembunyikan password'
@@ -412,35 +446,62 @@ export default function LoginScreen({ onLogin }) {
                 </View>
 
                 {errors.password ? (
-                  <Text style={styles.errorText}>
+                  <Text
+                    style={styles.errorText}
+                    accessibilityRole="alert"
+                  >
                     {errors.password}
                   </Text>
                 ) : null}
 
+                {/* Error Login */}
                 {errors.form ? (
-                  <Text style={styles.errorText}>
-                    {errors.form}
-                  </Text>
+                  <View style={styles.formErrorBox}>
+                    <Ionicons
+                      name="alert-circle-outline"
+                      size={17}
+                      color="#D32F2F"
+                    />
+
+                    <Text
+                      style={styles.formErrorText}
+                      accessibilityRole="alert"
+                    >
+                      {errors.form}
+                    </Text>
+                  </View>
                 ) : null}
 
                 {/* Tombol Masuk */}
                 <TouchableOpacity
                   style={[
                     styles.submitButton,
-                    loading &&
-                    styles.submitButtonDisabled,
+                    loading && styles.submitButtonDisabled,
                   ]}
                   onPress={handleLogin}
                   activeOpacity={0.85}
                   disabled={loading}
+                  accessibilityRole="button"
                 >
-                  <Text style={styles.submitButtonText}>
-                    {loading
-                      ? 'Memproses...'
-                      : role === 'Kasir'
-                        ? 'Masuk'
-                        : 'Masuk sebagai Owner'}
-                  </Text>
+                  {loading ? (
+                    <Text style={styles.submitButtonText}>
+                      Memproses...
+                    </Text>
+                  ) : (
+                    <View style={styles.submitButtonContent}>
+                      <Text style={styles.submitButtonText}>
+                        {role === 'Kasir'
+                          ? 'Masuk'
+                          : 'Masuk sebagai Owner'}
+                      </Text>
+
+                      <Ionicons
+                        name="arrow-forward"
+                        size={18}
+                        color="#FFFFFF"
+                      />
+                    </View>
+                  )}
                 </TouchableOpacity>
 
                 {/* Informasi Akses */}
@@ -465,7 +526,7 @@ export default function LoginScreen({ onLogin }) {
                 {/* Akun Demo */}
                 <View style={styles.quickAccessSection}>
                   <Text style={styles.quickAccessTitle}>
-                    Pilih Cepat untuk Pengujian:
+                    Pilih Cepat untuk Pengujian
                   </Text>
 
                   <View style={styles.quickBtnRow}>
@@ -473,15 +534,23 @@ export default function LoginScreen({ onLogin }) {
                       style={[
                         styles.quickBtn,
                         role === 'Kasir' &&
-                        styles.quickBtnSelected,
+                          styles.quickBtnSelected,
                       ]}
                       onPress={() =>
                         fillDemoAccount('Kasir')
                       }
                       activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Isi akun demo Kasir"
                     >
+                      <MaterialCommunityIcons
+                        name="storefront-outline"
+                        size={17}
+                        color="#C62828"
+                      />
+
                       <Text style={styles.quickBtnText}>
-                        🏪 Kasir: Siti Aisyah
+                        Kasir: Siti Aisyah
                       </Text>
                     </TouchableOpacity>
 
@@ -490,20 +559,28 @@ export default function LoginScreen({ onLogin }) {
                         styles.quickBtn,
                         styles.quickBtnOwner,
                         role === 'Owner' &&
-                        styles.quickBtnOwnerSelected,
+                          styles.quickBtnOwnerSelected,
                       ]}
                       onPress={() =>
                         fillDemoAccount('Owner')
                       }
                       activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Isi akun demo Owner"
                     >
+                      <Ionicons
+                        name="shield-checkmark-outline"
+                        size={17}
+                        color="#E65100"
+                      />
+
                       <Text
                         style={[
                           styles.quickBtnText,
                           styles.quickBtnTextOwner,
                         ]}
                       >
-                        👑 Owner: Dewi
+                        Owner: Dewi
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -522,44 +599,54 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#1E0F0A',
   },
+
   mainLayout: {
     flex: 1,
   },
+
   rowLayout: {
     flexDirection: 'row',
   },
+
   heroSection: {
     position: 'relative',
     overflow: 'hidden',
     backgroundColor: '#1E0F0A',
   },
+
   heroLarge: {
     flex: 1.1,
     height: '100%',
   },
+
   heroSmall: {
     height: 200,
     width: '100%',
   },
+
   heroImage: {
     width: '100%',
     height: '100%',
   },
+
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(25, 10, 8, 0.65)',
     padding: 28,
     justifyContent: 'space-between',
   },
+
   heroTopBrand: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+
   heroLogoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
+
   heroLogoCircle: {
     width: 44,
     height: 44,
@@ -570,23 +657,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.35)',
   },
-  heroLogoEmoji: {
-    fontSize: 24,
-  },
+
   heroBrandName: {
     fontSize: 20,
     fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: 0.5,
   },
+
   heroBrandSub: {
     fontSize: 13,
     color: '#F4C2C6',
     fontWeight: '600',
   },
+
   heroTaglineBox: {
     maxWidth: 380,
   },
+
   heroTagline: {
     fontSize: 26,
     lineHeight: 36,
@@ -597,35 +685,46 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 6,
   },
+
   heroFooter: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+
+  footerIcon: {
+    marginRight: 7,
+  },
+
   heroFooterText: {
     color: '#ECC4C8',
     fontSize: 13,
     fontWeight: '600',
   },
+
   formSection: {
     backgroundColor: '#F8F5F2',
     justifyContent: 'center',
   },
+
   formLarge: {
     flex: 1,
     minHeight: '100%',
     paddingHorizontal: 40,
   },
+
   formSmall: {
     flex: 1,
     paddingHorizontal: 16,
     paddingVertical: 18,
   },
+
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 18,
   },
+
   loginCard: {
     width: '100%',
     maxWidth: 420,
@@ -640,16 +739,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 18,
   },
+
   cardHeader: {
     alignItems: 'center',
     marginBottom: 18,
   },
+
   title: {
     fontSize: 24,
     fontWeight: '900',
     color: '#2C1810',
     letterSpacing: 0.3,
   },
+
   subtitle: {
     fontSize: 13,
     color: '#8D7B70',
@@ -657,6 +759,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
+
   roleToggleContainer: {
     flexDirection: 'row',
     backgroundColor: '#F3ECE7',
@@ -665,6 +768,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     gap: 4,
   },
+
   roleTab: {
     flex: 1,
     flexDirection: 'row',
@@ -674,6 +778,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 9,
   },
+
   roleTabActive: {
     backgroundColor: '#C62828',
     elevation: 2,
@@ -682,23 +787,28 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
   },
+
   roleTabText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#7E6E67',
   },
+
   roleTabTextActive: {
     color: '#FFFFFF',
   },
+
   formGroup: {
     width: '100%',
   },
+
   inputLabel: {
     fontSize: 12,
     fontWeight: '700',
     color: '#4A3028',
     marginBottom: 6,
   },
+
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -709,32 +819,57 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 48,
   },
+
   inputBoxFocused: {
     borderColor: '#C62828',
     borderWidth: 2,
     backgroundColor: '#FFFAF8',
   },
+
   inputBoxError: {
     borderColor: '#D32F2F',
     borderWidth: 1.5,
   },
+
+  inputIcon: {
+    marginRight: 10,
+  },
+
+  textInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#2C1810',
+  },
+
+  eyeBtn: {
+    padding: 6,
+  },
+
   errorText: {
     color: '#D32F2F',
     fontSize: 12,
     marginTop: 5,
     marginLeft: 2,
   },
-  inputIcon: {
-    marginRight: 10,
+
+  formErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF1F0',
+    borderWidth: 1,
+    borderColor: '#FFD5D2',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 12,
+    gap: 7,
   },
-  textInput: {
+
+  formErrorText: {
     flex: 1,
-    fontSize: 14,
-    color: '#2C1810',
+    color: '#D32F2F',
+    fontSize: 12,
   },
-  eyeBtn: {
-    padding: 6,
-  },
+
   submitButton: {
     backgroundColor: '#C62828',
     height: 48,
@@ -748,15 +883,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
   },
+
   submitButtonDisabled: {
     opacity: 0.6,
   },
+
+  submitButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+
   submitButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',
     letterSpacing: 0.4,
   },
+
   noticeBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -764,17 +909,20 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 16,
   },
+
   noticeText: {
     fontSize: 12,
     color: '#8D7B70',
     fontWeight: '600',
   },
+
   quickAccessSection: {
     marginTop: 18,
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: '#F0E5DF',
   },
+
   quickAccessTitle: {
     fontSize: 11,
     fontWeight: '700',
@@ -782,36 +930,49 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
   },
+
   quickBtnRow: {
     flexDirection: 'row',
     gap: 8,
   },
+
   quickBtn: {
     flex: 1,
-    backgroundColor: '#FDECEC',
-    paddingVertical: 9,
-    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FDECEC',
+    paddingVertical: 10,
+    paddingHorizontal: 5,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#F8B4B4',
   },
+
   quickBtnSelected: {
     borderColor: '#C62828',
     borderWidth: 1.5,
   },
+
   quickBtnOwner: {
     backgroundColor: '#FFF4E5',
     borderColor: '#FFD199',
   },
+
   quickBtnOwnerSelected: {
     borderColor: '#E65100',
     borderWidth: 1.5,
   },
+
   quickBtnText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#C62828',
+    flexShrink: 1,
+    textAlign: 'center',
   },
+
   quickBtnTextOwner: {
     color: '#E65100',
   },
