@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -12,10 +13,15 @@ import TopHeader from '../../components/TopHeader';
 import TabDashboard from '../../components/owner/tabs/TabDashboard';
 import TabPenjualan from '../../components/owner/tabs/TabPenjualan';
 import TabStok from '../../components/owner/tabs/TabStok';
+
 import MenuHargaScreen from './MenuHargaScreen';
 import PengeluaranScreen from './PengeluaranScreen';
 import LaporanKeuanganScreen from './LaporanKeuanganScreen';
-import { INITIAL_STOCK_ITEMS, INITIAL_EXPENSES } from '../../data/ownerData';
+
+import {
+  INITIAL_STOCK_ITEMS,
+  INITIAL_EXPENSES,
+} from '../../data/ownerData';
 
 const WARNA = {
   merah: '#C62828',
@@ -34,112 +40,136 @@ export default function DashboardOwnerScreen() {
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  // State Inventaris Stok (CRUD Lengkap)
-  const [stockItems, setStockItems] = useState(INITIAL_STOCK_ITEMS);
-  const [stockPresetFilter, setStockPresetFilter] = useState('Semua');
+  // State inventaris stok
+  const [stockItems, setStockItems] = useState(
+    INITIAL_STOCK_ITEMS
+  );
+  const [stockPresetFilter, setStockPresetFilter] =
+    useState('Semua');
 
-  // State Pengeluaran Modal Belanja Bahan Baku (Topping)
+  // State pengeluaran
   const [expenses, setExpenses] = useState(INITIAL_EXPENSES);
 
   useEffect(() => {
     setSidebarOpen(!isMobile);
   }, [isMobile]);
 
+  // Navigasi tab
   const handleChangeTab = (tab) => {
     setActiveTab(tab);
+
     if (tab !== 'stok') {
       setStockPresetFilter('Semua');
     }
+
     if (isMobile) {
       setSidebarOpen(false);
     }
   };
 
-  // Navigasi cepat dari Peringatan Stok di Dashboard ke Tab Stok
+  // Navigasi dari peringatan stok di Dashboard
   const handleNavigateToStockFilter = (filterStatus) => {
     setStockPresetFilter(filterStatus);
     setActiveTab('stok');
+
     if (isMobile) {
       setSidebarOpen(false);
     }
   };
 
-  // ==========================================
-  // HANDLERS CRUD INVENTARIS STOK (OWNER)
-  // ==========================================
+  // CRUD inventaris stok
   const handleAddItem = (newItem) => {
     setStockItems((prev) => [newItem, ...prev]);
   };
 
   const handleUpdateItem = (updatedItem) => {
     setStockItems((prev) =>
-      prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
+      prev.map((item) =>
+        item.id === updatedItem.id ? updatedItem : item
+      )
     );
   };
 
   const handleDeleteItem = (itemId) => {
-    setStockItems((prev) => prev.filter((item) => item.id !== itemId));
+    setStockItems((prev) =>
+      prev.filter((item) => item.id !== itemId)
+    );
   };
 
-  // RESTOK: Tambah stok dan otomatis catat modal belanja bahan keluar!
+  // Restok bahan baku
   const handleRestockItem = (itemId, addedQty, restockRecord) => {
-    let targetItem = null;
+    const targetItem = stockItems.find(
+      (item) => item.id === itemId
+    );
+
+    if (!targetItem) return;
 
     setStockItems((prev) =>
       prev.map((item) => {
-        if (item.id === itemId) {
-          targetItem = item;
-          const newSisa = Number(((item.sisa || 0) + addedQty).toFixed(1));
-          const min = item.minimum || 1;
-          const newEst = Number((newSisa / (min * 0.8 || 1)).toFixed(1));
-          const updatedLogs = [restockRecord, ...(item.riwayatRestok || [])];
+        if (item.id !== itemId) return item;
 
-          return {
-            ...item,
-            sisa: newSisa,
-            estimasiHabisHari: newEst,
-            riwayatRestok: updatedLogs,
-            supplier: restockRecord.supplier || item.supplier,
-            hargaBeli: restockRecord.hargaBeli || item.hargaBeli,
-          };
-        }
-        return item;
+        const newSisa = Number(
+          ((item.sisa || 0) + addedQty).toFixed(1)
+        );
+
+        const min = item.minimum || 1;
+        const newEst = Number(
+          (newSisa / (min * 0.8 || 1)).toFixed(1)
+        );
+
+        return {
+          ...item,
+          sisa: newSisa,
+          estimasiHabisHari: newEst,
+          riwayatRestok: [
+            restockRecord,
+            ...(item.riwayatRestok || []),
+          ],
+          supplier: restockRecord.supplier || item.supplier,
+          hargaBeli:
+            restockRecord.hargaBeli || item.hargaBeli,
+        };
       })
     );
 
-    // Otomatis sinkronisasi ke catatan Pengeluaran Modal Belanja Bahan
-    if (targetItem) {
-      const hargaBeli = restockRecord.hargaBeli || targetItem.hargaBeli || 0;
-      const totalBiayaModal = addedQty * hargaBeli;
+    // Catat biaya restok sebagai pengeluaran
+    const hargaBeli =
+      restockRecord.hargaBeli || targetItem.hargaBeli || 0;
 
-      const modalExpense = {
-        id: `MODAL-${Date.now().toString().slice(-4)}`,
-        tanggal: '24 Okt 2026',
-        waktu: 'Baru saja (Restok)',
-        keterangan: `Restok ${targetItem.nama} (+${addedQty} ${targetItem.satuan})`,
-        kategori: targetItem.kategori || 'Kerupuk & Makaroni',
-        nominal: totalBiayaModal,
-        supplier: restockRecord.supplier || targetItem.supplier || 'Supplier Langganan',
-        metode: 'Tunai',
-        pic: 'Dewi (Owner)',
-      };
+    const modalExpense = {
+      id: `MODAL-${Date.now().toString().slice(-4)}`,
+      tanggal: new Date().toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      }),
+      waktu: 'Baru saja (Restok)',
+      keterangan: `Restok ${targetItem.nama} (+${addedQty} ${targetItem.satuan})`,
+      kategori: targetItem.kategori || 'Kerupuk & Makaroni',
+      nominal: addedQty * hargaBeli,
+      supplier:
+        restockRecord.supplier ||
+        targetItem.supplier ||
+        'Supplier Langganan',
+      metode: 'Tunai',
+      pic: 'Dewi (Owner)',
+    };
 
-      setExpenses((prev) => [modalExpense, ...prev]);
-    }
+    setExpenses((prev) => [modalExpense, ...prev]);
   };
 
-  // ==========================================
-  // HANDLERS PENGELUARAN MODAL BELANJA
-  // ==========================================
+  // CRUD pengeluaran
   const handleAddExpense = (newExpense) => {
     setExpenses((prev) => [newExpense, ...prev]);
   };
 
   const handleDeleteExpense = (expenseId) => {
-    setExpenses((prev) => prev.filter((e) => e.id !== expenseId));
+    setExpenses((prev) =>
+      prev.filter((expense) => expense.id !== expenseId)
+    );
   };
 
-  // Header Title
+  // Judul header sesuai tab
   const getHeaderTitle = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -148,8 +178,12 @@ export default function DashboardOwnerScreen() {
         return 'Owner Portal · Laporan Penjualan Seblak';
       case 'stok':
         return 'Owner Portal · Inventaris Stok Bahan Baku';
+      case 'menu_harga':
+        return 'Owner Portal · Menu dan Harga';
       case 'pengeluaran':
         return 'Owner Portal · Modal Belanja Bahan Baku';
+      case 'laporan_keuangan':
+        return 'Owner Portal · Laporan Keuangan';
       default:
         return 'Owner Portal · Kedai Seblak Prasmanan';
     }
@@ -157,7 +191,7 @@ export default function DashboardOwnerScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Sidebar Desktop */}
+      {/* Sidebar desktop */}
       {!isMobile && sidebarOpen && (
         <Sidebar
           role="owner"
@@ -167,7 +201,7 @@ export default function DashboardOwnerScreen() {
         />
       )}
 
-      {/* Sidebar Mobile Backdrop Drawer */}
+      {/* Sidebar mobile */}
       {isMobile && sidebarOpen && (
         <View style={styles.mobileBackdrop}>
           <TouchableOpacity
@@ -187,23 +221,30 @@ export default function DashboardOwnerScreen() {
         </View>
       )}
 
+      {/* Konten utama */}
       <View style={styles.mainWrapper}>
         <TopHeader
-          onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+          onToggleSidebar={() =>
+            setSidebarOpen((prev) => !prev)
+          }
           isSidebarOpen={sidebarOpen}
           title={getHeaderTitle()}
           role="Owner"
         />
 
-
-
+        {/* Hanya render satu halaman sesuai tab aktif */}
         {activeTab === 'menu_harga' ? (
           <View style={styles.embeddedTabContainer}>
             <MenuHargaScreen isEmbedded={true} />
           </View>
         ) : activeTab === 'pengeluaran' ? (
           <View style={styles.embeddedTabContainer}>
-            <PengeluaranScreen isEmbedded={true} />
+            <PengeluaranScreen
+              isEmbedded={true}
+              expenses={expenses}
+              onAddExpense={handleAddExpense}
+              onDeleteExpense={handleDeleteExpense}
+            />
           </View>
         ) : activeTab === 'laporan_keuangan' ? (
           <View style={styles.embeddedTabContainer}>
@@ -223,11 +264,15 @@ export default function DashboardOwnerScreen() {
                 setActiveTab={handleChangeTab}
                 stockItems={stockItems}
                 expenses={expenses}
-                onNavigateToStockFilter={handleNavigateToStockFilter}
+                onNavigateToStockFilter={
+                  handleNavigateToStockFilter
+                }
               />
             )}
 
-            {activeTab === 'penjualan' && <TabPenjualan />}
+            {activeTab === 'penjualan' && (
+              <TabPenjualan />
+            )}
 
             {activeTab === 'stok' && (
               <TabStok
@@ -241,45 +286,7 @@ export default function DashboardOwnerScreen() {
             )}
           </ScrollView>
         )}
-
-        <PengeluaranScreen isEmbedded={true} />
       </View>
-      ) : activeTab === 'laporan_keuangan' ? (
-      <View style={styles.embeddedTabContainer}>
-        <LaporanKeuanganScreen isEmbedded={true} />
-      </View>
-      ) : (
-      <ScrollView
-        style={styles.scrollArea}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* FITUR 1: DASHBOARD KEDAI */}
-        {activeTab === 'dashboard' && (
-          <TabDashboard
-            setActiveTab={handleChangeTab}
-            stockItems={stockItems}
-            expenses={expenses}
-            onNavigateToStockFilter={handleNavigateToStockFilter}
-          />
-        )}
-
-        {/* FITUR 2: LAPORAN PENJUALAN */}
-        {activeTab === 'penjualan' && <TabPenjualan />}
-
-        {/* FITUR 3: INVENTARIS STOK (DENGAN CRUD LENGKAP) */}
-        {activeTab === 'stok' && (
-          <TabStok
-            stockItems={stockItems}
-            onAddItem={handleAddItem}
-            onUpdateItem={handleUpdateItem}
-            onDeleteItem={handleDeleteItem}
-            onRestockItem={handleRestockItem}
-            initialFilterStatus={stockPresetFilter}
-          />
-        )}
-      </ScrollView>
-      )
     </View>
   );
 }
@@ -290,29 +297,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: WARNA.latar,
   },
+
   mobileBackdrop: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 999,
     flexDirection: 'row',
   },
+
   backdropTouch: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(44, 24, 16, 0.45)',
   },
+
   mainWrapper: {
     flex: 1,
     minWidth: 0,
     height: '100%',
   },
+
   scrollArea: {
     flex: 1,
-  },
-  scrollContent: {
-    padding: 22,
-    paddingBottom: 60,
-    width: '100%',
-    maxWidth: 1200,
-    alignSelf: 'center',
   },
 
   scrollContent: {
@@ -322,14 +326,15 @@ const styles = StyleSheet.create({
     maxWidth: 1200,
     alignSelf: 'center',
   },
+
   scrollContentMobile: {
     padding: 14,
     paddingBottom: 40,
   },
+
   embeddedTabContainer: {
     flex: 1,
     minWidth: 0,
     width: '100%',
-    height: '100%',
   },
 });

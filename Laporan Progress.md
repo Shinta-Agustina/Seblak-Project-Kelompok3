@@ -27,7 +27,7 @@ Maya
 ![alt text](<Cuplikan layar 2026-10-24 110259.png>)
 
 Dewi 
-
+![alt text](image-4.png)
 
 3. Clone project
 4. Bukti konfirmasi
@@ -39,7 +39,7 @@ Maya
 ![alt text](<Cuplikan layar 2026-10-24 115911.png>)
 
 Dewi
-
+![alt text](image-5.png)
 
 Tugas Bersama :
 1. Diskusi penentuan tema (Notulen  bersama)

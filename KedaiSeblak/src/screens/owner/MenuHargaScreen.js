@@ -8,6 +8,7 @@ import {
   Image,
   useWindowDimensions,
   ScrollView,
+  FlatList,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -347,59 +348,59 @@ export default function MenuHargaScreen({ isEmbedded = false, navigation }) {
         </ScrollView>
       </View>
 
-      {/* 2. AREA SCROLLABLE: KARTU-KARTU MENU (SCROLL TANPA PAGINASI) */}
-      <ScrollView
-        style={styles.cardsScrollArea}
-        contentContainerStyle={styles.cardsScrollContent}
-        showsVerticalScrollIndicator={true}
-      >
-        {filteredMenus.length > 0 ? (
-          <View style={styles.listContainer}>
-            {filteredMenus.map((item) => (
-              <MenuItemCard
-                key={item.id}
-                item={item}
-                onEdit={() => handleOpenEditModal(item)}
-                onDelete={() => handleOpenDeleteModal(item)}
-              />
-            ))}
-          </View>
-        ) : (
-          /* Empty State */
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconCircle}>
-              <Ionicons
-                name={searchQuery ? 'search-outline' : 'restaurant-outline'}
-                size={36}
-                color="#8D7B70"
-              />
-            </View>
-            <Text style={styles.emptyTitle}>
-              {searchQuery ? 'Menu Tidak Ditemukan' : 'Belum Ada Menu'}
-            </Text>
-            <Text style={styles.emptySubtitle}>
-              {searchQuery
-                ? `Tidak ada menu yang sesuai dengan kata kunci "${searchQuery}".`
-                : 'Daftar menu masih kosong. Tekan tombol Tambah Menu untuk menambahkan.'}
-            </Text>
-            {searchQuery ? (
-              <CustomButton
-                title="Reset Pencarian"
-                variant="outline"
-                onPress={() => setSearchQuery('')}
-                style={styles.emptyActionBtn}
-              />
-            ) : (
-              <CustomButton
-                title="+ Tambah Menu Pertama"
-                variant="primary"
-                onPress={handleOpenAddModal}
-                style={[styles.emptyActionBtn, { backgroundColor: WARNA_TOMBOL, borderColor: WARNA_TOMBOL }]}
-              />
-            )}
-          </View>
-        )}
-      </ScrollView>
+     
+{/* 2. AREA DAFTAR MENU MENGGUNAKAN FLATLIST */}
+<FlatList
+  style={styles.cardsScrollArea}
+  contentContainerStyle={styles.cardsScrollContent}
+  data={filteredMenus}
+  keyExtractor={(item, index) =>
+    String(item.id ?? index)
+  }
+  renderItem={({ item }) => (
+    <MenuItemCard
+      item={item}
+      onEdit={() => handleOpenEditModal(item)}
+      onDelete={() => handleOpenDeleteModal(item)}
+    />
+  )}
+  ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+  showsVerticalScrollIndicator
+  keyboardShouldPersistTaps="handled"
+  ListEmptyComponent={
+    <View style={styles.emptyContainer}>
+      <View style={styles.emptyIconCircle}>
+        <Ionicons
+          name={searchQuery ? 'search-outline' : 'restaurant-outline'}
+          size={36}
+          color="#8D7B70"
+        />
+      </View>
+
+      <Text style={styles.emptyTitle}>
+        {searchQuery ? 'Menu Tidak Ditemukan' : 'Belum Ada Menu'}
+      </Text>
+
+      <Text style={styles.emptySubtitle}>
+        {searchQuery
+          ? `Tidak ada menu yang sesuai dengan kata kunci "${searchQuery}".`
+          : 'Daftar menu masih kosong. Tekan tombol Tambah Menu untuk menambahkan.'}
+      </Text>
+
+      <CustomButton
+        title={searchQuery ? 'Reset Pencarian' : '+ Tambah Menu Pertama'}
+        variant={searchQuery ? 'outline' : 'primary'}
+        onPress={() =>
+          searchQuery
+            ? setSearchQuery('')
+            : handleOpenAddModal()
+        }
+        style={styles.emptyActionBtn}
+      />
+    </View>
+  }
+/>
+
 
       {/* Reusable Form Modal (Tambah & Edit) */}
       <MenuFormModal
