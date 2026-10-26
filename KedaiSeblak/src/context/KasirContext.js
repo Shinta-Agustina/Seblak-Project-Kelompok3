@@ -24,13 +24,7 @@ export function KasirProvider({ children }) {
   // =========================
   // KERANJANG DAN PILIHAN MENU
   // =========================
-  const [cart, setCart] = useState([
-    { id: 'top-1', nama: 'Kerupuk', harga: 1000, berat: '100 gr', emoji: '≡ƒìÿ', qty: 1 },
-    { id: 'top-2', nama: 'Makaroni', harga: 500,  berat: '50 gr',  emoji: '≡ƒì¥', qty: 1 },
-    { id: 'top-3', nama: 'Sosis',    harga: 1000, berat: '50 gr',  emoji: '≡ƒî¡', qty: 1 },
-    { id: 'top-4', nama: 'Bakso',    harga: 1000, berat: '50 gr',  emoji: '≡ƒºå', qty: 1 },
-    { id: 'top-5', nama: 'Ceker',    harga: 1000, berat: '50 gr',  emoji: '≡ƒìù', qty: 1 },
-  ]);
+  const [cart, setCart] = useState([]);
   const [selectedKuah, setSelectedKuah] = useState(DEFAULT_KUAH);
   const [selectedLevel, setSelectedLevel] = useState(DEFAULT_LEVEL);
   const [selectedMeja, setSelectedMeja] = useState(DEFAULT_MEJA);

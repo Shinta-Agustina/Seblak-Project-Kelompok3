@@ -6,11 +6,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   useWindowDimensions,
   Image,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Ionicons,
   MaterialIcons,
@@ -56,21 +56,21 @@ export default function PaymentModal({
   // Ambil hanya item asli dari dashboard. Tidak ada data contoh.
   const orderItems = Array.isArray(transactionData?.items)
     ? transactionData.items.map((item) => {
-      const qty = Number(item.qty ?? item.quantity ?? 1);
-      const price = Number(item.price ?? item.harga ?? 0);
-      const name = item.name || item.nama || 'Item';
+        const qty = Number(item.qty ?? item.quantity ?? 1);
+        const price = Number(item.price ?? item.harga ?? 0);
+        const name = item.name || item.nama || 'Item';
 
-      return {
-        ...item,
-        id: item.id,
-        name,
-        nama: name,
-        qty,
-        price,
-        harga: price,
-        subtotal: price * qty,
-      };
-    })
+        return {
+          ...item,
+          id: item.id,
+          name,
+          nama: name,
+          qty,
+          price,
+          harga: price,
+          subtotal: price * qty,
+        };
+      })
     : [];
 
   // Total utama dihitung dari item agar rincian dan total konsisten.
@@ -195,20 +195,20 @@ export default function PaymentModal({
     setIsProcessing(true);
 
     try {
-      // Simpan transaksi satu kali saja melalui context.
-      checkoutOrder(finalMethodName, finalCashPaid, transactionPayload);
-
-      // Dashboard menerima transaksi dan membuka ReceiptModal.
-      if (typeof onSuccessPayment === 'function') {
-        onSuccessPayment(transactionPayload);
-      } else {
-        Alert.alert(
-          'Callback Tidak Tersedia',
-          'Transaksi diproses, tetapi fungsi untuk menampilkan struk belum dipasang.'
-        );
-        processingRef.current = false;
-        setIsProcessing(false);
+      if (typeof onSuccessPayment !== 'function') {
+        throw new Error('Callback pembayaran tidak tersedia.');
       }
+
+      const savedTransaction = checkoutOrder(
+        finalMethodName,
+        finalCashPaid,
+        transactionPayload
+      );
+
+      onSuccessPayment({
+        ...transactionPayload,
+        ...savedTransaction,
+      });
     } catch (error) {
       console.error('Gagal memproses pembayaran:', error);
 
@@ -241,8 +241,8 @@ export default function PaymentModal({
     typeof user?.avatar === 'string'
       ? { uri: user.avatar }
       : user?.avatar || {
-        uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80',
-      };
+          uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80',
+        };
 
   return (
     <Modal
@@ -288,11 +288,11 @@ export default function PaymentModal({
           ]}
           showsVerticalScrollIndicator={false}
         >
-          {/* Kolom kiri */}
+          {/* Kolom Kiri */}
           <View
             style={[
               styles.leftColumn,
-              isLargeScreen && { flex: 1.15, marginRight: 20 },
+              isLargeScreen ? { flex: 1, marginRight: 12 } : { width: '100%' },
             ]}
           >
             {/* Total tagihan */}
@@ -313,7 +313,7 @@ export default function PaymentModal({
 
               <View style={styles.orderDetailSubRow}>
                 <Text style={styles.orderDetailSubText}>
-                  Waktu: {orderTime} • Kuah: {kuah} • Level Pedas: {pedas}
+                  Waktu: {orderTime} | Kuah: {kuah} | Level Pedas: {pedas}
                 </Text>
 
                 {catatan ? (
@@ -415,7 +415,7 @@ export default function PaymentModal({
                   style={[
                     styles.methodButton,
                     paymentMethod === 'Tunai' &&
-                    styles.methodButtonActive,
+                      styles.methodButtonActive,
                   ]}
                   onPress={() => setPaymentMethod('Tunai')}
                   disabled={isProcessing}
@@ -432,7 +432,7 @@ export default function PaymentModal({
                     style={[
                       styles.methodButtonText,
                       paymentMethod === 'Tunai' &&
-                      styles.methodButtonTextActive,
+                        styles.methodButtonTextActive,
                     ]}
                   >
                     Tunai
@@ -443,7 +443,7 @@ export default function PaymentModal({
                   style={[
                     styles.methodButton,
                     paymentMethod === 'QRIS' &&
-                    styles.methodButtonActive,
+                      styles.methodButtonActive,
                   ]}
                   onPress={() => setPaymentMethod('QRIS')}
                   disabled={isProcessing}
@@ -460,7 +460,7 @@ export default function PaymentModal({
                     style={[
                       styles.methodButtonText,
                       paymentMethod === 'QRIS' &&
-                      styles.methodButtonTextActive,
+                        styles.methodButtonTextActive,
                     ]}
                   >
                     QRIS
@@ -471,7 +471,7 @@ export default function PaymentModal({
                   style={[
                     styles.methodButton,
                     paymentMethod === 'E-Wallet' &&
-                    styles.methodButtonActive,
+                      styles.methodButtonActive,
                   ]}
                   onPress={() => setPaymentMethod('E-Wallet')}
                   disabled={isProcessing}
@@ -490,7 +490,7 @@ export default function PaymentModal({
                     style={[
                       styles.methodButtonText,
                       paymentMethod === 'E-Wallet' &&
-                      styles.methodButtonTextActive,
+                        styles.methodButtonTextActive,
                     ]}
                   >
                     E-Wallet
@@ -567,12 +567,11 @@ export default function PaymentModal({
             </View>
           </View>
 
-          {/* Kolom kanan */}
+          {/* Kolom Kanan */}
           <View
             style={[
               styles.rightColumn,
-              isLargeScreen && { flex: 0.85 },
-              !isLargeScreen && { marginTop: 16 },
+              isLargeScreen ? { flex: 1, marginLeft: 12 } : { width: '100%', marginTop: 16 },
             ]}
           >
             <View style={styles.keypadCard}>
@@ -803,10 +802,12 @@ const styles = StyleSheet.create({
   scrollInner: {
     padding: 16,
     paddingBottom: 40,
+    flexGrow: 1,
   },
   rowContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    justifyContent: 'space-between',
   },
   leftColumn: {
     width: '100%',
@@ -1165,80 +1166,80 @@ const styles = StyleSheet.create({
   },
   quickCashPill: {
     flex: 1,
-    paddingVertical: 7,
+    backgroundColor: '#FAF5F1',
+    paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: '#FDECEC',
     borderWidth: 1,
-    borderColor: '#F8B4B4',
+    borderColor: '#EDE5DF',
     alignItems: 'center',
   },
   quickCashText: {
     fontSize: 11,
-    fontWeight: '800',
-    color: '#C62828',
+    fontWeight: '700',
+    color: '#52141D',
   },
   numpadGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'space-between',
-    marginBottom: 14,
+    gap: 6,
+    marginBottom: 12,
   },
   numKey: {
-    width: '30%',
-    minHeight: 46,
-    borderRadius: 9,
+    width: '31.3%',
     backgroundColor: '#FAF5F1',
+    paddingVertical: 12,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#EDE5DF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   numKeyText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
     color: '#2C1810',
   },
   digitalInstructionBox: {
-    backgroundColor: '#FAF5F1',
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 14,
+    backgroundColor: '#FFF8E1',
+    padding: 12,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#EFE7E2',
+    borderColor: '#FFE082',
+    marginBottom: 12,
   },
   digitalInstructionTitle: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#2C1810',
+    color: '#8A6200',
     marginBottom: 4,
   },
   digitalInstructionDesc: {
     fontSize: 11,
-    color: '#6F5C53',
-    lineHeight: 16,
+    color: '#8A6200',
+    lineHeight: 15,
   },
   payButton: {
+    backgroundColor: '#C62828',
+    borderRadius: 10,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#C62828',
-    borderRadius: 10,
-    paddingVertical: 14,
     elevation: 3,
     shadowColor: '#C62828',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
   },
   payButtonDisabled: {
-    opacity: 0.55,
+    backgroundColor: '#D7CCC8',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   payButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: 0.4,
+    fontSize: 14,
+    fontWeight: '900',
   },
 });
