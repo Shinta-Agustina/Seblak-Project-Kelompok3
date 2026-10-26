@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
+  FlatList,
   ScrollView,
   TouchableOpacity,
   useWindowDimensions,
@@ -13,82 +14,259 @@ import { useKasir } from '../../context/KasirContext';
 import formatCurrency from '../../utils/formatCurrency';
 
 const METHOD_TABS = ['Semua', 'Tunai', 'Non Tunai'];
+const PAGE_SIZE = 5;
 
-const getFormattedToday = () => {
+const getFormattedDate = (date) => {
   try {
     return new Intl.DateTimeFormat('id-ID', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
       year: 'numeric',
-    }).format(new Date());
-  } catch (e) {
-    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    const months = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-    ];
-    const now = new Date();
-    return `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+    }).format(date);
+  } catch (error) {
+    return date.toLocaleDateString('id-ID');
   }
 };
 
+const getFormattedToday = () => getFormattedDate(new Date());
+
 const getFormattedYesterday = () => {
-  try {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    return new Intl.DateTimeFormat('id-ID', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    }).format(yesterday);
-  } catch (e) {
-    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    const months = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-    ];
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    return `${days[yesterday.getDay()]}, ${yesterday.getDate()} ${months[yesterday.getMonth()]} ${yesterday.getFullYear()}`;
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return getFormattedDate(yesterday);
+};
+
+// Membantu membaca tanggal transaksi dari beberapa format umum.
+const getTransactionDate = (transaction) => {
+  const rawDate = transaction?.date || transaction?.tanggal;
+  if (!rawDate) return null;
+
+  if (typeof rawDate === 'string') {
+    const match = rawDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (match) {
+      const [, day, month, year] = match;
+      const date = new Date(Number(year), Number(month) - 1, Number(day));
+      if (
+        date.getFullYear() !== Number(year) ||
+        date.getMonth() !== Number(month) - 1 ||
+        date.getDate() !== Number(day)
+      ) return null;
+      return date;
+    }
   }
+
+  const date = new Date(rawDate);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getPaymentMethod = (transaction) =>
+  String(transaction?.metode || transaction?.method || '').trim();
+
+const isSameDay = (firstDate, secondDate) => {
+  return (
+    firstDate.getFullYear() === secondDate.getFullYear() &&
+    firstDate.getMonth() === secondDate.getMonth() &&
+    firstDate.getDate() === secondDate.getDate()
+  );
 };
 
 export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
-  const { transactions } = useKasir();
+  const { transactions = [] } = useKasir();
 
-  const todayFormatted = getFormattedToday();
-  const yesterdayFormatted = getFormattedYesterday();
   const [activeMethod, setActiveMethod] = useState('Semua');
   const [currentPage, setCurrentPage] = useState(1);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [dateFilterMode, setDateFilterMode] = useState('today');
-  const pageSize = 5;
 
-  // Filter transactions
-  const filtered = transactions.filter((t) => {
-    if (activeMethod === 'Semua') return true;
-    if (activeMethod === 'Tunai') return t.metode === 'Tunai';
-    return t.metode !== 'Tunai';
-  });
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
 
-  // Calculate totals
-  const totalAll = transactions.reduce((acc, t) => acc + (t.total || 0), 0);
+  const todayFormatted = getFormattedToday();
+  const yesterdayFormatted = getFormattedYesterday();
+
+  // Filter berdasarkan metode pembayaran dan tanggal.
+  const filtered = useMemo(() => {
+    return transactions.filter((transaction) => {
+      const method = getPaymentMethod(transaction).toLowerCase();
+      const isCash = method === 'tunai' || method === 'cash';
+      const methodMatch =
+        activeMethod === 'Semua' ||
+        (activeMethod === 'Tunai' ? isCash : !isCash);
+
+      if (!methodMatch) return false;
+
+      if (dateFilterMode === 'all') return true;
+
+      const transactionDate = getTransactionDate(transaction);
+
+      // Jika transaksi tidak memiliki tanggal yang dapat dibaca,
+      // transaksi hanya bisa ditampilkan pada filter semua riwayat.
+      if (!transactionDate) return false;
+
+      if (dateFilterMode === 'today') {
+        return isSameDay(transactionDate, today);
+      }
+
+      if (dateFilterMode === 'yesterday') {
+        return isSameDay(transactionDate, yesterday);
+      }
+
+      return true;
+    });
+  }, [transactions, activeMethod, dateFilterMode]);
+
+  // Ringkasan nilai transaksi.
+  const totalAll = transactions.reduce(
+    (sum, transaction) => sum + Number(transaction.total || 0),
+    0
+  );
+
   const totalTunai = transactions
-    .filter((t) => t.metode === 'Tunai')
-    .reduce((acc, t) => acc + (t.total || 0), 0);
-  const totalNonTunai = transactions
-    .filter((t) => t.metode !== 'Tunai')
-    .reduce((acc, t) => acc + (t.total || 0), 0);
+    .filter((transaction) => ['tunai', 'cash'].includes(getPaymentMethod(transaction).toLowerCase()))
+    .reduce(
+      (sum, transaction) => sum + Number(transaction.total || 0),
+      0
+    );
 
-  // Pagination slice
-  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
-  const paginatedItems = filtered.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
+  const totalNonTunai = transactions
+    .filter((transaction) => !['tunai', 'cash'].includes(getPaymentMethod(transaction).toLowerCase()))
+    .reduce(
+      (sum, transaction) => sum + Number(transaction.total || 0),
+      0
+    );
+
+  // Pagination.
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  const paginatedItems = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * PAGE_SIZE;
+    return filtered.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [filtered, safeCurrentPage]);
+
+  const changeMethod = (method) => {
+    setActiveMethod(method);
+    setCurrentPage(1);
+  };
+
+  const changeDateFilter = (mode) => {
+    setDateFilterMode(mode);
+    setCurrentPage(1);
+    setFilterModalVisible(false);
+  };
+
+  const openReceipt = (transaction) => {
+    if (!onOpenReceipt) return;
+
+    const transactionDate = getTransactionDate(transaction);
+
+    const receiptItems = Array.isArray(transaction.items)
+      ? transaction.items
+      : Array.isArray(transaction.details)
+        ? transaction.details
+        : [];
+
+    onOpenReceipt({
+      orderNo: transaction.orderNo || transaction.no || transaction.id || '-',
+      tableNo: transaction.tableNo || transaction.meja || transaction.table || '-',
+      date: transactionDate
+        ? transactionDate.toLocaleDateString('id-ID')
+        : transaction.tanggal || '-',
+      time: transaction.time || transaction.waktu || '-',
+      items: receiptItems,
+      total: Number(transaction.total || 0),
+      method: getPaymentMethod(transaction) || '-',
+      cashPaid: Number(transaction.cashPaid ?? transaction.cashAmount ?? 0),
+      change: Number(transaction.change || 0),
+      kasir: transaction.kasir || '-',
+      kuah: transaction.kuah || 'Original',
+      pedas: transaction.pedas ?? 3,
+      catatan: transaction.catatan || '',
+      status: transaction.status || '-',
+    });
+  };
+
+  const renderTransaction = ({ item: trx, index }) => (
+    <View
+      style={[
+        styles.tableRow,
+        index % 2 === 1 && styles.rowAlternate,
+      ]}
+    >
+      <Text
+        style={[
+          styles.td,
+          { width: 60, fontWeight: '700', color: '#8D7B70' },
+        ]}
+      >
+        {trx.no || `#00${index + 1}`}
+      </Text>
+
+      <Text style={[styles.td, { width: 70, color: '#6F5C53' }]}>
+        {trx.waktu || '-'}
+      </Text>
+
+      <Text
+        style={[
+          styles.td,
+          { width: 90, fontWeight: '700', color: '#2C1810' },
+        ]}
+      >
+        {trx.meja || '-'}
+      </Text>
+
+      <Text
+        style={[
+          styles.td,
+          {
+            flex: 1.5,
+            textAlign: 'right',
+            fontWeight: '800',
+            color: '#C62828',
+          },
+        ]}
+      >
+        {formatCurrency(Number(trx.total || 0))}
+      </Text>
+
+      <Text
+        style={[
+          styles.td,
+          { width: 110, textAlign: 'center', color: '#4A3028' },
+        ]}
+      >
+        {getPaymentMethod(trx) || '-'}
+      </Text>
+
+      <View style={{ width: 75, alignItems: 'center' }}>
+        <TouchableOpacity
+          style={styles.detailBtn}
+          onPress={() => openReceipt(trx)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.detailBtnText}>Detail</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderEmptyList = () => (
+    <View style={styles.emptyContainer}>
+      <MaterialCommunityIcons
+        name="receipt-text-outline"
+        size={40}
+        color="#BCA99D"
+      />
+      <Text style={styles.emptyTitle}>Belum ada transaksi</Text>
+      <Text style={styles.emptyDescription}>
+        Tidak ada transaksi yang sesuai dengan filter yang dipilih.
+      </Text>
+    </View>
   );
 
   return (
@@ -97,11 +275,15 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header Bar with Date Filter */}
+      {/* Header */}
       <View
         style={[
           styles.headerSection,
-          isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 10 },
+          isMobile && {
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            gap: 10,
+          },
         ]}
       >
         <Text style={styles.title}>Riwayat Transaksi</Text>
@@ -112,7 +294,11 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
             activeOpacity={0.8}
             onPress={() => setFilterModalVisible(true)}
           >
-            <Ionicons name="calendar-outline" size={16} color="#C62828" />
+            <Ionicons
+              name="calendar-outline"
+              size={16}
+              color="#C62828"
+            />
             <Text style={styles.dateRangeText}>
               {dateFilterMode === 'today'
                 ? todayFormatted
@@ -121,6 +307,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
                 : 'Semua Riwayat'}
             </Text>
           </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.filterBtn}
             activeOpacity={0.8}
@@ -137,14 +324,13 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         </View>
       </View>
 
-      {/* 3 Metric Cards */}
+      {/* Ringkasan transaksi */}
       <View
         style={[
           styles.metricsRow,
           isMobile && { flexDirection: 'column', gap: 10 },
         ]}
       >
-        {/* Total Transaksi */}
         <View style={styles.metricCard}>
           <View style={styles.metricIconCircleRed}>
             <MaterialCommunityIcons
@@ -155,11 +341,12 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
           </View>
           <View style={styles.metricTextGroup}>
             <Text style={styles.metricLabel}>Total Transaksi</Text>
-            <Text style={styles.metricValue}>{formatCurrency(totalAll)}</Text>
+            <Text style={styles.metricValue}>
+              {formatCurrency(totalAll)}
+            </Text>
           </View>
         </View>
 
-        {/* Tunai */}
         <View style={styles.metricCard}>
           <View style={styles.metricIconCircleGreen}>
             <MaterialCommunityIcons
@@ -170,11 +357,12 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
           </View>
           <View style={styles.metricTextGroup}>
             <Text style={styles.metricLabel}>Tunai</Text>
-            <Text style={styles.metricValue}>{formatCurrency(totalTunai)}</Text>
+            <Text style={styles.metricValue}>
+              {formatCurrency(totalTunai)}
+            </Text>
           </View>
         </View>
 
-        {/* Non Tunai */}
         <View style={styles.metricCard}>
           <View style={styles.metricIconCircleBlue}>
             <MaterialCommunityIcons
@@ -192,21 +380,24 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         </View>
       </View>
 
-      {/* Filter Tabs */}
+      {/* Filter metode pembayaran */}
       <View style={styles.tabsRow}>
         {METHOD_TABS.map((tab) => {
           const isActive = activeMethod === tab;
+
           return (
             <TouchableOpacity
               key={tab}
               style={[styles.tab, isActive && styles.tabActive]}
-              onPress={() => {
-                setActiveMethod(tab);
-                setCurrentPage(1);
-              }}
+              onPress={() => changeMethod(tab)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+              <Text
+                style={[
+                  styles.tabText,
+                  isActive && styles.tabTextActive,
+                ]}
+              >
                 {tab}
               </Text>
             </TouchableOpacity>
@@ -214,132 +405,97 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         })}
       </View>
 
-      {/* Table Card */}
+      {/* Tabel riwayat transaksi */}
       <View style={styles.tableCard}>
-        <ScrollView horizontal={isMobile} showsHorizontalScrollIndicator={true}>
+        <ScrollView
+          horizontal={isMobile}
+          showsHorizontalScrollIndicator={true}
+        >
           <View style={[styles.tableInner, isMobile && { width: 640 }]}>
-            {/* Table Head */}
             <View style={styles.tableHead}>
               <Text style={[styles.th, { width: 60 }]}>No</Text>
               <Text style={[styles.th, { width: 70 }]}>Waktu</Text>
               <Text style={[styles.th, { width: 90 }]}>No. Meja</Text>
-              <Text style={[styles.th, { flex: 1.5, textAlign: 'right' }]}>
+              <Text
+                style={[
+                  styles.th,
+                  { flex: 1.5, textAlign: 'right' },
+                ]}
+              >
                 Total
               </Text>
-              <Text style={[styles.th, { width: 110, textAlign: 'center' }]}>
+              <Text
+                style={[
+                  styles.th,
+                  { width: 110, textAlign: 'center' },
+                ]}
+              >
                 Metode
               </Text>
-              <Text style={[styles.th, { width: 75, textAlign: 'center' }]}>
+              <Text
+                style={[
+                  styles.th,
+                  { width: 75, textAlign: 'center' },
+                ]}
+              >
                 Aksi
               </Text>
             </View>
 
-            {/* Table Rows */}
-            {paginatedItems.map((trx, idx) => (
-              <View
-                key={trx.id || idx}
-                style={[styles.tableRow, idx % 2 === 1 && styles.rowAlternate]}
-              >
-                <Text
-                  style={[
-                    styles.td,
-                    { width: 60, fontWeight: '700', color: '#8D7B70' },
-                  ]}
-                >
-                  {trx.no || `#00${idx + 1}`}
-                </Text>
-                <Text style={[styles.td, { width: 70, color: '#6F5C53' }]}>
-                  {trx.waktu}
-                </Text>
-                <Text
-                  style={[
-                    styles.td,
-                    { width: 90, fontWeight: '700', color: '#2C1810' },
-                  ]}
-                >
-                  {trx.meja}
-                </Text>
-                <Text
-                  style={[
-                    styles.td,
-                    {
-                      flex: 1.5,
-                      textAlign: 'right',
-                      fontWeight: '800',
-                      color: '#C62828',
-                    },
-                  ]}
-                >
-                  {formatCurrency(trx.total)}
-                </Text>
-                <Text
-                  style={[
-                    styles.td,
-                    { width: 110, textAlign: 'center', color: '#4A3028' },
-                  ]}
-                >
-                  {trx.metode}
-                </Text>
-
-                {/* Detail Aksi */}
-                <View style={{ width: 75, alignItems: 'center' }}>
-                  <TouchableOpacity
-                    style={styles.detailBtn}
-                    onPress={() =>
-                      onOpenReceipt &&
-                      onOpenReceipt({
-                        orderNo: trx.no,
-                        tableNo: trx.meja,
-                        date: trx.date || todayFormatted,
-                        time: trx.waktu,
-                        items: [
-                          {
-                            name: trx.item || '1 Paket Seblak',
-                            qty: 1,
-                            price: trx.total,
-                          },
-                        ],
-                        total: trx.total,
-                        method: trx.metode,
-                      })
-                    }
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.detailBtnText}>Detail</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
+            <FlatList
+              data={paginatedItems}
+              keyExtractor={(item, index) =>
+                String(item.id ?? item.no ?? index)
+              }
+              renderItem={renderTransaction}
+              ListEmptyComponent={renderEmptyList}
+              scrollEnabled={false}
+              initialNumToRender={PAGE_SIZE}
+              removeClippedSubviews={false}
+            />
           </View>
         </ScrollView>
       </View>
 
-      {/* Pagination Footer */}
+      {/* Pagination */}
       <View style={styles.paginationRow}>
         <TouchableOpacity
-          style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
-          onPress={() => setCurrentPage((p) => Math.max(1, p - 1))}
-          disabled={currentPage === 1}
+          style={[
+            styles.pageBtn,
+            safeCurrentPage === 1 && styles.pageBtnDisabled,
+          ]}
+          onPress={() =>
+            setCurrentPage((page) => Math.max(1, page - 1))
+          }
+          disabled={safeCurrentPage === 1}
         >
-          <Ionicons name="chevron-back" size={14} color="#6F5C53" />
+          <Ionicons
+            name="chevron-back"
+            size={14}
+            color="#6F5C53"
+          />
         </TouchableOpacity>
 
-        {Array.from({ length: totalPages }).map((_, i) => {
-          const pageNum = i + 1;
-          const isPageActive = currentPage === pageNum;
+        {Array.from({ length: totalPages }).map((_, index) => {
+          const pageNumber = index + 1;
+          const isActive = safeCurrentPage === pageNumber;
+
           return (
             <TouchableOpacity
-              key={pageNum}
-              style={[styles.pageBtn, isPageActive && styles.pageBtnActive]}
-              onPress={() => setCurrentPage(pageNum)}
+              key={pageNumber}
+              style={[
+                styles.pageBtn,
+                isActive && styles.pageBtnActive,
+              ]}
+              onPress={() => setCurrentPage(pageNumber)}
             >
               <Text
                 style={[
                   styles.pageBtnText,
-                  isPageActive && styles.pageBtnTextActive,
+                  isActive && styles.pageBtnTextActive,
                 ]}
               >
-                {pageNum}
+                {pageNumber}
               </Text>
             </TouchableOpacity>
           );
@@ -348,19 +504,28 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         <TouchableOpacity
           style={[
             styles.pageBtn,
-            currentPage === totalPages && styles.pageBtnDisabled,
+            safeCurrentPage === totalPages &&
+              styles.pageBtnDisabled,
           ]}
-          onPress={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-          disabled={currentPage === totalPages}
+          onPress={() =>
+            setCurrentPage((page) =>
+              Math.min(totalPages, page + 1)
+            )
+          }
+          disabled={safeCurrentPage === totalPages}
         >
-          <Ionicons name="chevron-forward" size={14} color="#6F5C53" />
+          <Ionicons
+            name="chevron-forward"
+            size={14}
+            color="#6F5C53"
+          />
         </TouchableOpacity>
       </View>
 
-      {/* Modal Filter Tanggal */}
+      {/* Modal filter tanggal */}
       <Modal
         visible={filterModalVisible}
-        transparent={true}
+        transparent
         animationType="fade"
         onRequestClose={() => setFilterModalVisible(false)}
       >
@@ -374,15 +539,37 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
             onStartShouldSetResponder={() => true}
           >
             <View style={styles.modalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name="calendar-outline" size={18} color="#C62828" />
-                <Text style={styles.modalTitle}>Filter Riwayat Transaksi</Text>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                <Ionicons
+                  name="calendar-outline"
+                  size={18}
+                  color="#C62828"
+                />
+                <Text style={styles.modalTitle}>
+                  Filter Riwayat Transaksi
+                </Text>
               </View>
+
               <TouchableOpacity
                 onPress={() => setFilterModalVisible(false)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                hitSlop={{
+                  top: 10,
+                  bottom: 10,
+                  left: 10,
+                  right: 10,
+                }}
               >
-                <Ionicons name="close" size={20} color="#8D7B70" />
+                <Ionicons
+                  name="close"
+                  size={20}
+                  color="#8D7B70"
+                />
               </TouchableOpacity>
             </View>
 
@@ -390,111 +577,147 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
               Pilih rentang waktu transaksi yang ingin ditampilkan:
             </Text>
 
-            {/* Opsi 1: Hari Ini */}
             <TouchableOpacity
               style={[
                 styles.filterOptionBtn,
-                dateFilterMode === 'today' && styles.filterOptionBtnActive,
+                dateFilterMode === 'today' &&
+                  styles.filterOptionBtnActive,
               ]}
-              onPress={() => {
-                setDateFilterMode('today');
-                setCurrentPage(1);
-                setFilterModalVisible(false);
-              }}
+              onPress={() => changeDateFilter('today')}
               activeOpacity={0.7}
             >
               <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
                   <Text
                     style={[
                       styles.optionTitle,
-                      dateFilterMode === 'today' && styles.optionTitleActive,
+                      dateFilterMode === 'today' &&
+                        styles.optionTitleActive,
                     ]}
                   >
                     Hari Ini (Harian)
                   </Text>
+
                   <View style={styles.badgeHarian}>
-                    <Text style={styles.badgeHarianText}>Otomatis</Text>
+                    <Text style={styles.badgeHarianText}>
+                      Otomatis
+                    </Text>
                   </View>
                 </View>
-                <Text style={styles.optionSub}>{todayFormatted}</Text>
+
+                <Text style={styles.optionSub}>
+                  {todayFormatted}
+                </Text>
               </View>
+
               {dateFilterMode === 'today' && (
-                <Ionicons name="checkmark-circle" size={20} color="#C62828" />
+                <Ionicons
+                  name="checkmark-circle"
+                  size={20}
+                  color="#C62828"
+                />
               )}
             </TouchableOpacity>
 
-            {/* Opsi 2: Kemarin */}
             <TouchableOpacity
               style={[
                 styles.filterOptionBtn,
-                dateFilterMode === 'yesterday' && styles.filterOptionBtnActive,
+                dateFilterMode === 'yesterday' &&
+                  styles.filterOptionBtnActive,
               ]}
-              onPress={() => {
-                setDateFilterMode('yesterday');
-                setCurrentPage(1);
-                setFilterModalVisible(false);
-              }}
+              onPress={() => changeDateFilter('yesterday')}
               activeOpacity={0.7}
             >
               <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
                   <Text
                     style={[
                       styles.optionTitle,
-                      dateFilterMode === 'yesterday' && styles.optionTitleActive,
+                      dateFilterMode === 'yesterday' &&
+                        styles.optionTitleActive,
                     ]}
                   >
                     Kemarin
                   </Text>
+
                   <View
                     style={[
                       styles.badgeHarian,
-                      { backgroundColor: '#E3F2FD', borderColor: '#BBDEFB' },
+                      {
+                        backgroundColor: '#E3F2FD',
+                        borderColor: '#BBDEFB',
+                      },
                     ]}
                   >
                     <Text
-                      style={[styles.badgeHarianText, { color: '#1565C0' }]}
+                      style={[
+                        styles.badgeHarianText,
+                        { color: '#1565C0' },
+                      ]}
                     >
                       Otomatis
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.optionSub}>{yesterdayFormatted}</Text>
+
+                <Text style={styles.optionSub}>
+                  {yesterdayFormatted}
+                </Text>
               </View>
+
               {dateFilterMode === 'yesterday' && (
-                <Ionicons name="checkmark-circle" size={20} color="#C62828" />
+                <Ionicons
+                  name="checkmark-circle"
+                  size={20}
+                  color="#C62828"
+                />
               )}
             </TouchableOpacity>
 
-            {/* Opsi 3: Semua Riwayat Tanggal */}
             <TouchableOpacity
               style={[
                 styles.filterOptionBtn,
-                dateFilterMode === 'all' && styles.filterOptionBtnActive,
+                dateFilterMode === 'all' &&
+                  styles.filterOptionBtnActive,
               ]}
-              onPress={() => {
-                setDateFilterMode('all');
-                setCurrentPage(1);
-                setFilterModalVisible(false);
-              }}
+              onPress={() => changeDateFilter('all')}
               activeOpacity={0.7}
             >
               <View style={{ flex: 1 }}>
                 <Text
                   style={[
                     styles.optionTitle,
-                    dateFilterMode === 'all' && styles.optionTitleActive,
+                    dateFilterMode === 'all' &&
+                      styles.optionTitleActive,
                   ]}
                 >
                   Semua Riwayat Tanggal
                 </Text>
+
                 <Text style={styles.optionSub}>
-                  Tampilkan seluruh riwayat transaksi yang pernah dicatat
+                  Tampilkan seluruh riwayat transaksi yang pernah
+                  dicatat
                 </Text>
               </View>
+
               {dateFilterMode === 'all' && (
-                <Ionicons name="checkmark-circle" size={20} color="#C62828" />
+                <Ionicons
+                  name="checkmark-circle"
+                  size={20}
+                  color="#C62828"
+                />
               )}
             </TouchableOpacity>
           </View>
@@ -546,6 +769,8 @@ const styles = StyleSheet.create({
     color: '#4A3028',
   },
   filterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#C62828',
     borderRadius: 8,
     paddingVertical: 7,
@@ -602,6 +827,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   metricTextGroup: {
+    flex: 1,
     justifyContent: 'center',
   },
   metricLabel: {
@@ -697,6 +923,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#8D7B70',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 28,
+  },
+  emptyTitle: {
+    marginTop: 10,
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#2C1810',
+  },
+  emptyDescription: {
+    marginTop: 5,
+    fontSize: 12,
+    color: '#8D7B70',
+    textAlign: 'center',
   },
   paginationRow: {
     flexDirection: 'row',

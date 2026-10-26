@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   View,
@@ -7,6 +8,7 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   Modal,
+  FlatList,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useKasir } from '../../context/KasirContext';
@@ -32,13 +34,20 @@ const getFormattedToday = () => {
       year: 'numeric',
     }).format(new Date());
   } catch (e) {
-    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const days = [
+      'Minggu', 'Senin', 'Selasa', 'Rabu',
+      'Kamis', 'Jumat', 'Sabtu',
+    ];
     const months = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      'Januari', 'Februari', 'Maret', 'April',
+      'Mei', 'Juni', 'Juli', 'Agustus',
+      'September', 'Oktober', 'November', 'Desember',
     ];
     const now = new Date();
-    return `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+
+    return `${days[now.getDay()]}, ${now.getDate()} ${
+      months[now.getMonth()]
+    } ${now.getFullYear()}`;
   }
 };
 
@@ -51,10 +60,13 @@ export default function PesananAktifScreen({ onOpenDetail }) {
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
 
   const countDiproses = orders.filter(
-    (o) => normalizeStatus(o.status) === 'Diproses' || o.status === 'Proses'
+    (order) =>
+      normalizeStatus(order.status) === 'Diproses' ||
+      order.status === 'Proses'
   ).length;
+
   const countSelesai = orders.filter(
-    (o) => normalizeStatus(o.status) === 'Selesai'
+    (order) => normalizeStatus(order.status) === 'Selesai'
   ).length;
 
   const tabs = [
@@ -63,28 +75,176 @@ export default function PesananAktifScreen({ onOpenDetail }) {
     { id: 'Selesai', label: `Selesai (${countSelesai})` },
   ];
 
-  const filteredOrders = orders.filter((o) => {
-    const current = normalizeStatus(o.status);
+  const filteredOrders = orders.filter((order) => {
+    const status = normalizeStatus(order.status);
+
     if (activeTab === 'Semua') return true;
-    if (activeTab === 'Diproses')
-      return current === 'Diproses' || current === 'Proses';
-    return current === activeTab;
+
+    if (activeTab === 'Diproses') {
+      return status === 'Diproses' || status === 'Proses';
+    }
+
+    return status === activeTab;
   });
 
   const handleCycleStatus = (order) => {
     const current = normalizeStatus(order.status);
+
     const nextStatus =
-      current === 'Diproses' || current === 'Proses' ? 'Selesai' : 'Diproses';
+      current === 'Diproses' || current === 'Proses'
+        ? 'Selesai'
+        : 'Diproses';
+
     updateOrderStatus(order.id, nextStatus);
   };
 
-  return (
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Page Title & Subtitle */}
+  const handleOpenDetail = (order) => {
+    if (!onOpenDetail) return;
+
+    onOpenDetail({
+      orderNo: order.id,
+      tableNo: order.table,
+      date: order.date || getFormattedToday(),
+      time: order.time || '09:45',
+      items: order.details || [
+        {
+          name: order.items,
+          qty: 1,
+          price: order.total,
+        },
+      ],
+      total: order.total,
+      method: order.metode || 'QRIS',
+    });
+  };
+
+  const renderTableHeader = () => (
+    <View style={[styles.tableHead, isMobile && styles.wideRow]}>
+      <Text style={[styles.th, { width: 55 }]}>No</Text>
+      <Text style={[styles.th, { width: 65 }]}>Waktu</Text>
+      <Text style={[styles.th, { width: 85 }]}>No. Meja</Text>
+      <Text style={[styles.th, { width: 150 }]}>Item</Text>
+      <Text style={[styles.th, { width: 100, textAlign: 'right' }]}>
+        Total
+      </Text>
+      <Text style={[styles.th, { width: 110, textAlign: 'center' }]}>
+        Status
+      </Text>
+      <Text style={[styles.th, { width: 75, textAlign: 'center' }]}>
+        Aksi
+      </Text>
+    </View>
+  );
+
+  const renderOrder = ({ item: order, index }) => {
+    const currentStatus = normalizeStatus(order.status);
+    const cfg =
+      STATUS_CONFIG[currentStatus] || STATUS_CONFIG.Diproses;
+
+    return (
+      <ScrollView
+        horizontal={isMobile}
+        scrollEnabled={isMobile}
+        showsHorizontalScrollIndicator={isMobile}
+        nestedScrollEnabled
+      >
+        <View
+          style={[
+            styles.tableRow,
+            isMobile && styles.wideRow,
+            index % 2 === 1 && styles.rowAlternate,
+          ]}
+        >
+          <Text
+            style={[
+              styles.td,
+              {
+                width: 55,
+                fontWeight: '700',
+                color: '#8D7B70',
+              },
+            ]}
+          >
+            {order.id || `#00${index + 1}`}
+          </Text>
+
+          <Text style={[styles.td, { width: 65, color: '#6F5C53' }]}>
+            {order.time || '09:00'}
+          </Text>
+
+          <Text
+            style={[
+              styles.td,
+              {
+                width: 85,
+                fontWeight: '700',
+                color: '#2C1810',
+              },
+            ]}
+          >
+            {order.table || 'Meja 1'}
+          </Text>
+
+          <Text
+            style={[styles.td, { width: 150, color: '#3D2820' }]}
+            numberOfLines={1}
+          >
+            {order.items || '-'}
+          </Text>
+
+          <Text
+            style={[
+              styles.td,
+              {
+                width: 100,
+                textAlign: 'right',
+                fontWeight: '800',
+                color: '#C62828',
+              },
+            ]}
+          >
+            {formatCurrency(order.total || 0)}
+          </Text>
+
+          <View style={{ width: 110, alignItems: 'center' }}>
+            <TouchableOpacity
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: cfg.bg,
+                  borderColor: cfg.border,
+                },
+              ]}
+              onPress={() => handleCycleStatus(order)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Ubah status pesanan ${order.id}`}
+              accessibilityHint="Ketuk untuk mengubah status pesanan"
+            >
+              <Text style={[styles.statusText, { color: cfg.text }]}>
+                {currentStatus}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ width: 75, alignItems: 'center' }}>
+            <TouchableOpacity
+              style={styles.detailBtn}
+              onPress={() => handleOpenDetail(order)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Lihat detail pesanan ${order.id}`}
+            >
+              <Text style={styles.detailBtnText}>Detail</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    );
+  };
+
+  const renderHeader = () => (
+    <View>
       <View style={styles.headerSection}>
         <Text style={styles.title}>Pesanan Aktif</Text>
         <Text style={styles.subtitle}>
@@ -92,7 +252,6 @@ export default function PesananAktifScreen({ onOpenDetail }) {
         </Text>
       </View>
 
-      {/* Filter Tabs */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -100,12 +259,15 @@ export default function PesananAktifScreen({ onOpenDetail }) {
       >
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
+
           return (
             <TouchableOpacity
               key={tab.id}
               style={[styles.tab, isActive && styles.tabActive]}
               onPress={() => setActiveTab(tab.id)}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isActive }}
             >
               <Text
                 style={[styles.tabText, isActive && styles.tabTextActive]}
@@ -117,179 +279,91 @@ export default function PesananAktifScreen({ onOpenDetail }) {
         })}
       </ScrollView>
 
-      {/* Responsive Table Container */}
       <View style={styles.tableCard}>
-        <ScrollView horizontal={isMobile} showsHorizontalScrollIndicator={true}>
-          <View style={[styles.tableInner, isMobile && { width: 700 }]}>
-            {/* Table Head */}
-            <View style={styles.tableHead}>
-              <Text style={[styles.th, { width: 55 }]}>No</Text>
-              <Text style={[styles.th, { width: 65 }]}>Waktu</Text>
-              <Text style={[styles.th, { width: 85 }]}>No. Meja</Text>
-              <Text style={[styles.th, { flex: 1.8 }]}>Item</Text>
-              <Text style={[styles.th, { width: 100, textAlign: 'right' }]}>
-                Total
-              </Text>
-              <Text style={[styles.th, { width: 110, textAlign: 'center' }]}>
-                Status
-              </Text>
-              <Text style={[styles.th, { width: 75, textAlign: 'center' }]}>
-                Aksi
-              </Text>
+        {isMobile ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator
+            nestedScrollEnabled
+          >
+            <View style={styles.wideTable}>
+              {renderTableHeader()}
             </View>
+          </ScrollView>
+        ) : (
+          renderTableHeader()
+        )}
+      </View>
+    </View>
+  );
 
-            {/* Table Rows */}
-            {filteredOrders.length === 0 ? (
-              <View style={styles.emptyBox}>
-                <Text style={styles.emptyEmoji}>📋</Text>
-                <Text style={styles.emptyText}>Tidak ada pesanan aktif</Text>
-              </View>
-            ) : (
-              filteredOrders.map((order, idx) => {
-                const currentStatus = normalizeStatus(order.status);
-                const cfg =
-                  STATUS_CONFIG[currentStatus] || STATUS_CONFIG['Diproses'];
+  const renderEmpty = () => (
+    <View style={styles.emptyBox}>
+      <MaterialCommunityIcons
+        name="clipboard-text-outline"
+        size={36}
+        color="#8D7B70"
+      />
+      <Text style={styles.emptyText}>Tidak ada pesanan aktif</Text>
+    </View>
+  );
 
-                return (
-                  <View
-                    key={order.id || idx}
-                    style={[
-                      styles.tableRow,
-                      idx % 2 === 1 && styles.rowAlternate,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.td,
-                        { width: 55, fontWeight: '700', color: '#8D7B70' },
-                      ]}
-                    >
-                      {order.id || `#00${idx + 1}`}
-                    </Text>
-                    <Text style={[styles.td, { width: 65, color: '#6F5C53' }]}>
-                      {order.time || '09:00'}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.td,
-                        { width: 85, fontWeight: '700', color: '#2C1810' },
-                      ]}
-                    >
-                      {order.table || 'Meja 1'}
-                    </Text>
-                    <Text
-                      style={[styles.td, { flex: 1.8, color: '#3D2820' }]}
-                      numberOfLines={1}
-                    >
-                      {order.items}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.td,
-                        {
-                          width: 100,
-                          textAlign: 'right',
-                          fontWeight: '800',
-                          color: '#C62828',
-                        },
-                      ]}
-                    >
-                      {formatCurrency(order.total)}
-                    </Text>
-
-                    {/* Status Badge */}
-                    <View style={{ width: 110, alignItems: 'center' }}>
-                      <TouchableOpacity
-                        style={[
-                          styles.statusBadge,
-                          {
-                            backgroundColor: cfg.bg,
-                            borderColor: cfg.border,
-                          },
-                        ]}
-                        onPress={() => handleCycleStatus(order)}
-                        activeOpacity={0.7}
-                        accessibilityHint="Ketuk untuk mengubah status"
-                      >
-                        <Text style={[styles.statusText, { color: cfg.text }]}>
-                          {currentStatus}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* Aksi Button: Detail */}
-                    <View style={{ width: 75, alignItems: 'center' }}>
-                      <TouchableOpacity
-                        style={styles.detailBtn}
-                        onPress={() =>
-                          onOpenDetail &&
-                          onOpenDetail({
-                            orderNo: order.id,
-                            tableNo: order.table,
-                            date: order.date || getFormattedToday(),
-                            time: order.time || '09:45',
-                            items: order.details || [
-                              {
-                                name: order.items,
-                                qty: 1,
-                                price: order.total,
-                              },
-                            ],
-                            total: order.total,
-                            method: order.metode || 'QRIS',
-                          })
-                        }
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.detailBtnText}>Detail</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                );
-              })
-            )}
-          </View>
-        </ScrollView>
+  const renderFooter = () => (
+    <View style={styles.footerSummaryCard}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.footerLabel}>Total Pesanan Hari Ini</Text>
+        <Text style={styles.footerNumber}>{orders.length}</Text>
       </View>
 
-      {/* Bottom Summary: Total Pesanan Hari Ini */}
-      <View style={styles.footerSummaryCard}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.footerLabel}>Total Pesanan Hari Ini</Text>
-          <Text style={styles.footerNumber}>{orders.length}</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.footerIconBox}
-          activeOpacity={0.7}
-          onPress={() => setSummaryModalVisible(true)}
-          accessibilityLabel="Tampilkan rincian ringkasan pesanan"
-        >
-          <MaterialCommunityIcons
-            name="receipt-text-outline"
-            size={24}
-            color="#C62828"
-          />
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity
+        style={styles.footerIconBox}
+        activeOpacity={0.7}
+        onPress={() => setSummaryModalVisible(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Tampilkan rincian ringkasan pesanan"
+      >
+        <MaterialCommunityIcons
+          name="receipt-text-outline"
+          size={24}
+          color="#C62828"
+        />
+      </TouchableOpacity>
+    </View>
+  );
 
-      {/* Modal Ringkasan Pesanan Hari Ini */}
+  return (
+    <View style={styles.root}>
+      <FlatList
+        data={filteredOrders}
+        keyExtractor={(order, index) =>
+          String(order.id ?? index)
+        }
+        renderItem={renderOrder}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderFooter}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      />
+
       <Modal
         visible={summaryModalVisible}
-        transparent={true}
+        transparent
         animationType="fade"
         onRequestClose={() => setSummaryModalVisible(false)}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setSummaryModalVisible(false)}
-        >
-          <View
-            style={styles.modalContent}
-            onStartShouldSetResponder={() => true}
-          >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => setSummaryModalVisible(false)}
+            accessibilityLabel="Tutup modal ringkasan"
+          />
+
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={styles.modalTitleGroup}>
                 <View style={styles.modalHeaderIconBox}>
                   <MaterialCommunityIcons
                     name="receipt-text-outline"
@@ -297,11 +371,17 @@ export default function PesananAktifScreen({ onOpenDetail }) {
                     color="#C62828"
                   />
                 </View>
-                <Text style={styles.modalTitle}>Ringkasan Pesanan Hari Ini</Text>
+
+                <Text style={styles.modalTitle}>
+                  Ringkasan Pesanan Hari Ini
+                </Text>
               </View>
+
               <TouchableOpacity
                 onPress={() => setSummaryModalVisible(false)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel="Tutup ringkasan"
               >
                 <Ionicons name="close" size={20} color="#8D7B70" />
               </TouchableOpacity>
@@ -314,23 +394,23 @@ export default function PesananAktifScreen({ onOpenDetail }) {
             <View style={styles.summaryList}>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryRowLabel}>Total Pesanan</Text>
-                <Text style={styles.summaryRowVal}>{orders.length} Pesanan</Text>
+                <Text style={styles.summaryRowVal}>
+                  {orders.length} Pesanan
+                </Text>
               </View>
 
               <View style={styles.summaryRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={styles.summaryLabelGroup}>
                   <View
-                    style={[
-                      styles.statusDot,
-                      { backgroundColor: '#E65100' },
-                    ]}
+                    style={[styles.statusDot, { backgroundColor: '#E65100' }]}
                   />
                   <Text style={styles.summaryRowLabel}>Sedang Diproses</Text>
                 </View>
+
                 <Text
                   style={[
                     styles.summaryRowVal,
-                    { color: '#E65100', fontWeight: '800' },
+                    { color: '#E65100' },
                   ]}
                 >
                   {countDiproses}
@@ -338,52 +418,35 @@ export default function PesananAktifScreen({ onOpenDetail }) {
               </View>
 
               <View style={styles.summaryRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={styles.summaryLabelGroup}>
                   <View
-                    style={[
-                      styles.statusDot,
-                      { backgroundColor: '#2E7D32' },
-                    ]}
+                    style={[styles.statusDot, { backgroundColor: '#2E7D32' }]}
                   />
-                  <Text style={styles.summaryRowLabel}>Selesai Disajikan</Text>
+                  <Text style={styles.summaryRowLabel}>
+                    Selesai Disajikan
+                  </Text>
                 </View>
+
                 <Text
                   style={[
                     styles.summaryRowVal,
-                    { color: '#2E7D32', fontWeight: '800' },
+                    { color: '#2E7D32' },
                   ]}
                 >
                   {countSelesai}
                 </Text>
               </View>
 
-              <View
-                style={[
-                  styles.summaryRow,
-                  {
-                    backgroundColor: '#FFF5F4',
-                    borderTopWidth: 1,
-                    borderColor: '#FFD6D6',
-                    marginTop: 4,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.summaryRowLabel,
-                    { fontWeight: '800', color: '#2C1810' },
-                  ]}
-                >
+              <View style={[styles.summaryRow, styles.summaryTotalRow]}>
+                <Text style={styles.summaryTotalLabel}>
                   Total Nilai Pesanan
                 </Text>
-                <Text
-                  style={[
-                    styles.summaryRowVal,
-                    { color: '#C62828', fontWeight: '900', fontSize: 14 },
-                  ]}
-                >
+
+                <Text style={styles.summaryTotalValue}>
                   {formatCurrency(
-                    orders.reduce((acc, o) => acc + (o.total || 0), 0)
+                    orders.reduce((total, order) => {
+                      return total + (order.total || 0);
+                    }, 0)
                   )}
                 </Text>
               </View>
@@ -393,13 +456,14 @@ export default function PesananAktifScreen({ onOpenDetail }) {
               style={styles.modalCloseBtn}
               onPress={() => setSummaryModalVisible(false)}
               activeOpacity={0.8}
+              accessibilityRole="button"
             >
               <Text style={styles.modalCloseBtnText}>Tutup Ringkasan</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -411,6 +475,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 20,
     paddingBottom: 40,
+    flexGrow: 1,
   },
   headerSection: {
     marginBottom: 16,
@@ -462,8 +527,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 6,
   },
-  tableInner: {
-    width: '100%',
+  wideTable: {
+    width: 700,
+  },
+  wideRow: {
+    width: 700,
   },
   tableHead: {
     flexDirection: 'row',
@@ -523,15 +591,16 @@ const styles = StyleSheet.create({
   emptyBox: {
     padding: 36,
     alignItems: 'center',
-  },
-  emptyEmoji: {
-    fontSize: 32,
-    marginBottom: 8,
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
   },
   emptyText: {
     fontSize: 13,
     color: '#8D7B70',
     fontWeight: '600',
+    marginTop: 8,
   },
   footerSummaryCard: {
     marginTop: 20,
@@ -560,12 +629,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#2C1810',
     marginTop: 2,
-  },
-  footerSubText: {
-    fontSize: 10,
-    color: '#A09088',
-    marginTop: 4,
-    fontWeight: '500',
   },
   footerIconBox: {
     width: 44,
@@ -607,6 +670,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F0E8E2',
   },
+  modalTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    marginRight: 8,
+  },
   modalHeaderIconBox: {
     width: 32,
     height: 32,
@@ -619,6 +689,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: '#2C1810',
+    flexShrink: 1,
   },
   modalSubtitle: {
     fontSize: 12,
@@ -637,6 +708,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     backgroundColor: '#FAF7F5',
     borderRadius: 10,
+    gap: 8,
+  },
+  summaryLabelGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 1,
   },
   summaryRowLabel: {
     fontSize: 12,
@@ -647,6 +725,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: '#2C1810',
+  },
+  summaryTotalRow: {
+    backgroundColor: '#FFF5F4',
+    borderTopWidth: 1,
+    borderColor: '#FFD6D6',
+    marginTop: 4,
+  },
+  summaryTotalLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#2C1810',
+    flex: 1,
+  },
+  summaryTotalValue: {
+    color: '#C62828',
+    fontWeight: '900',
+    fontSize: 14,
+    flexShrink: 1,
+    textAlign: 'right',
   },
   statusDot: {
     width: 8,
