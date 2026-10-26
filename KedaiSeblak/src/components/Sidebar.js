@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   View,
@@ -12,8 +11,6 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useKasir } from '../context/KasirContext';
 
 export default function Sidebar({
-  onClose,
-  isMobile = false,
   role = 'kasir',
   activeTab: activeTabProp,
   setActiveTab: setActiveTabProp,
@@ -48,11 +45,6 @@ export default function Sidebar({
       if (contextLogout) {
         contextLogout();
       }
-
-    navigation.reset({
-        index: 0,
-        routes: [{ name: 'LoginScreen' }],
-      });
     });
 
   const activeOrdersCount = orders
@@ -128,19 +120,10 @@ export default function Sidebar({
     if (setActiveTab) {
       setActiveTab(tabId);
     }
-
-    if (isMobile && onClose) {
-      onClose();
-    }
   };
 
   return (
-    <View
-      style={[
-        styles.container,
-        isMobile && styles.mobileContainer,
-      ]}
-    >
+    <View style={styles.container}>
       <View style={styles.brandContainer}>
         <View style={styles.logoRow}>
           <View style={styles.logoBadge}>
@@ -160,19 +143,6 @@ export default function Sidebar({
             </Text>
           </View>
         </View>
-
-        {isMobile && (
-          <TouchableOpacity
-            onPress={onClose}
-            style={styles.closeBtn}
-          >
-            <Ionicons
-              name="close"
-              size={22}
-              color="#FFF"
-            />
-          </TouchableOpacity>
-        )}
       </View>
 
       <View style={styles.roleBanner}>
@@ -276,24 +246,12 @@ export default function Sidebar({
 const styles = StyleSheet.create({
   container: {
     width: 225,
+    height: '100%',
     backgroundColor: '#52141D',
     borderRightWidth: 1,
     borderRightColor: '#6B1B26',
     flexDirection: 'column',
     justifyContent: 'space-between',
-  },
-  mobileContainer: {
-    width: 260,
-    height: '100%',
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    zIndex: 999,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 15,
   },
   brandContainer: {
     paddingHorizontal: 16,
@@ -332,9 +290,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
     marginTop: 1,
-  },
-  closeBtn: {
-    padding: 6,
   },
   roleBanner: {
     paddingHorizontal: 14,
@@ -390,6 +345,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   menuLabel: {
+    text: 'none',
     color: '#DFB8BC',
     fontSize: 13,
     fontWeight: '600',
