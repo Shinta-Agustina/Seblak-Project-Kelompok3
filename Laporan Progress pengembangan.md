@@ -109,14 +109,17 @@ Fitur Laporan Keuangan
 
 4. Dewi : Dashboard Owner, Penjualan dan Stok
 
-Fitur Dashboard Owner
-![alt text](dashboard.gif)
+**Fitur Dashboard Owner**
 
-Fitur Penjualan
-![alt text](penjualan.gif)
+![Screen Recordings](dashboard.gif)
 
-Fitur Stok Bahan
-![alt text](stok.gif)
+**Fitur Penjualan**
+
+![Screen Recording](penjualan.gif)
+
+**Fitur Stok Bahan**
+
+![Screen Recording](stok.gif)
 
 ## Bukti Membangun Layer 
 Bukti Wawancara:
