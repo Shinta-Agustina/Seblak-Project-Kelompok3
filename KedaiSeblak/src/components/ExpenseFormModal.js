@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -13,19 +13,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import CustomButton from './CustomButton';
-import formatCurrency from '../utils/formatCurrency';
-import { getCategoryBadge } from '../screens/owner/MenuHargaScreen';
 
-const KATEGORI_OPTIONS = [
-  'Kerupuk & Makaroni',
-  'Seafood & Olahan',
-  'Daging & Jeroan',
-  'Mie & Bihun',
-  'Telur & Tahu',
-  'Sayur & Jamur',
-];
+// Kategori HANYA Bumbu dan Topping sesuai instruksi user
+const KATEGORI_OPTIONS = ['Bumbu', 'Topping'];
 
-const EXPENSE_SATUAN_OPTIONS = ['kg', 'pack'];
 const WARNA_PRIMARY = '#52141D'; // Deep Maroon Project
 
 export default function ExpenseFormModal({
@@ -37,52 +28,43 @@ export default function ExpenseFormModal({
 }) {
   const isEdit = !!initialData;
 
+  // Waktu: jam dan tanggal/bulan/tahun
   const [tanggal, setTanggal] = useState(selectedDateStr);
-  const [waktu, setWaktu] = useState('08:30');
-  const [keterangan, setKeterangan] = useState(''); // Jenis Topping
-  const [kategori, setKategori] = useState('Seafood & Olahan');
-  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [jam, setJam] = useState('09:30');
+  const [keterangan, setKeterangan] = useState('');
+  const [kategori, setKategori] = useState('Bumbu');
   const [jumlah, setJumlah] = useState('');
   const [satuan, setSatuan] = useState('kg');
-  const [satuanDropdownOpen, setSatuanDropdownOpen] = useState(false);
+  const [supplier, setSupplier] = useState('');
   const [total, setTotal] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const totalInputRef = useRef(null);
 
   useEffect(() => {
     if (visible) {
       if (initialData) {
         setTanggal(initialData.tanggalStr || selectedDateStr);
-        setWaktu(initialData.waktu || '08:30');
+        setJam(initialData.waktu || '09:30');
         setKeterangan(initialData.keterangan || '');
-        const autoBadge = getCategoryBadge(initialData.kategori, initialData.keterangan);
-        const mapBadgeToCat = {
-          'Seafood': 'Seafood & Olahan',
-          'Kerupuk': 'Kerupuk & Makaroni',
-          'Daging': 'Daging & Jeroan',
-          'Telur & Tahu': 'Telur & Tahu',
-          'Sayur & Jamur': 'Sayur & Jamur',
-          'Mie & Bihun': 'Mie & Bihun',
-        };
-        setKategori(initialData.kategori || mapBadgeToCat[autoBadge.label] || 'Seafood & Olahan');
-        setJumlah(initialData.jumlah ? String(initialData.jumlah) : '');
-        const rawSat = (initialData.satuan || 'kg').toLowerCase();
-        setSatuan(rawSat === 'pack' ? 'pack' : 'kg');
-        setTotal(initialData.total ? Number(initialData.total).toLocaleString('id-ID') : '');
+        const kat = (initialData.kategori || '').toLowerCase();
+        setKategori(kat.includes('bumbu') ? 'Bumbu' : 'Topping');
+        setJumlah(initialData.jumlah != null ? String(initialData.jumlah) : '');
+        setSatuan(initialData.satuan || 'kg');
+        setSupplier(initialData.supplier || '');
+        const rawNom = initialData.nominal != null ? initialData.nominal : initialData.total || 0;
+        setTotal(rawNom ? Number(rawNom).toLocaleString('id-ID') : '');
       } else {
         const now = new Date();
         const hh = String(now.getHours()).padStart(2, '0');
         const mm = String(now.getMinutes()).padStart(2, '0');
         setTanggal(selectedDateStr);
-        setWaktu(`${hh}:${mm}`);
+        setJam(`${hh}:${mm}`);
         setKeterangan('');
-        setKategori('Seafood & Olahan');
+        setKategori('Bumbu');
         setJumlah('');
         setSatuan('kg');
+        setSupplier('');
         setTotal('');
       }
-      setCategoryDropdownOpen(false);
-      setSatuanDropdownOpen(false);
       setErrorMsg('');
     }
   }, [visible, initialData, selectedDateStr]);
@@ -92,31 +74,49 @@ export default function ExpenseFormModal({
       setErrorMsg('Tanggal pengeluaran wajib diisi.');
       return;
     }
+    if (!jam.trim()) {
+      setErrorMsg('Jam pengeluaran wajib diisi.');
+      return;
+    }
     if (!keterangan.trim()) {
-      setErrorMsg('Jenis topping wajib diisi atau dipilih.');
+      setErrorMsg('Nama bahan / keterangan wajib diisi (misal: Sosis atau Penyedap).');
       return;
     }
-    const parsedJumlah = parseFloat(jumlah.replace(',', '.'));
-    if (!jumlah || isNaN(parsedJumlah) || parsedJumlah <= 0) {
-      setErrorMsg('Jumlah harus berupa angka valid lebih dari 0.');
+    if (!kategori.trim()) {
+      setErrorMsg('Kategori wajib dipilih.');
       return;
     }
+    if (!jumlah.trim()) {
+      setErrorMsg('Jumlah wajib diisi.');
+      return;
+    }
+    if (!satuan.trim()) {
+      setErrorMsg('Satuan wajib diisi.');
+      return;
+    }
+    if (!supplier.trim()) {
+      setErrorMsg('Supplier wajib diisi.');
+      return;
+    }
+
     const cleanTotal = total.replace(/[^0-9]/g, '');
     const parsedTotal = parseInt(cleanTotal, 10);
     if (!cleanTotal || isNaN(parsedTotal) || parsedTotal <= 0) {
-      setErrorMsg('Nominal pengeluaran harus diisi lebih dari 0.');
+      setErrorMsg('Total pembelian harus berupa nominal lebih dari 0.');
       return;
     }
 
     const payload = {
       ...(initialData || {}),
       tanggalStr: tanggal.trim(),
-      waktu: waktu.trim() || '08:00',
+      waktu: jam.trim(),
       keterangan: keterangan.trim(),
-      kategori: kategori,
-      jumlah: parsedJumlah,
-      satuan: satuan,
+      kategori: kategori.trim(),
+      jumlah: jumlah.trim(),
+      satuan: satuan.trim(),
+      supplier: supplier.trim(),
       total: parsedTotal,
+      nominal: parsedTotal,
     };
 
     onSubmit(payload);
@@ -143,17 +143,17 @@ export default function ExpenseFormModal({
                   <View style={styles.headerTitleRow}>
                     <View style={styles.iconBadge}>
                       <Ionicons
-                        name={isEdit ? 'create-outline' : 'add-circle-outline'}
-                        size={22}
+                        name={isEdit ? 'create-outline' : 'receipt-outline'}
+                        size={20}
                         color="#FFFFFF"
                       />
                     </View>
                     <View>
                       <Text style={styles.modalTitle}>
-                        {isEdit ? 'Edit Pengeluaran Topping' : 'Catat Pengeluaran Topping'}
+                        {isEdit ? 'Edit Pengeluaran' : 'Catat Pengeluaran'}
                       </Text>
                       <Text style={styles.modalSubtitle}>
-                        {isEdit ? 'Ubah rincian pembelian topping' : 'Tambahkan stok pembelian topping seblak'}
+                        Kategori bahan bumbu dan topping
                       </Text>
                     </View>
                   </View>
@@ -179,10 +179,10 @@ export default function ExpenseFormModal({
                   showsVerticalScrollIndicator={true}
                   keyboardShouldPersistTaps="handled"
                 >
-                  {/* Field 1: Tanggal & Waktu (Tanggal sekarang bisa dipilih & diedit) */}
+                  {/* Field 1: Waktu (Tanggal, Bulan, Tahun & Jam) */}
                   <View style={styles.rowTwoCols}>
-                    <View style={styles.colFlex}>
-                      <Text style={styles.fieldLabel}>Tanggal Pembelian *</Text>
+                    <View style={[styles.colFlex, { flex: 1.6 }]}>
+                      <Text style={styles.fieldLabel}>Tanggal (Tgl Bln Thn) *</Text>
                       <View style={styles.inputWrapper}>
                         <Ionicons
                           name="calendar-outline"
@@ -200,8 +200,8 @@ export default function ExpenseFormModal({
                       </View>
                     </View>
 
-                    <View style={[styles.colFlex, { maxWidth: 110 }]}>
-                      <Text style={styles.fieldLabel}>Waktu (WIB)</Text>
+                    <View style={[styles.colFlex, { flex: 1 }]}>
+                      <Text style={styles.fieldLabel}>Jam (WIB) *</Text>
                       <View style={styles.inputWrapper}>
                         <Ionicons
                           name="time-outline"
@@ -211,18 +211,19 @@ export default function ExpenseFormModal({
                         />
                         <TextInput
                           style={styles.textInput}
-                          placeholder="08:30"
-                          value={waktu}
-                          onChangeText={setWaktu}
+                          placeholder="09:30"
+                          placeholderTextColor="#A69A90"
+                          value={jam}
+                          onChangeText={setJam}
                           maxLength={5}
                         />
                       </View>
                     </View>
                   </View>
 
-                  {/* Field 2: Jenis Topping */}
+                  {/* Field 2: Keterangan (Nama bahan seperti sosis atau penyedap) */}
                   <View style={styles.fieldGroup}>
-                    <Text style={styles.fieldLabel}>Jenis Topping *</Text>
+                    <Text style={styles.fieldLabel}>Keterangan (Nama Bahan) *</Text>
                     <View style={styles.inputWrapper}>
                       <Ionicons
                         name="restaurant-outline"
@@ -232,7 +233,7 @@ export default function ExpenseFormModal({
                       />
                       <TextInput
                         style={styles.textInput}
-                        placeholder="Ketik jenis topping (misal: Dumpling Keju)"
+                        placeholder="Contoh: Sosis, Penyedap Rasa, Cabai Rawit"
                         placeholderTextColor="#A69A90"
                         value={keterangan}
                         onChangeText={setKeterangan}
@@ -240,206 +241,133 @@ export default function ExpenseFormModal({
                     </View>
                   </View>
 
-                  {/* Field Kategori Topping Sesuai Kasir (Dropdown) */}
+                  {/* Field 3: Kategori (Hanya Bumbu dan Topping) */}
                   <View style={styles.fieldGroup}>
-                    <Text style={styles.fieldLabel}>Kategori Topping *</Text>
-                    <TouchableOpacity
-                      style={[
-                        styles.dropdownTrigger,
-                        categoryDropdownOpen && styles.dropdownTriggerActive,
-                      ]}
-                      onPress={() => {
-                        setCategoryDropdownOpen((prev) => !prev);
-                        setSatuanDropdownOpen(false);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.dropdownTriggerLeft}>
-                        <Ionicons
-                          name="grid-outline"
-                          size={16}
-                          color="#78665E"
-                          style={{ marginRight: 8 }}
-                        />
-                        <Text style={styles.dropdownSelectedText}>
-                          {kategori || 'Pilih Kategori'}
-                        </Text>
-                      </View>
-                      <Ionicons
-                        name={categoryDropdownOpen ? 'chevron-up' : 'chevron-down'}
-                        size={18}
-                        color="#78665E"
-                      />
-                    </TouchableOpacity>
-
-                    {categoryDropdownOpen && (
-                      <View style={styles.dropdownMenu}>
-                        {KATEGORI_OPTIONS.map((cat) => {
-                          const isSelected = kategori === cat;
-                          return (
-                            <TouchableOpacity
-                              key={cat}
+                    <Text style={styles.fieldLabel}>Kategori *</Text>
+                    <View style={styles.kategoriPillsRow}>
+                      {KATEGORI_OPTIONS.map((cat) => {
+                        const isSelected = kategori === cat;
+                        return (
+                          <TouchableOpacity
+                            key={cat}
+                            style={[
+                              styles.kategoriPill,
+                              isSelected && styles.kategoriPillActive,
+                            ]}
+                            onPress={() => setKategori(cat)}
+                            activeOpacity={0.8}
+                          >
+                            <Ionicons
+                              name={cat === 'Bumbu' ? 'leaf-outline' : 'pizza-outline'}
+                              size={16}
+                              color={isSelected ? '#FFFFFF' : WARNA_PRIMARY}
+                              style={{ marginRight: 6 }}
+                            />
+                            <Text
                               style={[
-                                styles.dropdownItem,
-                                isSelected && styles.dropdownItemActive,
+                                styles.kategoriPillText,
+                                isSelected && styles.kategoriPillTextActive,
                               ]}
-                              onPress={() => {
-                                setKategori(cat);
-                                setCategoryDropdownOpen(false);
-                              }}
-                              activeOpacity={0.7}
                             >
-                              <Text
-                                style={[
-                                  styles.dropdownItemText,
-                                  isSelected && styles.dropdownItemTextActive,
-                                ]}
-                              >
-                                {cat}
-                              </Text>
-                              {isSelected && (
-                                <Ionicons
-                                  name="checkmark-circle"
-                                  size={18}
-                                  color={WARNA_PRIMARY}
-                                />
-                              )}
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    )}
+                              {cat}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
                   </View>
 
-                  {/* Field 3: Jumlah & Satuan (Dropdown) */}
+                  {/* Field 4 & 5: Jumlah dan Satuan (Tanpa tulisan manual pada label) */}
                   <View style={styles.rowTwoCols}>
                     <View style={styles.colFlex}>
                       <Text style={styles.fieldLabel}>Jumlah *</Text>
                       <View style={styles.inputWrapper}>
                         <TextInput
                           style={styles.textInput}
-                          placeholder="Contoh: 2 atau 5"
+                          placeholder="Misal: 4 atau 1.5"
                           placeholderTextColor="#A69A90"
                           value={jumlah}
                           onChangeText={setJumlah}
-                          keyboardType={Platform.OS === 'web' ? 'default' : 'numeric'}
-                          inputMode="decimal"
-                          editable={true}
                         />
                       </View>
                     </View>
 
-                    <View style={[styles.colFlex, { maxWidth: 130 }]}>
+                    <View style={styles.colFlex}>
                       <Text style={styles.fieldLabel}>Satuan *</Text>
-                      <TouchableOpacity
-                        style={[
-                          styles.dropdownTrigger,
-                          satuanDropdownOpen && styles.dropdownTriggerActive,
-                        ]}
-                        onPress={() => {
-                          setSatuanDropdownOpen((prev) => !prev);
-                          setCategoryDropdownOpen(false);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.dropdownSelectedText}>{satuan}</Text>
-                        <Ionicons
-                          name={satuanDropdownOpen ? 'chevron-up' : 'chevron-down'}
-                          size={18}
-                          color="#78665E"
+                      <View style={styles.inputWrapper}>
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="kg, gram, bungkus, pack"
+                          placeholderTextColor="#A69A90"
+                          value={satuan}
+                          onChangeText={setSatuan}
                         />
-                      </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
 
-                  {satuanDropdownOpen && (
-                    <View style={[styles.dropdownMenu, { marginTop: -6, marginBottom: 14 }]}>
-                      {EXPENSE_SATUAN_OPTIONS.map((item) => {
-                        const isSelected = satuan.toLowerCase() === item;
-                        return (
-                          <TouchableOpacity
-                            key={item}
-                            style={[
-                              styles.dropdownItem,
-                              isSelected && styles.dropdownItemActive,
-                            ]}
-                            onPress={() => {
-                              setSatuan(item);
-                              setSatuanDropdownOpen(false);
-                            }}
-                            activeOpacity={0.7}
-                          >
-                            <Text
-                              style={[
-                                styles.dropdownItemText,
-                                isSelected && styles.dropdownItemTextActive,
-                              ]}
-                            >
-                              {item}
-                            </Text>
-                            {isSelected && (
-                              <Ionicons
-                                name="checkmark-circle"
-                                size={18}
-                                color={WARNA_PRIMARY}
-                              />
-                            )}
-                          </TouchableOpacity>
-                        );
-                      })}
+                  {/* Field 6: Supplier (Input Manual Bebas) */}
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.fieldLabel}>Supplier *</Text>
+                    <View style={styles.inputWrapper}>
+                      <Ionicons
+                        name="storefront-outline"
+                        size={16}
+                        color="#78665E"
+                        style={styles.inputIcon}
+                      />
+                      <TextInput
+                        style={styles.textInput}
+                        placeholder="Ketik nama supplier (misal: Toko Sembako Jaya)"
+                        placeholderTextColor="#A69A90"
+                        value={supplier}
+                        onChangeText={setSupplier}
+                      />
                     </View>
-                  )}
-
-                  {/* Field 4: Nominal / Total Pembelian Topping */}
-                  
-                {/* Field 4: Nominal / Total Pembelian Topping */}
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Total Pembelian (Rp) *</Text>
-
-                  <View style={[styles.inputWrapper, styles.moneyInputWrapper]}>
-                    <Text style={styles.rpPrefix}>Rp</Text>
-
-                    <TextInput
-                      ref={totalInputRef}
-                      style={[styles.textInput, styles.moneyTextInput]}
-                      placeholder="Masukkan nominal"
-                      placeholderTextColor="#A69A90"
-                      value={total}
-                      onChangeText={(txt) => {
-                        const num = txt.replace(/[^0-9]/g, '');
-                        setTotal(num ? Number(num).toLocaleString('id-ID') : '');
-                      }}
-                      keyboardType="numeric"
-                      inputMode="numeric"
-                      editable={true}
-                      selectTextOnFocus={true}
-                    />
                   </View>
 
-                  {total !== '' ? (
-                    <Text style={styles.helperMoney}>
-                      Terbaca: {formatCurrency(
-                        parseInt(total.replace(/[^0-9]/g, ''), 10) || 0
-                      )}
-                    </Text>
-                  ) : null}
-                </View>
-
+                  {/* Field 7: Total Pembelian */}
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.fieldLabel}>Total Pembelian *</Text>
+                    <View style={styles.inputWrapper}>
+                      <Text style={styles.rpPrefixText}>Rp</Text>
+                      <TextInput
+                        style={[
+                          styles.textInput,
+                          { fontSize: 16, fontWeight: '700', color: WARNA_PRIMARY },
+                        ]}
+                        placeholder="Contoh: 190.000"
+                        placeholderTextColor="#A69A90"
+                        value={total}
+                        onChangeText={(txt) => {
+                          const clean = txt.replace(/[^0-9]/g, '');
+                          if (!clean) {
+                            setTotal('');
+                          } else {
+                            setTotal(Number(clean).toLocaleString('id-ID'));
+                          }
+                        }}
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </View>
                 </ScrollView>
 
-                {/* Footer Action Buttons */}
+                {/* Footer Modal */}
                 <View style={styles.modalFooter}>
-                  <CustomButton
-                    title="Batal"
-                    variant="outline"
+                  <TouchableOpacity
+                    style={styles.cancelBtn}
                     onPress={onClose}
-                    style={styles.footerBtn}
-                  />
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.cancelBtnText}>Batal</Text>
+                  </TouchableOpacity>
+
                   <CustomButton
-                    title={isEdit ? 'Simpan Perubahan' : 'Simpan Topping'}
+                    title={isEdit ? 'Simpan Perubahan' : 'Catat Pengeluaran'}
                     variant="primary"
                     onPress={handleSubmit}
-                    style={[styles.footerBtn, styles.saveBtn]}
+                    style={styles.submitBtn}
                   />
                 </View>
               </View>
@@ -461,84 +389,80 @@ const styles = StyleSheet.create({
   },
   keyboardAvoid: {
     width: '100%',
-    maxWidth: 500,
-    maxHeight: '92%',
+    maxWidth: 480,
+    justifyContent: 'center',
   },
   modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
     width: '100%',
-    maxHeight: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 14,
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
     elevation: 8,
-    display: 'flex',
-    flexDirection: 'column',
+    maxHeight: '92%',
   },
   modalHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDE5E0',
-    backgroundColor: '#FAF7F5',
+    borderBottomColor: '#F0E8E4',
+    backgroundColor: '#FDFBF9',
   },
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   iconBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 9,
     backgroundColor: WARNA_PRIMARY,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalTitle: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#2C1810',
   },
   modalSubtitle: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#78665E',
     marginTop: 1,
   },
   closeBtn: {
-    padding: 6,
-    borderRadius: 8,
+    padding: 4,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     backgroundColor: '#FEE2E2',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#FECACA',
+    marginHorizontal: 20,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 8,
   },
   errorText: {
-    fontSize: 12,
     color: '#DC2626',
+    fontSize: 12,
     fontWeight: '600',
     flex: 1,
   },
   formScroll: {
-    flexGrow: 1,
-    flexShrink: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
   },
   formScrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 24,
+    paddingBottom: 16,
   },
   fieldGroup: {
     marginBottom: 14,
@@ -553,129 +477,87 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#2C1810',
+    fontWeight: '600',
+    color: '#4B3830',
     marginBottom: 6,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E8DCD4',
-    borderRadius: 10,
+    backgroundColor: '#FAFAF9',
+    borderWidth: 1,
+    borderColor: '#E6DFDA',
+    borderRadius: 9,
     paddingHorizontal: 12,
-    height: 44,
+    height: 42,
   },
   inputIcon: {
     marginRight: 8,
   },
   textInput: {
     flex: 1,
-    height: '100%',
     fontSize: 13,
     color: '#2C1810',
     paddingVertical: 0,
-    ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}),
   },
-  dropdownTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E8DCD4',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 44,
-  },
-  dropdownTriggerActive: {
-    borderColor: WARNA_PRIMARY,
-  },
-  dropdownTriggerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  dropdownSelectedText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#2C1810',
-  },
-  dropdownMenu: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E8DCD4',
-    borderRadius: 10,
-    marginTop: 6,
-    paddingVertical: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  dropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F8F5F2',
-  },
-  dropdownItemActive: {
-    backgroundColor: '#FAF7F5',
-  },
-  dropdownItemText: {
-    fontSize: 13,
-    color: '#55453E',
-    fontWeight: '600',
-  },
-  dropdownItemTextActive: {
-    color: WARNA_PRIMARY,
-    fontWeight: '800',
-  },
-  moneyInputWrapper: {
-    borderColor: '#C62828',
-    backgroundColor: '#FFFDFD',
-  },
-  rpPrefix: {
+  rpPrefixText: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#DC2626',
+    fontWeight: '700',
+    color: WARNA_PRIMARY,
     marginRight: 6,
   },
-  moneyTextInput: {
-    height: '100%',
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#DC2626',
-    paddingVertical: 0,
-    ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}),
+  kategoriPillsRow: {
+    flexDirection: 'row',
+    gap: 12,
   },
-  helperMoney: {
-    fontSize: 11,
-    color: '#78665E',
-    marginTop: 4,
-    fontWeight: '600',
+  kategoriPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 42,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: WARNA_PRIMARY,
+    backgroundColor: '#FFFFFF',
+  },
+  kategoriPillActive: {
+    backgroundColor: WARNA_PRIMARY,
+    borderColor: WARNA_PRIMARY,
+  },
+  kategoriPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: WARNA_PRIMARY,
+  },
+  kategoriPillTextActive: {
+    color: '#FFFFFF',
   },
   modalFooter: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#EDE5E0',
-    backgroundColor: '#FAF7F5',
+    borderTopColor: '#F0E8E4',
+    backgroundColor: '#FDFBF9',
   },
-  footerBtn: {
-    flex: 1,
-    height: 44,
+  cancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 8,
+    backgroundColor: '#F3ECE8',
   },
-  saveBtn: {
-    backgroundColor: '#C62828',
-    borderColor: '#C62828',
+  cancelBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78665E',
+  },
+  submitBtn: {
+    minWidth: 140,
+    height: 40,
+    borderRadius: 8,
   },
 });
