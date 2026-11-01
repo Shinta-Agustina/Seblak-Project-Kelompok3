@@ -17,6 +17,7 @@ import MenuHargaScreen from './MenuHargaScreen';
 import ManajemenKasirScreen from './ManajemenKasirScreen';
 import PengeluaranScreen from './PengeluaranScreen';
 import LaporanKeuanganScreen from './LaporanKeuanganScreen';
+import KelolaKasirScreen from './KelolaKasirScreen'; // <-- 1. IMPORT KELOLA KASIR SCREEN SESUAI NAMA FILE
 
 import { useKasir } from '../../context/KasirContext';
 import { TOPPING_ITEMS } from '../../data/mockData';
@@ -307,8 +308,12 @@ export default function DashboardOwnerScreen() {
   // Judul header
   const getHeaderTitle = () => {
     switch (activeTab) {
-      case 'dashboard':
-        return 'Owner Portal · Ringkasan Kesehatan Kedai';
+case 'dashboard':
+  return 'Owner Portal · Ringkasan Kesehatan Kedai';
+
+case 'Kelola Kasir':
+  return 'Owner Portal · Kelola Akun Kasir';
+
       case 'penjualan':
         return 'Owner Portal · Laporan Penjualan Seblak';
       case 'stok':
@@ -384,6 +389,11 @@ export default function DashboardOwnerScreen() {
               onDeleteExpense={handleDeleteExpense}
               onUpdateStockAfterRestock={handleUpdateStockFromExpense}
             />
+          </View>
+        ) : activeTab === 'Kelola Kasir' ? (
+          /* 2. GUNAKAN KELOLA KASIR SCREEN DENGAN BENAR DI SINI */
+          <View style={styles.embeddedTabContainer}>
+            <KelolaKasirScreen isEmbedded={true} />
           </View>
         ) : activeTab === 'laporan_keuangan' ? (
           <View style={styles.embeddedTabContainer}>

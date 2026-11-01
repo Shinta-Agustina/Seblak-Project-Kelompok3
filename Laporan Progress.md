@@ -19,24 +19,27 @@
 Tugas Member :
 1. Accept invite
 2. Bukti Konfirmasi
-Faija
 
+Faija
+![alt text](image-2.png)
 
 Maya
 ![alt text](<Cuplikan layar 2026-10-24 110259.png>)
 
 Dewi 
-
+![alt text](<Screenshot 2026-10-24 104307.png>)
 
 3. Clone project
 4. Bukti konfirmasi
-Faija
 
+Faija
+![alt text](image-3.png)
 
 Maya
 ![alt text](<Cuplikan layar 2026-10-24 115911.png>)
 
 Dewi
+![alt text](image-2.png)
 
 
 Tugas Bersama :
