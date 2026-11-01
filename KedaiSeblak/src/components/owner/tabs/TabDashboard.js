@@ -86,27 +86,67 @@ export default function TabDashboard({
   const jumlahPorsiTerjual = transaksiHariIni.length;
 
   // TERHUBUNG & FILTER PER HARI: Menghitung total pengeluaran khusus hari ini
+  // Mengubah tanggal pengeluaran menjadi format YYYY-MM-DD
+  const getTanggalKey = (tanggal) => {
+    if (!tanggal) return null;
+
+    // Jika tanggal berupa objek Date
+    if (tanggal instanceof Date) {
+      const tahun = tanggal.getFullYear();
+      const bulan = String(tanggal.getMonth() + 1).padStart(2, '0');
+      const hari = String(tanggal.getDate()).padStart(2, '0');
+
+      return `${tahun}-${bulan}-${hari}`;
+    }
+
+    const tanggalString = String(tanggal).trim();
+
+    // Jika format tanggal sudah ISO, misalnya 2026-11-01
+    if (/^\d{4}-\d{2}-\d{2}/.test(tanggalString)) {
+      return tanggalString.substring(0, 10);
+    }
+
+    // Jika format tanggal berupa tanggal lokal
+    const parsedDate = new Date(tanggalString);
+
+    if (!Number.isNaN(parsedDate.getTime())) {
+      const tahun = parsedDate.getFullYear();
+      const bulan = String(parsedDate.getMonth() + 1).padStart(2, '0');
+      const hari = String(parsedDate.getDate()).padStart(2, '0');
+
+      return `${tahun}-${bulan}-${hari}`;
+    }
+
+    return null;
+  };
+
+  // Total pengeluaran khusus hari ini
   const pengeluaranHariIni = useMemo(() => {
-    // Format tanggal string standar yang dicocokkan (misal: "24 Okt 2026" atau sesuai format sistem)
-    const tanggalHariIniStr = new Date().toLocaleDateString('id-ID', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
+    const sekarang = new Date();
+
+    const tahun = sekarang.getFullYear();
+    const bulan = String(sekarang.getMonth() + 1).padStart(2, '0');
+    const hari = String(sekarang.getDate()).padStart(2, '0');
+
+    const hariIniKey = `${tahun}-${bulan}-${hari}`;
 
     return (expenses || []).reduce((sum, item) => {
-      const isHariIni =
-        !item.tanggal ||
-        item.tanggal === tanggalHariIniStr ||
-        item.tanggal === 'Hari ini' ||
-        item.tanggal === 'Baru saja';
+      const tanggalPengeluaran =
+        getTanggalKey(item.tanggal) ||
+        getTanggalKey(item.tanggalStr);
 
-      if (isHariIni) {
-        return sum + Number(item.nominal || item.total || 0);
+      if (tanggalPengeluaran === hariIniKey) {
+        const nominal = Number(
+          item.nominal ?? item.total ?? item.jumlah ?? 0
+        );
+
+        return sum + nominal;
       }
+
       return sum;
     }, 0);
   }, [expenses]);
+
 
   const lowStockItems = useMemo(
     () =>
@@ -223,7 +263,9 @@ export default function TabDashboard({
         <StatCard
           title="Pengeluaran"
           value={rupiah(pengeluaranHariIni)}
+
           subtitle="Belanja bahan & operasional hari ini"
+
           iconName="cash-outline"
           iconColor="#D97706"
           iconBg="#FEF3C7"
