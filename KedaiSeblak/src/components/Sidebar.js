@@ -110,11 +110,6 @@ export default function Sidebar({
       label: 'Laporan Keuangan',
       icon: 'assessment',
     },
-    {
-      id: 'manajemen_kasir',
-      label: 'Manajemen Kasir',
-      icon: 'people',
-    },
   ];
 
   const menuItems = isOwner
