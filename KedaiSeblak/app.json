@@ -33,8 +33,7 @@
           "imageWidth": 76
         }
       ],
-      "expo-sharing",
-      "@react-native-community/datetimepicker"
+      "expo-sharing"
     ],
     "experiments": {
       "reactCompiler": true

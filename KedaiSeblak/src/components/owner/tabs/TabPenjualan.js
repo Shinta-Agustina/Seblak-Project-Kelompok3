@@ -3,540 +3,898 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import FilterChips from '../FilterChips';
 
-import SalesChart from '../SalesChart';
+const WARNA = {
+  merah: '#C62828',
+  merahGelap: '#52141D',
+  merahMuda: '#FBEAEC',
+  hijau: '#168653',
+  biru: '#0284C7',
+  oranye: '#D97706',
+  ungu: '#7C3AED',
+  teks: '#2C1810',
+  sekunder: '#78665E',
+  garis: '#EFE7E2',
+  latar: '#F8F6F4',
+  putih: '#FFFFFF',
+};
 
-import {
-  normalisasiTransaksiKasir,
-  hitungToppingTerjual,
-} from '../../../data/ownerSalesSimulation';
+const MENU = [
+  { nama: 'Seblak Original', kategori: 'Menu Utama', harga: 12000 },
+  { nama: 'Seblak Seafood', kategori: 'Menu Utama', harga: 18000 },
+  { nama: 'Seblak Komplit', kategori: 'Menu Utama', harga: 20000 },
+  { nama: 'Kerupuk', kategori: 'Topping', harga: 2000 },
+  { nama: 'Makaroni', kategori: 'Topping', harga: 2000 },
+  { nama: 'Bakso', kategori: 'Topping', harga: 3000 },
+  { nama: 'Sosis', kategori: 'Topping', harga: 3000 },
+  { nama: 'Seafood', kategori: 'Topping', harga: 5000 },
+  { nama: 'Es Teh', kategori: 'Minuman', harga: 5000 },
+  { nama: 'Es Jeruk', kategori: 'Minuman', harga: 6000 },
+];
 
-const rupiah = (value) =>
-  `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
+const METODE = ['Tunai', 'QRIS', 'E-Wallet'];
+const VARIAN_KUAH = [
+  'Kuah Original',
+  'Kuah Mentai',
+  'Kuah Suki',
+  'Kuah Kari',
+];
 
-const startOfDay = (date) =>
-  new Date(date.getFullYear(), date.getMonth(), date.getDate());
+const rupiah = (angka) =>
+  `Rp ${Number(angka || 0).toLocaleString('id-ID')}`;
 
-function SummaryCard({ title, value, icon, tint, color }) {
+const buatTransaksi = () => {
+  const hasil = [];
+  const sekarang = new Date();
+
+  for (let mundur = 30; mundur >= 0; mundur--) {
+    const tanggal = new Date(sekarang);
+    tanggal.setDate(sekarang.getDate() - mundur);
+    tanggal.setHours(0, 0, 0, 0);
+
+    const jumlah = 5 + (
+      (tanggal.getDate() + tanggal.getMonth()) % 7
+    );
+
+    for (let i = 0; i < jumlah; i++) {
+      const seed =
+        tanggal.getDate() * 13 +
+        tanggal.getMonth() * 7 +
+        i * 11;
+
+      const menuUtama = MENU[seed % 3];
+      const topping = MENU[3 + (seed % 5)];
+      const minuman = MENU[8 + (seed % 2)];
+
+      const items = [
+        { ...menuUtama, qty: 1 + (seed % 2) },
+        { ...topping, qty: 1 + (i % 3) },
+      ];
+
+      if (i % 2 === 0) {
+        items.push({ ...minuman, qty: 1 });
+      }
+
+      if (i % 3 === 0) {
+        items.push({
+          nama: VARIAN_KUAH[seed % VARIAN_KUAH.length],
+          kategori: 'Kuah',
+          harga: 3000,
+          qty: 1,
+        });
+      }
+
+      const total = items.reduce(
+        (sum, item) => sum + item.harga * item.qty,
+        0
+      );
+
+      const jam = 10 + ((i * 2 + tanggal.getDate()) % 13);
+      const menit = [0, 10, 15, 20, 30, 40, 45, 50][
+        (i + seed) % 8
+      ];
+
+      hasil.push({
+        id: `TRX-${tanggal.getFullYear()}${String(
+          tanggal.getMonth() + 1
+        ).padStart(2, '0')}${String(
+          tanggal.getDate()
+        ).padStart(2, '0')}-${i + 1}`,
+        tanggal,
+        waktu: `${String(jam).padStart(2, '0')}:${String(
+          menit
+        ).padStart(2, '0')}`,
+        status: 'Lunas',
+        items,
+        total,
+        metode: METODE[seed % METODE.length],
+        tipe: (i + seed) % 4 === 0 ? 'Bungkus' : 'Makan di Tempat',
+        kuah: VARIAN_KUAH[seed % VARIAN_KUAH.length],
+        pedas: String(seed % 5),
+      });
+    }
+  }
+
+  return hasil;
+};
+
+function KartuRingkasan({
+  judul,
+  nilai,
+  keterangan,
+  ikon,
+  warna,
+  latarIkon,
+}) {
   return (
     <View style={styles.summaryCard}>
-      <View
-        style={[styles.summaryIcon, { backgroundColor: tint }]}
-      >
-        <Ionicons name={icon} size={20} color={color} />
+      <View style={styles.summaryTop}>
+        <Text style={styles.summaryTitle}>{judul}</Text>
+        <View
+          style={[
+            styles.summaryIcon,
+            { backgroundColor: latarIkon },
+          ]}
+        >
+          <Ionicons name={ikon} size={21} color={warna} />
+        </View>
       </View>
 
-      <Text style={styles.summaryTitle}>{title}</Text>
-      <Text style={styles.summaryValue}>{value}</Text>
+      <Text style={styles.summaryValue}>{nilai}</Text>
+      <Text style={styles.summaryCaption}>{keterangan}</Text>
     </View>
   );
 }
 
-export default function TabPenjualan({ transactions = [] }) {
-  const [period, setPeriod] = useState('Harian');
-
-  const semuaTransaksi = useMemo(
-    () => normalisasiTransaksiKasir(transactions),
-    [transactions]
+function JudulBagian({ judul, deskripsi, kanan }) {
+  return (
+    <View style={styles.sectionHeader}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.sectionTitle}>{judul}</Text>
+        {!!deskripsi && (
+          <Text style={styles.sectionSubtitle}>{deskripsi}</Text>
+        )}
+      </View>
+      {kanan}
+    </View>
   );
+}
 
-  const hasKasirDetail = semuaTransaksi.length > 0;
+function KartuKosong({ pesan }) {
+  return (
+    <View style={styles.emptyBox}>
+      <Ionicons
+        name="bar-chart-outline"
+        size={28}
+        color="#B8AAA2"
+      />
+      <Text style={styles.emptyText}>{pesan}</Text>
+    </View>
+  );
+}
 
-  const today = startOfDay(new Date());
+export default function TabPenjualan() {
+  const [selectedPeriod, setSelectedPeriod] = useState('Hari ini');
+  const [selectedCategory, setSelectedCategory] = useState('Semua');
+
+  const semuaTransaksi = useMemo(() => buatTransaksi(), []);
+
+  const periodOptions = [
+    { id: 'Hari ini', label: 'Hari ini' },
+    { id: '7 Hari', label: '7 Hari Terakhir' },
+    { id: 'Bulan ini', label: 'Bulan ini' },
+  ];
+
+  const categoryOptions = [
+    { id: 'Semua', label: 'Semua Menu' },
+    { id: 'Menu Utama', label: 'Menu Utama' },
+    { id: 'Topping', label: 'Topping' },
+    { id: 'Kuah', label: 'Varian Kuah' },
+    { id: 'Minuman', label: 'Minuman' },
+  ];
 
   const transaksiPeriode = useMemo(() => {
-    let start = new Date(today);
+    const sekarang = new Date();
+    const awal = new Date(sekarang);
+    awal.setHours(0, 0, 0, 0);
 
-    if (period === 'Mingguan') {
-      start.setDate(start.getDate() - 6);
+    if (selectedPeriod === '7 Hari') {
+      awal.setDate(awal.getDate() - 6);
+    } else if (selectedPeriod === 'Bulan ini') {
+      awal.setDate(1);
     }
 
-    if (period === 'Bulanan') {
-      start = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        1
-      );
-    }
+    const akhir = new Date(sekarang);
+    akhir.setHours(23, 59, 59, 999);
 
-    return semuaTransaksi
-      .filter((trx) => {
-        const date = startOfDay(trx.tanggal);
+    return semuaTransaksi.filter((trx) => (
+      trx.tanggal >= awal &&
+      trx.tanggal <= akhir &&
+      trx.status === 'Lunas'
+    ));
+  }, [semuaTransaksi, selectedPeriod]);
 
-        return (
-          trx.status === 'Lunas' &&
-          date >= start &&
-          date <= today
-        );
-      })
-      .sort(
-        (a, b) =>
-          b.tanggal - a.tanggal ||
-          b.waktu.localeCompare(a.waktu)
-      );
-  }, [semuaTransaksi, period, today.getTime()]);
-
-  const summary = useMemo(() => {
+  const ringkasan = useMemo(() => {
     const omzet = transaksiPeriode.reduce(
-      (sum, trx) => sum + Number(trx.total || 0),
+      (total, trx) => total + trx.total,
       0
     );
 
-    // Satu checkout lunas dihitung satu porsi.
-    const porsiTerjual = transaksiPeriode.length;
-
-    const toppingTerjual = transaksiPeriode.reduce(
-      (sum, trx) =>
-        sum +
-        trx.items
-          .filter((item) => item.kategori === 'Topping')
-          .reduce(
-            (sub, item) => sub + Number(item.qty || 0),
-            0
-          ),
+    const jumlahItem = transaksiPeriode.reduce(
+      (total, trx) => total + trx.items.reduce(
+        (subtotal, item) => subtotal + item.qty,
+        0
+      ),
       0
     );
+
+    const transaksi = transaksiPeriode.length;
 
     return {
       omzet,
-      transaksi: transaksiPeriode.length,
-      porsiTerjual,
-      toppingTerjual,
+      jumlahItem,
+      transaksi,
+      rataRata: transaksi ? omzet / transaksi : 0,
     };
   }, [transaksiPeriode]);
 
-  const toppingTerlaris = useMemo(
-    () => hitungToppingTerjual(transaksiPeriode).slice(0, 5),
-    [transaksiPeriode]
+  const produkTerlaris = useMemo(() => {
+    const map = {};
+
+    transaksiPeriode.forEach((trx) => {
+      trx.items.forEach((item) => {
+        const nama = item.nama;
+        const kategori = item.kategori;
+
+        const cocok =
+          selectedCategory === 'Semua' ||
+          kategori === selectedCategory ||
+          (selectedCategory === 'Topping' &&
+            kategori === 'Topping') ||
+          (selectedCategory === 'Kuah' &&
+            kategori === 'Kuah');
+
+        if (!cocok) return;
+
+        if (!map[nama]) {
+          map[nama] = {
+            nama,
+            kategori,
+            qty: 0,
+            omzet: 0,
+          };
+        }
+
+        map[nama].qty += item.qty;
+        map[nama].omzet += item.harga * item.qty;
+      });
+    });
+
+    return Object.values(map)
+      .sort((a, b) => b.qty - a.qty)
+      .map((item, index) => ({
+        ...item,
+        peringkat: index + 1,
+      }));
+  }, [transaksiPeriode, selectedCategory]);
+
+  const dataPerJam = useMemo(() => {
+    const data = Array.from({ length: 13 }, (_, index) => ({
+      jam: index + 10,
+      jumlah: 0,
+      omzet: 0,
+    }));
+
+    transaksiPeriode.forEach((trx) => {
+      const jam = Number(trx.waktu.split(':')[0]);
+
+      if (jam >= 10 && jam <= 22) {
+        data[jam - 10].jumlah += 1;
+        data[jam - 10].omzet += trx.total;
+      }
+    });
+
+    return data;
+  }, [transaksiPeriode]);
+
+  const jamMaksimum = Math.max(
+    1,
+    ...dataPerJam.map((item) => item.jumlah)
   );
 
-  const chartData = useMemo(() => {
-    // Grafik harian berdasarkan rentang jam.
-    if (period === 'Harian') {
-      return Array.from({ length: 7 }, (_, index) => {
-        const hour = 10 + index * 2;
+  const jamRamai = dataPerJam.reduce(
+    (terbaik, item) =>
+      item.jumlah > terbaik.jumlah ? item : terbaik,
+    dataPerJam[0]
+  );
 
-        const total = transaksiPeriode
-          .filter((trx) => {
-            const jam = Number(
-              String(trx.waktu || '00:00').slice(0, 2)
-            );
+  const metodePembayaran = useMemo(() => {
+    const map = {};
 
-            return jam >= hour && jam < hour + 2;
-          })
-          .reduce(
-            (sum, trx) => sum + Number(trx.total || 0),
-            0
-          );
+    transaksiPeriode.forEach((trx) => {
+      const nama = trx.metode;
 
-        return {
-          label: `${String(hour).padStart(2, '0')}.00`,
-          total,
+      if (!map[nama]) {
+        map[nama] = {
+          nama,
+          jumlah: 0,
+          omzet: 0,
         };
+      }
+
+      map[nama].jumlah += 1;
+      map[nama].omzet += trx.total;
+    });
+
+    return Object.values(map).map((item) => ({
+      ...item,
+      persen: ringkasan.omzet
+        ? Math.round(item.omzet / ringkasan.omzet * 100)
+        : 0,
+      warna:
+        item.nama === 'Tunai'
+          ? WARNA.hijau
+          : item.nama === 'QRIS'
+          ? WARNA.biru
+          : WARNA.ungu,
+      ikon:
+        item.nama === 'Tunai'
+          ? 'cash-outline'
+          : item.nama === 'QRIS'
+          ? 'qr-code-outline'
+          : 'wallet-outline',
+    }));
+  }, [transaksiPeriode, ringkasan.omzet]);
+
+  const jenisPesanan = useMemo(() => {
+    const data = [
+      {
+        nama: 'Makan di Tempat',
+        ikon: 'restaurant-outline',
+        warna: WARNA.hijau,
+        jumlah: 0,
+        omzet: 0,
+      },
+      {
+        nama: 'Bungkus',
+        ikon: 'bag-handle-outline',
+        warna: WARNA.oranye,
+        jumlah: 0,
+        omzet: 0,
+      },
+    ];
+
+    transaksiPeriode.forEach((trx) => {
+      const item = data.find((x) => x.nama === trx.tipe);
+      if (item) {
+        item.jumlah += 1;
+        item.omzet += trx.total;
+      }
+    });
+
+    return data.map((item) => ({
+      ...item,
+      persen: ringkasan.transaksi
+        ? Math.round(item.jumlah / ringkasan.transaksi * 100)
+        : 0,
+    }));
+  }, [transaksiPeriode, ringkasan.transaksi]);
+
+  const preferensi = useMemo(() => {
+    const hitung = (field) => {
+      const map = {};
+
+      transaksiPeriode.forEach((trx) => {
+        const nilai = trx[field];
+        map[nilai] = (map[nilai] || 0) + 1;
       });
-    }
 
-    // Grafik mingguan berdasarkan hari.
-    if (period === 'Mingguan') {
-      return Array.from({ length: 7 }, (_, index) => {
-        const date = new Date(today);
-
-        date.setDate(today.getDate() - (6 - index));
-
-        const total = transaksiPeriode
-          .filter(
-            (trx) =>
-              startOfDay(trx.tanggal).getTime() ===
-              date.getTime()
-          )
-          .reduce(
-            (sum, trx) => sum + Number(trx.total || 0),
-            0
-          );
-
-        return {
-          label: date.toLocaleDateString('id-ID', {
-            weekday: 'short',
-          }),
-          total,
-        };
-      });
-    }
-
-    // Grafik bulanan berdasarkan minggu.
-    const weeks = [1, 2, 3, 4, 5];
-
-    return weeks
-      .map((week) => {
-        const total = transaksiPeriode
-          .filter(
-            (trx) =>
-              Math.ceil(trx.tanggal.getDate() / 7) === week
-          )
-          .reduce(
-            (sum, trx) => sum + Number(trx.total || 0),
-            0
-          );
-
-        return {
-          label: `M${week}`,
-          total,
-        };
-      })
-      .filter(
-        (item, index) =>
-          index < Math.ceil(today.getDate() / 7)
+      const total = Object.values(map).reduce(
+        (sum, jumlah) => sum + jumlah,
+        0
       );
-  }, [period, transaksiPeriode, today.getTime()]);
 
-  const periodLabel =
-    period === 'Harian'
-      ? today.toLocaleDateString('id-ID', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-        })
-      : period === 'Mingguan'
-        ? `${new Date(
-            today.getFullYear(),
-            today.getMonth(),
-            today.getDate() - 6
-          ).toLocaleDateString('id-ID', {
-            day: 'numeric',
-            month: 'short',
-          })} – ${today.toLocaleDateString('id-ID', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-          })}`
-        : today.toLocaleDateString('id-ID', {
-            month: 'long',
-            year: 'numeric',
-          });
+      return Object.entries(map)
+        .map(([nama, jumlah]) => ({
+          nama,
+          jumlah,
+          persen: total ? Math.round(jumlah / total * 100) : 0,
+        }))
+        .sort((a, b) => b.jumlah - a.jumlah);
+    };
+
+    return {
+      kuah: hitung('kuah'),
+      pedas: hitung('pedas'),
+    };
+  }, [transaksiPeriode]);
 
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={styles.pageContent}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.eyebrow}>OWNER PORTAL</Text>
-          <Text style={styles.title}>Laporan Penjualan</Text>
-          <Text style={styles.subtitle}>
-            Pantau hasil penjualan berdasarkan periode.
+      {/* HEADER */}
+      <View style={styles.pageHeader}>
+        <View style={styles.pageHeading}>
+          <Text style={styles.pageTitle}>Ringkasan Penjualan</Text>
+          <Text style={styles.pageDescription}>
+            Pantau omzet, menu favorit, dan aktivitas kedai
           </Text>
         </View>
 
-        <View style={styles.headerIcon}>
-          <Ionicons
-            name="bar-chart-outline"
-            size={23}
-            color="#C62828"
+        <View style={styles.periodBox}>
+          <Text style={styles.filterLabel}>Periode laporan</Text>
+          <FilterChips
+            options={periodOptions}
+            selectedId={selectedPeriod}
+            onSelect={setSelectedPeriod}
+            accentColor={WARNA.merah}
           />
         </View>
       </View>
 
-      {/* Filter periode */}
-      <View style={styles.periodRow}>
-        {['Harian', 'Mingguan', 'Bulanan'].map((item) => (
-          <TouchableOpacity
-            key={item}
-            onPress={() => setPeriod(item)}
-            style={[
-              styles.periodButton,
-              period === item && styles.periodButtonActive,
-            ]}
-          >
-            <Ionicons
-              name={
-                item === 'Harian'
-                  ? 'today-outline'
-                  : item === 'Mingguan'
-                    ? 'calendar-outline'
-                    : 'calendar-number-outline'
-              }
-              size={15}
-              color={period === item ? '#FFFFFF' : '#78665E'}
-            />
-
-            <Text
-              style={[
-                styles.periodText,
-                period === item && styles.periodTextActive,
-              ]}
-            >
-              {item}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <View style={styles.periodLabel}>
-        <Ionicons
-          name="calendar-outline"
-          size={14}
-          color="#78665E"
-        />
-        <Text style={styles.periodLabelText}>
-          {periodLabel}
-        </Text>
-      </View>
-
-      {/* Ringkasan penjualan */}
+      {/* RINGKASAN */}
       <View style={styles.summaryGrid}>
-        <SummaryCard
-          title="Total Penjualan"
-          value={rupiah(summary.omzet)}
-          icon="wallet-outline"
-          tint="#FBEAEC"
-          color="#C62828"
+        <KartuRingkasan
+          judul="Total Omzet"
+          nilai={rupiah(ringkasan.omzet)}
+          keterangan="Pendapatan pada periode ini"
+          ikon="wallet-outline"
+          warna={WARNA.hijau}
+          latarIkon="#E3F5EB"
         />
 
-        <SummaryCard
-          title="Jumlah Transaksi"
-          value={`${summary.transaksi} transaksi`}
-          icon="receipt-outline"
-          tint="#E5F3E8"
-          color="#168653"
+        <KartuRingkasan
+          judul="Total Transaksi"
+          nilai={ringkasan.transaksi.toLocaleString('id-ID')}
+          keterangan={`Rata-rata ${rupiah(ringkasan.rataRata)} / transaksi`}
+          ikon="receipt-outline"
+          warna={WARNA.biru}
+          latarIkon="#E3F3FC"
         />
 
-        <SummaryCard
-          title="Porsi Terjual"
-          value={`${summary.porsiTerjual} porsi`}
-          icon="restaurant-outline"
-          tint="#E0F2FE"
-          color="#0284C7"
-        />
-
-        <SummaryCard
-          title="Topping Terjual"
-          value={`${summary.toppingTerjual} item`}
-          icon="fast-food-outline"
-          tint="#F3E8FF"
-          color="#7E22CE"
+        <KartuRingkasan
+          judul="Item Terjual"
+          nilai={ringkasan.jumlahItem.toLocaleString('id-ID')}
+          keterangan="Jumlah item dari seluruh pesanan"
+          ikon="fast-food-outline"
+          warna={WARNA.merah}
+          latarIkon={WARNA.merahMuda}
         />
       </View>
 
-      {/* Grafik */}
+      {/* GRAFIK PER JAM */}
       <View style={styles.card}>
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionTitle}>
-              Grafik Penjualan ({period})
-            </Text>
-
-            <Text style={styles.sectionSubtitle}>
-              Total omzet per{' '}
-              {period === 'Harian'
-                ? 'rentang jam'
-                : period === 'Mingguan'
-                  ? 'hari'
-                  : 'minggu'}
-            </Text>
-          </View>
-
-          <Ionicons
-            name="stats-chart"
-            size={19}
-            color="#C62828"
-          />
-        </View>
-
-        <SalesChart
-          title=""
-          subtitle=""
-          data={chartData}
+        <JudulBagian
+          judul="Aktivitas Penjualan"
+          deskripsi="Distribusi transaksi berdasarkan jam operasional"
+          kanan={
+            <View style={styles.peakBadge}>
+              <Ionicons
+                name="flame"
+                size={15}
+                color={WARNA.merah}
+              />
+              <Text style={styles.peakBadgeText}>
+                Ramai {String(jamRamai.jam).padStart(2, '0')}.00
+              </Text>
+            </View>
+          }
         />
-      </View>
 
-      {/* Topping terlaris */}
-      <View style={styles.card}>
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionTitle}>
-              Topping Terlaris
-            </Text>
+        {ringkasan.transaksi === 0 ? (
+          <KartuKosong pesan="Belum ada transaksi pada periode ini." />
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chartContent}
+          >
+            {dataPerJam.map((item) => {
+              const tinggi = Math.max(
+                item.jumlah > 0 ? 8 : 3,
+                item.jumlah / jamMaksimum * 135
+              );
 
-            <Text style={styles.sectionSubtitle}>
-              Berdasarkan jumlah topping terjual
-            </Text>
-          </View>
+              const puncak =
+                item.jumlah > 0 &&
+                item.jumlah === jamRamai.jumlah;
 
-          <Ionicons
-            name="trophy-outline"
-            size={19}
-            color="#D97706"
-          />
-        </View>
-
-        {toppingTerlaris.length > 0 ? (
-          toppingTerlaris.map((item, index) => (
-            <View
-              key={item.nama}
-              style={styles.topRow}
-            >
-              <View
-                style={[
-                  styles.rank,
-                  index === 0 && styles.rankFirst,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.rankText,
-                    index === 0 && styles.rankTextFirst,
-                  ]}
-                >
-                  {index + 1}
-                </Text>
-              </View>
-
-              <View style={styles.topInfo}>
-                <Text style={styles.topName}>
-                  {item.nama}
-                </Text>
-
-                <View style={styles.progressTrack}>
-                  <View
+              return (
+                <View key={item.jam} style={styles.barColumn}>
+                  <Text
                     style={[
-                      styles.progressFill,
-                      {
-                        width: `${
-                          (item.jumlah /
-                            toppingTerlaris[0].jumlah) *
-                          100
-                        }%`,
+                      styles.barCount,
+                      puncak && { color: WARNA.merah },
+                    ]}
+                  >
+                    {item.jumlah}
+                  </Text>
+
+                  <View style={styles.barTrack}>
+                    <View
+                      style={[
+                        styles.barFill,
+                        {
+                          height: tinggi,
+                          backgroundColor: puncak
+                            ? WARNA.merah
+                            : '#D9CEC8',
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.barHour,
+                      puncak && {
+                        color: WARNA.merah,
+                        fontWeight: '800',
                       },
                     ]}
-                  />
+                  >
+                    {String(item.jam).padStart(2, '0')}.00
+                  </Text>
                 </View>
-              </View>
-
-              <Text style={styles.topQty}>
-                {item.jumlah}
-              </Text>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.emptyText}>
-            Belum ada data topping pada periode ini.
-          </Text>
+              );
+            })}
+          </ScrollView>
         )}
-      </View>
 
-      {/* Detail transaksi */}
-      <View style={styles.card}>
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionTitle}>
-              Detail Transaksi
-            </Text>
-
-            <Text style={styles.sectionSubtitle}>
-              Transaksi lunas pada periode terpilih
-            </Text>
+        <View style={styles.chartFooter}>
+          <View style={styles.chartLegend}>
+            <View
+              style={[
+                styles.legendDot,
+                { backgroundColor: WARNA.merah },
+              ]}
+            />
+            <Text style={styles.legendText}>Jam paling ramai</Text>
           </View>
 
-          <Text style={styles.countText}>
-            {transaksiPeriode.length} data
+          <Text style={styles.chartFooterText}>
+            {ringkasan.transaksi} transaksi tercatat
           </Text>
         </View>
+      </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator
-        >
-          <View style={styles.table}>
-            <View
-              style={[styles.tableRow, styles.tableHead]}
-            >
-              <Text style={[styles.cell, styles.colId]}>
-                No. Transaksi
-              </Text>
+      {/* MENU TERLARIS */}
+      <View style={styles.card}>
+        <JudulBagian
+          judul="Menu Terlaris"
+          deskripsi="Peringkat menu berdasarkan jumlah item terjual"
+        />
 
-              <Text style={[styles.cell, styles.colDate]}>
-                Tanggal
-              </Text>
+        <View style={styles.categoryFilters}>
+          <FilterChips
+            options={categoryOptions}
+            selectedId={selectedCategory}
+            onSelect={setSelectedCategory}
+            accentColor={WARNA.merahGelap}
+            scrollable
+          />
+        </View>
 
-              <Text style={[styles.cell, styles.colTime]}>
-                Waktu
-              </Text>
+        {produkTerlaris.length === 0 ? (
+          <KartuKosong pesan="Tidak ada menu untuk kategori ini." />
+        ) : (
+          <View style={styles.productList}>
+            {produkTerlaris.map((item) => {
+              const maksimum = Math.max(
+                1,
+                ...produkTerlaris.map((produk) => produk.qty)
+              );
 
-              <Text style={[styles.cell, styles.colCashier]}>
-                Kasir
-              </Text>
+              const persen = Math.round(
+                item.qty / maksimum * 100
+              );
 
-              <Text style={[styles.cell, styles.colTotal]}>
-                Total
-              </Text>
-            </View>
+              return (
+                <View key={item.nama} style={styles.productRow}>
+                  <View
+                    style={[
+                      styles.rankCircle,
+                      item.peringkat === 1
+                        ? styles.rankFirst
+                        : styles.rankOther,
+                    ]}
+                  >
+                    {item.peringkat === 1 ? (
+                      <Ionicons
+                        name="trophy"
+                        size={17}
+                        color="#FFFFFF"
+                      />
+                    ) : (
+                      <Text style={styles.rankNumber}>
+                        {item.peringkat}
+                      </Text>
+                    )}
+                  </View>
 
-            {transaksiPeriode.slice(0, 12).map((trx) => (
-              <View
-                key={trx.id}
-                style={styles.tableRow}
-              >
-                <Text style={[styles.cell, styles.colId]}>
-                  {trx.id}
-                </Text>
+                  <View style={styles.productMain}>
+                    <View style={styles.productTop}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.productName}>
+                          {item.nama}
+                        </Text>
+                        <Text style={styles.productCategory}>
+                          {item.kategori}
+                        </Text>
+                      </View>
 
-                <Text style={[styles.cell, styles.colDate]}>
-                  {trx.tanggal.toLocaleDateString('id-ID', {
-                    day: '2-digit',
-                    month: 'short',
-                  })}
-                </Text>
+                      <Text style={styles.productQty}>
+                        {item.qty} item
+                      </Text>
+                    </View>
 
-                <Text style={[styles.cell, styles.colTime]}>
-                  {trx.waktu}
-                </Text>
+                    <View style={styles.progressTrack}>
+                      <View
+                        style={[
+                          styles.progressFill,
+                          {
+                            width: `${persen}%`,
+                            backgroundColor:
+                              item.peringkat === 1
+                                ? WARNA.merah
+                                : item.peringkat === 2
+                                ? WARNA.oranye
+                                : '#B8AAA2',
+                          },
+                        ]}
+                      />
+                    </View>
 
-                <Text
-                  style={[styles.cell, styles.colCashier]}
-                >
-                  {trx.kasir}
-                </Text>
-
-                <Text
-                  style={[
-                    styles.cell,
-                    styles.colTotal,
-                    styles.money,
-                  ]}
-                >
-                  {rupiah(trx.total)}
-                </Text>
-              </View>
-            ))}
-
-            {transaksiPeriode.length === 0 && (
-              <Text style={styles.emptyText}>
-                Belum ada transaksi pada periode ini.
-              </Text>
-            )}
+                    <Text style={styles.productRevenue}>
+                      Omzet {rupiah(item.omzet)}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
           </View>
-        </ScrollView>
-
-        {transaksiPeriode.length > 12 && (
-          <Text style={styles.tableFoot}>
-            Menampilkan 12 dari {transaksiPeriode.length}{' '}
-            transaksi.
-          </Text>
         )}
       </View>
 
-      <Text style={styles.disclaimer}>
-        {hasKasirDetail
-          ? 'Satu transaksi checkout lunas dihitung sebagai satu porsi. Topping dihitung terpisah berdasarkan qty item.'
-          : 'Belum ada transaksi Kasir dengan detail dan tanggal pada periode ini.'}
-      </Text>
+      {/* METODE PEMBAYARAN */}
+      <View style={styles.twoColumns}>
+        <View style={[styles.card, styles.columnCard]}>
+          <JudulBagian
+            judul="Metode Pembayaran"
+            deskripsi="Rincian berdasarkan metode pembayaran"
+          />
+
+          {metodePembayaran.length === 0 ? (
+            <KartuKosong pesan="Belum ada data pembayaran." />
+          ) : (
+            metodePembayaran.map((item) => (
+              <View key={item.nama} style={styles.paymentRow}>
+                <View
+                  style={[
+                    styles.paymentIcon,
+                    { backgroundColor: `${item.warna}15` },
+                  ]}
+                >
+                  <Ionicons
+                    name={item.ikon}
+                    size={20}
+                    color={item.warna}
+                  />
+                </View>
+
+                <View style={styles.paymentMain}>
+                  <View style={styles.paymentNameRow}>
+                    <Text style={styles.paymentName}>
+                      {item.nama}
+                    </Text>
+                    <Text style={styles.paymentPercent}>
+                      {item.persen}%
+                    </Text>
+                  </View>
+
+                  <Text style={styles.paymentAmount}>
+                    {rupiah(item.omzet)}
+                  </Text>
+
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        {
+                          width: `${item.persen}%`,
+                          backgroundColor: item.warna,
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  <Text style={styles.paymentCount}>
+                    {item.jumlah} transaksi
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+
+        {/* JENIS PESANAN */}
+        <View style={[styles.card, styles.columnCard]}>
+          <JudulBagian
+            judul="Jenis Pesanan"
+            deskripsi="Makan di tempat dan bungkus"
+          />
+
+          {jenisPesanan.map((item) => (
+            <View key={item.nama} style={styles.orderCard}>
+              <View
+                style={[
+                  styles.orderIcon,
+                  { backgroundColor: `${item.warna}15` },
+                ]}
+              >
+                <Ionicons
+                  name={item.ikon}
+                  size={23}
+                  color={item.warna}
+                />
+              </View>
+
+              <View style={styles.orderInfo}>
+                <Text style={styles.orderName}>{item.nama}</Text>
+                <Text style={styles.orderCount}>
+                  {item.jumlah} pesanan
+                </Text>
+                <Text style={styles.orderRevenue}>
+                  {rupiah(item.omzet)}
+                </Text>
+              </View>
+
+              <Text style={styles.orderPercent}>
+                {item.persen}%
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* PREFERENSI PELANGGAN */}
+      <View style={styles.twoColumns}>
+        <View style={[styles.card, styles.columnCard]}>
+          <JudulBagian
+            judul="Favorit Kuah"
+            deskripsi="Varian kuah yang dipilih"
+          />
+
+          {preferensi.kuah.length === 0 ? (
+            <KartuKosong pesan="Belum ada preferensi kuah." />
+          ) : (
+            preferensi.kuah.map((item, index) => (
+              <View key={item.nama} style={styles.preferenceRow}>
+                <View
+                  style={[
+                    styles.preferenceNumber,
+                    index === 0 && {
+                      backgroundColor: WARNA.merahMuda,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.preferenceNumberText,
+                      index === 0 && { color: WARNA.merah },
+                    ]}
+                  >
+                    {index + 1}
+                  </Text>
+                </View>
+
+                <View style={styles.preferenceMain}>
+                  <View style={styles.preferenceTop}>
+                    <Text style={styles.preferenceName}>
+                      {item.nama}
+                    </Text>
+                    <Text style={styles.preferencePercent}>
+                      {item.persen}%
+                    </Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        {
+                          width: `${item.persen}%`,
+                          backgroundColor: WARNA.merah,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.preferenceCount}>
+                    {item.jumlah} pesanan
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+
+        <View style={[styles.card, styles.columnCard]}>
+          <JudulBagian
+            judul="Level Pedas"
+            deskripsi="Tingkat pedas yang dipilih"
+          />
+
+          {preferensi.pedas.length === 0 ? (
+            <KartuKosong pesan="Belum ada preferensi level pedas." />
+          ) : (
+            preferensi.pedas.map((item, index) => (
+              <View key={item.nama} style={styles.preferenceRow}>
+                <View
+                  style={[
+                    styles.preferenceNumber,
+                    index === 0 && {
+                      backgroundColor: '#FEE2E2',
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="flame"
+                    size={16}
+                    color={index === 0 ? WARNA.merah : '#8D7B70'}
+                  />
+                </View>
+
+                <View style={styles.preferenceMain}>
+                  <View style={styles.preferenceTop}>
+                    <Text style={styles.preferenceName}>
+                      Level {item.nama}
+                    </Text>
+                    <Text style={styles.preferencePercent}>
+                      {item.persen}%
+                    </Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        {
+                          width: `${item.persen}%`,
+                          backgroundColor:
+                            index === 0
+                              ? WARNA.merah
+                              : WARNA.oranye,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.preferenceCount}>
+                    {item.jumlah} pesanan
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+      </View>
+
+      {/* FOOTER */}
+      <View style={styles.footer}>
+        <Ionicons
+          name="calendar-outline"
+          size={15}
+          color={WARNA.sekunder}
+        />
+        <Text style={styles.footerText}>
+          Periode laporan: {selectedPeriod}
+        </Text>
+      </View>
     </ScrollView>
   );
 }
@@ -544,259 +902,410 @@ export default function TabPenjualan({ transactions = [] }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F5F2',
+    backgroundColor: WARNA.latar,
   },
-  content: {
-    padding: 18,
+  pageContent: {
+    padding: 22,
     paddingBottom: 36,
-    gap: 14,
-    width: '100%',
-    maxWidth: 1200,
-    alignSelf: 'center',
+    gap: 18,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  pageHeader: {
+    gap: 18,
   },
-  eyebrow: {
-    fontSize: 10,
-    color: '#C62828',
-    fontWeight: '800',
-    letterSpacing: 1,
+  pageHeading: {
+    gap: 5,
   },
-  title: {
-    fontSize: 24,
-    color: '#52141D',
+  pageTitle: {
+    fontSize: 25,
     fontWeight: '900',
-    marginTop: 3,
+    color: WARNA.teks,
   },
-  subtitle: {
-    fontSize: 12,
-    color: '#78665E',
-    marginTop: 4,
+  pageDescription: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: WARNA.sekunder,
   },
-  headerIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 13,
-    backgroundColor: '#FBEAEC',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  periodRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  periodButton: {
-    flex: 1,
-    minHeight: 42,
-    borderRadius: 10,
+  periodBox: {
+    backgroundColor: WARNA.putih,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E7DAD2',
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
+    borderColor: WARNA.garis,
+    padding: 14,
+    gap: 10,
   },
-  periodButtonActive: {
-    backgroundColor: '#C62828',
-    borderColor: '#C62828',
-  },
-  periodText: {
-    color: '#78665E',
+  filterLabel: {
     fontSize: 12,
-    fontWeight: '700',
-  },
-  periodTextActive: {
-    color: '#FFFFFF',
-  },
-  periodLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    alignSelf: 'flex-start',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 11,
-    borderWidth: 1,
-    borderColor: '#EFE7E2',
-  },
-  periodLabelText: {
-    color: '#78665E',
-    fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '800',
+    color: WARNA.teks,
   },
   summaryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 14,
   },
   summaryCard: {
-    flex: 1,
-    minWidth: 170,
-    backgroundColor: '#FFFFFF',
+    flexGrow: 1,
+    flexBasis: 210,
+    minWidth: 0,
+    backgroundColor: WARNA.putih,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EFE7E2',
-    borderRadius: 13,
-    padding: 13,
+    borderColor: WARNA.garis,
+    padding: 18,
+    gap: 10,
   },
-  summaryIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+  summaryTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 9,
+    gap: 8,
   },
   summaryTitle: {
-    fontSize: 11,
-    color: '#78665E',
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
+    color: WARNA.sekunder,
+  },
+  summaryIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   summaryValue: {
-    fontSize: 17,
-    color: '#52141D',
+    fontSize: 23,
     fontWeight: '900',
-    marginTop: 4,
+    color: WARNA.teks,
+  },
+  summaryCaption: {
+    fontSize: 11,
+    color: WARNA.sekunder,
+    lineHeight: 17,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WARNA.putih,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EFE7E2',
-    borderRadius: 14,
-    padding: 15,
+    borderColor: WARNA.garis,
+    padding: 18,
+    gap: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+    gap: 12,
   },
   sectionTitle: {
-    color: '#52141D',
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '900',
+    color: WARNA.teks,
   },
   sectionSubtitle: {
-    color: '#8D7B70',
-    fontSize: 10,
-    marginTop: 3,
+    fontSize: 11,
+    color: WARNA.sekunder,
+    lineHeight: 17,
+    marginTop: 4,
   },
-  topRow: {
+  peakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 9,
-    borderTopWidth: 1,
-    borderTopColor: '#F4EFEB',
+    gap: 5,
+    backgroundColor: WARNA.merahMuda,
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
   },
-  rank: {
-    width: 25,
-    height: 25,
-    borderRadius: 13,
-    backgroundColor: '#F4EFEB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rankFirst: {
-    backgroundColor: '#C62828',
-  },
-  rankText: {
-    color: '#78665E',
-    fontSize: 11,
+  peakBadgeText: {
+    color: WARNA.merah,
+    fontSize: 10,
     fontWeight: '800',
   },
-  rankTextFirst: {
-    color: '#FFFFFF',
+  chartContent: {
+    alignItems: 'flex-end',
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    gap: 12,
   },
-  topInfo: {
-    flex: 1,
-    gap: 5,
+  barColumn: {
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
   },
-  topName: {
-    color: '#2C1810',
+  barCount: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: WARNA.sekunder,
+  },
+  barTrack: {
+    height: 145,
+    width: 22,
+    backgroundColor: '#F4EFEB',
+    borderRadius: 7,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  barFill: {
+    width: '100%',
+    borderRadius: 7,
+  },
+  barHour: {
+    fontSize: 10,
+    color: WARNA.sekunder,
+  },
+  chartFooter: {
+    borderTopWidth: 1,
+    borderTopColor: WARNA.garis,
+    paddingTop: 13,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chartLegend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 11,
+    color: WARNA.sekunder,
+  },
+  chartFooterText: {
     fontSize: 11,
     fontWeight: '700',
+    color: WARNA.sekunder,
+  },
+  categoryFilters: {
+    marginTop: -4,
+  },
+  productList: {
+    gap: 17,
+  },
+  productRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  rankCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rankFirst: {
+    backgroundColor: WARNA.merah,
+  },
+  rankOther: {
+    backgroundColor: '#F4EFEB',
+  },
+  rankNumber: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: WARNA.sekunder,
+  },
+  productMain: {
+    flex: 1,
+    gap: 8,
+  },
+  productTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  productName: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: WARNA.teks,
+  },
+  productCategory: {
+    fontSize: 10,
+    color: WARNA.sekunder,
+    marginTop: 3,
+  },
+  productQty: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: WARNA.merah,
   },
   progressTrack: {
-    height: 6,
-    borderRadius: 5,
-    backgroundColor: '#FBEAEC',
+    height: 7,
+    borderRadius: 10,
+    backgroundColor: '#F0EAE6',
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 5,
-    backgroundColor: '#D94A55',
+    borderRadius: 10,
   },
-  topQty: {
-    color: '#C62828',
+  productRevenue: {
+    fontSize: 10,
+    color: WARNA.sekunder,
+  },
+  twoColumns: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    alignItems: 'stretch',
+  },
+  columnCard: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 300,
+    minWidth: 0,
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 11,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3EEEA',
+  },
+  paymentIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  paymentMain: {
+    flex: 1,
+    gap: 6,
+  },
+  paymentNameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  paymentName: {
     fontSize: 12,
     fontWeight: '800',
-    minWidth: 28,
-    textAlign: 'right',
+    color: WARNA.teks,
   },
-  countText: {
-    color: '#8D7B70',
+  paymentPercent: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: WARNA.teks,
+  },
+  paymentAmount: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WARNA.sekunder,
+  },
+  paymentCount: {
     fontSize: 10,
+    color: WARNA.sekunder,
   },
-  table: {
-    minWidth: 650,
-  },
-  tableRow: {
+  orderCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 39,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1E9E4',
+    gap: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: WARNA.garis,
+    borderRadius: 12,
   },
-  tableHead: {
-    backgroundColor: '#FBEAEC',
-    borderRadius: 6,
+  orderIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cell: {
-    paddingHorizontal: 9,
-    paddingVertical: 9,
-    color: '#49342B',
-    fontSize: 10,
+  orderInfo: {
+    flex: 1,
+    gap: 4,
   },
-  colId: {
-    width: 135,
-  },
-  colDate: {
-    width: 90,
-  },
-  colTime: {
-    width: 70,
-  },
-  colCashier: {
-    width: 145,
-  },
-  colTotal: {
-    width: 125,
-    textAlign: 'right',
-  },
-  money: {
-    color: '#C62828',
+  orderName: {
+    fontSize: 12,
     fontWeight: '800',
+    color: WARNA.teks,
   },
-  tableFoot: {
-    color: '#8D7B70',
+  orderCount: {
     fontSize: 10,
-    marginTop: 9,
+    color: WARNA.sekunder,
+  },
+  orderRevenue: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: WARNA.teks,
+  },
+  orderPercent: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: WARNA.sekunder,
+  },
+  preferenceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  preferenceNumber: {
+    width: 31,
+    height: 31,
+    borderRadius: 10,
+    backgroundColor: '#F4EFEB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  preferenceNumberText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: WARNA.sekunder,
+  },
+  preferenceMain: {
+    flex: 1,
+    gap: 7,
+  },
+  preferenceTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  preferenceName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WARNA.teks,
+  },
+  preferencePercent: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: WARNA.sekunder,
+  },
+  preferenceCount: {
+    fontSize: 10,
+    color: WARNA.sekunder,
+  },
+  emptyBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 28,
   },
   emptyText: {
-    color: '#8D7B70',
-    fontSize: 11,
-    paddingVertical: 12,
-  },
-  disclaimer: {
-    color: '#9A8B83',
-    fontSize: 10,
     textAlign: 'center',
+    color: WARNA.sekunder,
+    fontSize: 12,
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 7,
+    paddingVertical: 5,
+  },
+  footerText: {
+    fontSize: 11,
+    color: WARNA.sekunder,
   },
 });

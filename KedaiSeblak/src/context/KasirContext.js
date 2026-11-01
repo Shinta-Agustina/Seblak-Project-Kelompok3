@@ -103,6 +103,7 @@ export function KasirProvider({ children }) {
         role: 'Kasir',
         avatar: require('../../assets/images/avatar-kasir.png'),
       };
+      
       setUser(loggedInUser);
       setActiveTab('Kasir');
     } else {

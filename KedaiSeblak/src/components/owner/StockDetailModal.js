@@ -1,5 +1,4 @@
-﻿
-import React from 'react';
+﻿import React from 'react';
 import {
   Modal,
   View,
@@ -13,69 +12,6 @@ import { Ionicons } from '@expo/vector-icons';
 import StatusBadge from './StatusBadge';
 import StockProgressBar from './StockProgressBar';
 
-const toNumber = (value, fallback = 0) => {
-  const parsed = Number(
-    typeof value === 'string' ? value.replace(',', '.') : value
-  );
-
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
-
-const formatRupiah = (value) =>
-  `Rp ${toNumber(value).toLocaleString('id-ID')}`;
-
-const formatJumlah = (value) =>
-  toNumber(value).toLocaleString('id-ID', {
-    maximumFractionDigits: 2,
-  });
-
-const getJenisStok = (item) => {
-  const jenis = String(item?.jenisStok || '').toLowerCase();
-  const kategori = String(item?.kategori || '').toLowerCase();
-  const id = String(item?.id || '').toUpperCase();
-
-  if (
-    jenis === 'bumbu' ||
-    kategori.includes('bumbu') ||
-    kategori.includes('bahan dasar') ||
-    id.startsWith('STK-BAHAN-')
-  ) {
-    return 'Bumbu';
-  }
-
-  return 'Topping';
-};
-
-const getTimestamp = (record) => {
-  if (record.timestamp) {
-    const timestamp = Number(record.timestamp);
-    if (Number.isFinite(timestamp)) return timestamp;
-  }
-
-  if (record.createdAt) {
-    const timestamp = new Date(record.createdAt).getTime();
-    if (Number.isFinite(timestamp)) return timestamp;
-  }
-
-  return 0;
-};
-
-const getImageSource = (foto) => {
-  if (!foto) return null;
-
-  if (typeof foto === 'number') return foto;
-
-  if (typeof foto === 'string') {
-    return foto.trim() ? { uri: foto } : null;
-  }
-
-  if (typeof foto === 'object' && foto.uri) {
-    return foto;
-  }
-
-  return null;
-};
-
 export default function StockDetailModal({
   visible,
   item,
@@ -86,459 +22,180 @@ export default function StockDetailModal({
 }) {
   if (!item) return null;
 
-  const sisa = Math.max(0, toNumber(item.sisa));
-  const minimum = Math.max(0, toNumber(item.minimum, 1));
-  const satuan = item.satuan || 'unit';
-  const stokAwal = Math.max(0, toNumber(item.stokAwal, sisa));
-  const hargaBeli = Math.max(0, toNumber(item.hargaBeli));
-  const nilaiPersediaan = sisa * hargaBeli;
-
-  const status =
-    sisa <= 0
-      ? 'Habis'
-      : sisa <= minimum
-      ? 'Menipis'
-      : 'Aman';
-
-  const jenisStok = getJenisStok(item);
-  const imageSource = getImageSource(item.foto || item.image);
-
-  const riwayatRestok = Array.isArray(item.riwayatRestok)
-    ? item.riwayatRestok
-    : [];
-
-  const riwayatOpname = Array.isArray(item.riwayatOpname)
-    ? item.riwayatOpname
-    : [];
-
-  const riwayatGabungan = [
-    ...riwayatRestok.map((record, index) => ({
-      ...record,
-      id: record.id || `restok-${index}`,
-      jenis: 'Stok Masuk',
-      jumlahPerubahan: toNumber(record.jumlah),
-      timestampUrut: getTimestamp(record),
-    })),
-
-    ...riwayatOpname.map((record, index) => ({
-      ...record,
-      id: record.id || `opname-${index}`,
-      jenis: 'Stock Opname',
-      jumlahPerubahan: toNumber(record.selisih),
-      timestampUrut: getTimestamp(record),
-    })),
-  ].sort((a, b) => {
-    return b.timestampUrut - a.timestampUrut;
-  });
-
-  const renderHistoryIcon = (jenis, jumlah) => {
-    if (jenis === 'Stok Masuk') {
-      return {
-        icon: 'arrow-down-circle-outline',
-        color: '#168653',
-        background: '#EAF6EE',
-      };
-    }
-
-    if (jumlah < 0) {
-      return {
-        icon: 'arrow-up-circle-outline',
-        color: '#C62828',
-        background: '#FBEAEC',
-      };
-    }
-
-    return {
-      icon: 'clipboard-outline',
-      color: '#95651B',
-      background: '#FFF5DE',
-    };
-  };
+  const sisa = item.sisa || 0;
+  const minimum = item.minimum || 1;
+  const status = sisa <= 0 ? 'Habis' : sisa <= minimum ? 'Menipis' : 'Aman';
 
   return (
     <Modal
       visible={visible}
       animationType="fade"
-      transparent
+      transparent={true}
       onRequestClose={onClose}
     >
       <View style={styles.backdrop}>
-        <View style={styles.modalCard}>
+        <View style={styles.card}>
           {/* Header */}
           <View style={styles.header}>
-            <View style={styles.headerText}>
-              <Text style={styles.headerTitle}>
-                Detail Persediaan
-              </Text>
-
-              <Text style={styles.headerSubtitle}>
-                Informasi dan pergerakan stok bahan
+            <View style={{ flex: 1, marginRight: 10 }}>
+              <View style={styles.titleRow}>
+                <Text style={styles.title} numberOfLines={1}>
+                  {item.nama}
+                </Text>
+                <StatusBadge status={status} size="sm" />
+              </View>
+              <Text style={styles.subtitle}>
+                ID: {item.id} · {item.jenisStok || (['Bumbu & Kuah', 'Bahan Dasar'].includes(item.kategori) ? 'Bumbu' : 'Topping')} · Kategori: {item.kategori}
               </Text>
             </View>
 
-            <TouchableOpacity
-              onPress={onClose}
-              style={styles.closeButton}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="close"
-                size={21}
-                color="#78665E"
-              />
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+              <Ionicons name="close" size={20} color="#78665E" />
             </TouchableOpacity>
           </View>
 
-          <ScrollView
-            style={styles.content}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Identitas bahan */}
-            <View style={styles.identityCard}>
-              {imageSource ? (
-                <Image
-                  source={imageSource}
-                  style={styles.itemPhoto}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View style={styles.photoPlaceholder}>
-                  <Ionicons
-                    name="image-outline"
-                    size={27}
-                    color="#A89A92"
-                  />
+          <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+            {item.foto || item.image ? (
+              <Image source={{ uri: item.foto || item.image }} style={styles.detailPhoto} resizeMode="cover" />
+            ) : (
+              <View style={styles.detailPhotoPlaceholder}><Ionicons name="image-outline" size={30} color="#A89A92" /><Text style={{ color: '#A89A92', fontSize: 11, marginTop: 5 }}>Foto belum tersedia</Text></View>
+            )}
+            {/* Progress Bar Sisa Stok */}
+            <View style={styles.progressCard}>
+              <View style={styles.progressHeader}>
+                <Text style={styles.progressLabel}>Rasio Ketersediaan Bahan:</Text>
+                <Text style={styles.progressValue}>
+                  {sisa} / {item.stokAwal || minimum * 2} {item.satuan}
+                </Text>
+              </View>
+              <StockProgressBar
+                current={sisa}
+                max={item.stokAwal || minimum * 2}
+                status={status}
+                height={10}
+                showPercentage={true}
+              />
+              <Text style={styles.progressHint}>
+                Batas minimum kedai: {minimum} {item.satuan}
+              </Text>
+            </View>
 
-                  <Text style={styles.photoPlaceholderText}>
-                    Foto belum tersedia
-                  </Text>
+            {/* 4 Kartu Metrik Rincian */}
+            <View style={styles.metricsGrid}>
+              <View style={styles.metricBox}>
+                <Text style={styles.metricLabel}>Stok Awal Hari Ini</Text>
+                <Text style={styles.metricVal}>
+                  {item.stokAwal || sisa} <Text style={styles.metricUnit}>{item.satuan}</Text>
+                </Text>
+                <Text style={styles.metricDesc}>Saat kedai buka (09.00)</Text>
+              </View>
+
+              <View style={styles.metricBox}>
+                <Text style={styles.metricLabel}>Terpakai Hari Ini</Text>
+                <Text style={[styles.metricVal, { color: '#C62828' }]}>
+                  {item.terpakaiHariIni ?? 0} <Text style={styles.metricUnit}>{item.satuan}</Text>
+                </Text>
+                <Text style={styles.metricDesc}>Berdasarkan pesanan POS</Text>
+              </View>
+
+              <View style={styles.metricBox}>
+                <Text style={styles.metricLabel}>Sisa Stok Sekarang</Text>
+                <Text style={[styles.metricVal, { color: status === 'Habis' ? '#DC2626' : '#2C1810' }]}>
+                  {sisa} <Text style={styles.metricUnit}>{item.satuan}</Text>
+                </Text>
+                <Text style={styles.metricDesc}>Status fisik di etalase</Text>
+              </View>
+
+              <View style={styles.metricBox}>
+                <Text style={styles.metricLabel}>Perkiraan Habis</Text>
+                <Text style={[styles.metricVal, { color: '#D97706' }]}>
+                  {item.estimasiHabisHari ?? 1.5} <Text style={styles.metricUnit}>Hari</Text>
+                </Text>
+                <Text style={styles.metricDesc}>Analisis laju konsumsi</Text>
+              </View>
+            </View>
+
+            {/* Info Supplier & Harga Beli */}
+            <View style={styles.infoRowCard}>
+              <View style={styles.infoItem}>
+                <Ionicons name="storefront" size={16} color="#78665E" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.infoLabel}>Supplier Utama</Text>
+                  <Text style={styles.infoValue}>{item.supplier || 'Pasar Tradisional'}</Text>
                 </View>
-              )}
+              </View>
 
-              <View style={styles.identityInfo}>
-                <Text style={styles.itemName}>
-                  {item.nama || 'Tanpa nama'}
-                </Text>
-
-                <Text style={styles.itemCategory}>
-                  {jenisStok} · {item.kategori || 'Tanpa kategori'}
-                </Text>
-
-                <Text style={styles.itemId}>
-                  ID: {item.id || '-'}
-                </Text>
-
-                <View style={styles.badgeWrap}>
-                  <StatusBadge status={status} size="sm" />
+              <View style={styles.infoItem}>
+                <Ionicons name="pricetag" size={16} color="#78665E" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.infoLabel}>Harga Beli Terakhir</Text>
+                  <Text style={styles.infoValue}>
+                    Rp {(item.hargaBeli || 0).toLocaleString('id-ID')} / {item.satuan}
+                  </Text>
                 </View>
               </View>
             </View>
 
-            {/* Kondisi stok */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                Kondisi Persediaan
-              </Text>
+            {/* Riwayat Restok */}
+            <View style={styles.historySection}>
+              <View style={styles.historyHeader}>
+                <Ionicons name="time-outline" size={18} color="#C62828" />
+                <Text style={styles.historyTitle}>Riwayat Restok Bahan</Text>
+              </View>
 
-              <View style={styles.stockMainCard}>
-                <View style={styles.stockMainTop}>
-                  <View>
-                    <Text style={styles.stockMainLabel}>
-                      Stok tersedia
-                    </Text>
-
-                    <View style={styles.stockNumberRow}>
-                      <Text
-                        style={[
-                          styles.stockNumber,
-                          status === 'Habis' && { color: '#DC2626' },
-                          status === 'Menipis' && { color: '#B45309' },
-                        ]}
-                      >
-                        {formatJumlah(sisa)}
-                      </Text>
-
-                      <Text style={styles.stockUnit}>
-                        {satuan}
+              {item.riwayatRestok && item.riwayatRestok.length > 0 ? (
+                item.riwayatRestok.map((log, index) => (
+                  <View key={index} style={styles.logCard}>
+                    <View style={styles.logTop}>
+                      <View style={styles.logDateRow}>
+                        <Ionicons name="calendar-outline" size={13} color="#8D7B70" />
+                        <Text style={styles.logDate}>{log.tanggal}</Text>
+                      </View>
+                      <Text style={styles.logQty}>
+                        +{log.jumlah} {item.satuan}
                       </Text>
                     </View>
-                  </View>
 
-                  <View style={styles.minimumBox}>
-                    <Text style={styles.minimumLabel}>
-                      Batas minimum
-                    </Text>
-
-                    <Text style={styles.minimumValue}>
-                      {formatJumlah(minimum)} {satuan}
-                    </Text>
-                  </View>
-                </View>
-
-                <StockProgressBar
-                  current={sisa}
-                  max={Math.max(stokAwal, minimum * 2, sisa, 1)}
-                  status={status}
-                  height={9}
-                  showPercentage
-                />
-
-                <Text style={styles.stockHint}>
-                  {status === 'Habis'
-                    ? 'Stok bahan sudah habis. Segera lakukan pembelian.'
-                    : status === 'Menipis'
-                    ? 'Stok sudah mencapai batas minimum. Pertimbangkan untuk restok.'
-                    : 'Jumlah stok masih berada di atas batas minimum.'}
-                </Text>
-              </View>
-
-              <View style={styles.metricsRow}>
-                <View style={styles.metricCard}>
-                  <Ionicons
-                    name="wallet-outline"
-                    size={17}
-                    color="#8D3D2E"
-                  />
-
-                  <Text style={styles.metricLabel}>
-                    Harga beli terakhir
-                  </Text>
-
-                  <Text style={styles.metricValue}>
-                    {formatRupiah(hargaBeli)}
-                  </Text>
-
-                  <Text style={styles.metricUnit}>
-                    per {satuan}
-                  </Text>
-                </View>
-
-                <View style={styles.metricCard}>
-                  <Ionicons
-                    name="cube-outline"
-                    size={17}
-                    color="#168653"
-                  />
-
-                  <Text style={styles.metricLabel}>
-                    Nilai persediaan
-                  </Text>
-
-                  <Text style={styles.metricValue}>
-                    {formatRupiah(nilaiPersediaan)}
-                  </Text>
-
-                  <Text style={styles.metricUnit}>
-                    estimasi nilai stok
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Informasi pembelian */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                Informasi Pembelian
-              </Text>
-
-              <View style={styles.infoCard}>
-                <View style={styles.infoRow}>
-                  <View style={styles.infoIcon}>
-                    <Ionicons
-                      name="storefront-outline"
-                      size={17}
-                      color="#8D7B70"
-                    />
-                  </View>
-
-                  <View style={styles.infoText}>
-                    <Text style={styles.infoLabel}>
-                      Supplier
-                    </Text>
-
-                    <Text style={styles.infoValue}>
-                      {item.supplier || 'Belum dicatat'}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.infoDivider} />
-
-                <View style={styles.infoRow}>
-                  <View style={styles.infoIcon}>
-                    <Ionicons
-                      name="pricetag-outline"
-                      size={17}
-                      color="#8D7B70"
-                    />
-                  </View>
-
-                  <View style={styles.infoText}>
-                    <Text style={styles.infoLabel}>
-                      Harga perolehan terakhir
-                    </Text>
-
-                    <Text style={styles.infoValue}>
-                      {formatRupiah(hargaBeli)} / {satuan}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-
-            {/* Riwayat pergerakan stok */}
-            <View style={styles.section}>
-              <View style={styles.historyHeading}>
-                <View>
-                  <Text style={styles.sectionTitle}>
-                    Riwayat Pergerakan Stok
-                  </Text>
-
-                  <Text style={styles.historySubtitle}>
-                    Catatan stok masuk dan penyesuaian
-                  </Text>
-                </View>
-
-                <View style={styles.historyCount}>
-                  <Text style={styles.historyCountText}>
-                    {riwayatGabungan.length}
-                  </Text>
-                </View>
-              </View>
-
-              {riwayatGabungan.length > 0 ? (
-                riwayatGabungan.map((record) => {
-                  const iconStyle = renderHistoryIcon(
-                    record.jenis,
-                    record.jumlahPerubahan
-                  );
-
-                  const isRestok = record.jenis === 'Stok Masuk';
-                  const isPositive = record.jumlahPerubahan > 0;
-
-                  return (
-                    <View
-                      key={record.id}
-                      style={styles.historyCard}
-                    >
-                      <View
-                        style={[
-                          styles.historyIcon,
-                          {
-                            backgroundColor: iconStyle.background,
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name={iconStyle.icon}
-                          size={19}
-                          color={iconStyle.color}
-                        />
-                      </View>
-
-                      <View style={styles.historyContent}>
-                        <Text style={styles.historyName}>
-                          {record.jenis}
-                        </Text>
-
-                        <Text style={styles.historyDate}>
-                          {record.tanggal || '-'}
-                          {record.waktu ? ` · ${record.waktu}` : ''}
-                        </Text>
-
-                        {isRestok && record.supplier ? (
-                          <Text style={styles.historyDescription}>
-                            Supplier: {record.supplier}
-                          </Text>
-                        ) : null}
-
-                        {!isRestok && record.catatan ? (
-                          <Text style={styles.historyDescription}>
-                            {record.catatan}
-                          </Text>
-                        ) : null}
-                      </View>
-
-                      <Text
-                        style={[
-                          styles.historyAmount,
-                          {
-                            color: isRestok
-                              ? '#168653'
-                              : isPositive
-                              ? '#168653'
-                              : '#C62828',
-                          },
-                        ]}
-                      >
-                        {isRestok || isPositive ? '+' : ''}
-                        {formatJumlah(record.jumlahPerubahan)} {satuan}
+                    <View style={styles.logBottom}>
+                      <Text style={styles.logSupplier}>
+                        {log.supplier} · Rp {(log.hargaBeli || item.hargaBeli || 0).toLocaleString('id-ID')}
                       </Text>
+                      <Text style={styles.logPic}>{log.pic || 'Owner'}</Text>
                     </View>
-                  );
-                })
+                  </View>
+                ))
               ) : (
-                <View style={styles.emptyHistory}>
-                  <Ionicons
-                    name="time-outline"
-                    size={25}
-                    color="#B6A9A1"
-                  />
-
-                  <Text style={styles.emptyTitle}>
-                    Belum ada riwayat stok
-                  </Text>
-
-                  <Text style={styles.emptyDescription}>
-                    Aktivitas penerimaan dan penyesuaian stok akan muncul di sini.
-                  </Text>
-                </View>
+                <Text style={styles.emptyLog}>Belum ada riwayat restok tercatat.</Text>
               )}
             </View>
           </ScrollView>
 
-          {/* Footer actions */}
+          {/* Action Footer */}
           <View style={styles.footer}>
             <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={() => onDelete?.(item)}
+              style={styles.deleteBtn}
+              onPress={() => onDelete(item)}
               activeOpacity={0.7}
             >
-              <Ionicons
-                name="trash-outline"
-                size={18}
-                color="#DC2626"
-              />
+              <Ionicons name="trash-outline" size={18} color="#DC2626" />
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.editButton}
-              onPress={() => onEdit?.(item)}
+              style={styles.editBtn}
+              onPress={() => onEdit(item)}
               activeOpacity={0.7}
             >
-              <Ionicons
-                name="create-outline"
-                size={17}
-                color="#523C34"
-              />
-
+              <Ionicons name="create-outline" size={18} color="#523C34" />
               <Text style={styles.editText}>Ubah</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.restockButton}
-              onPress={() => onOpenRestock?.(item)}
+              style={styles.restockBtn}
+              onPress={() => onOpenRestock(item)}
               activeOpacity={0.8}
             >
-              <Ionicons
-                name="add-circle-outline"
-                size={18}
-                color="#FFFFFF"
-              />
-
-              <Text style={styles.restockText}>
-                Terima Stok
-              </Text>
+              <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.restockText}>Restok Sekarang</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -550,341 +207,270 @@ export default function StockDetailModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(35, 15, 18, 0.52)',
+    backgroundColor: 'rgba(44, 24, 16, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 14,
+    padding: 16,
   },
-  modalCard: {
+  card: {
     width: '100%',
     maxWidth: 540,
-    maxHeight: '93%',
-    backgroundColor: '#FFFDFC',
-    borderRadius: 18,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#EEDDD8',
+    maxHeight: '92%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
     elevation: 8,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingBottom: 13,
-    marginBottom: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0E7E1',
-  },
-  headerText: { flex: 1 },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#52141D',
-  },
-  headerSubtitle: {
-    fontSize: 11,
-    color: '#8D7B70',
-    marginTop: 3,
-  },
-  closeButton: { padding: 6 },
-  content: { flexGrow: 0 },
-  identityCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 13,
-    marginBottom: 17,
-  },
-  itemPhoto: {
-    width: 92,
-    height: 92,
-    borderRadius: 13,
-    backgroundColor: '#F4EFEB',
-  },
-  photoPlaceholder: {
-    width: 92,
-    height: 92,
-    borderRadius: 13,
-    backgroundColor: '#F4EFEB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  photoPlaceholderText: {
-    fontSize: 9,
-    color: '#A89A92',
-    marginTop: 5,
-  },
-  identityInfo: {
-    flex: 1,
-    alignItems: 'flex-start',
-  },
-  itemName: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: '#2C1810',
-  },
-  itemCategory: {
-    fontSize: 11,
-    color: '#78665E',
-    marginTop: 4,
-  },
-  itemId: {
-    fontSize: 9,
-    color: '#A89A92',
-    marginTop: 4,
-  },
-  badgeWrap: { marginTop: 7 },
-  section: { marginBottom: 17 },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#52141D',
-  },
-  stockMainCard: {
-    marginTop: 10,
-    padding: 14,
-    borderRadius: 13,
-    backgroundColor: '#FAF6F2',
-    borderWidth: 1,
-    borderColor: '#EFE7E2',
-  },
-  stockMainTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 13,
+    alignItems: 'flex-start',
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EFE7E2',
+    marginBottom: 14,
   },
-  stockMainLabel: {
-    fontSize: 10,
-    color: '#78665E',
-  },
-  stockNumberRow: {
+  titleRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 5,
+    alignItems: 'center',
+    gap: 8,
   },
-  stockNumber: {
-    fontSize: 27,
-    fontWeight: '900',
-    color: '#168653',
+  title: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#2C1810',
+    flexShrink: 1,
   },
-  stockUnit: {
+  subtitle: {
+    fontSize: 12,
+    color: '#78665E',
+    marginTop: 4,
+  },
+  closeBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#F8F5F2',
+  },
+  detailPhoto: { width: '100%', height: 180, borderRadius: 14, marginBottom: 14, backgroundColor: '#F8F5F2' },
+  detailPhotoPlaceholder: { width: '100%', height: 130, borderRadius: 14, marginBottom: 14, backgroundColor: '#F8F5F2', alignItems: 'center', justifyContent: 'center' },
+  contentScroll: {
+    maxHeight: 460,
+  },
+  progressCard: {
+    backgroundColor: '#FFF8F5',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FCE7DF',
+    marginBottom: 14,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  progressLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#78665E',
-  },
-  minimumBox: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#EFE7E2',
-    borderRadius: 10,
-    padding: 10,
-  },
-  minimumLabel: {
-    fontSize: 9,
-    color: '#8D7B70',
-  },
-  minimumValue: {
-    fontSize: 13,
-    fontWeight: '800',
     color: '#2C1810',
-    marginTop: 4,
   },
-  stockHint: {
-    fontSize: 10,
-    lineHeight: 15,
-    color: '#78665E',
-    marginTop: 9,
-  },
-  metricsRow: {
-    flexDirection: 'row',
-    gap: 9,
-    marginTop: 10,
-  },
-  metricCard: {
-    flex: 1,
-    padding: 11,
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: '#EFE7E2',
-    backgroundColor: '#FFFFFF',
-  },
-  metricLabel: {
-    fontSize: 9,
-    color: '#8D7B70',
-    marginTop: 7,
-  },
-  metricValue: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: '#2C1810',
-    marginTop: 4,
-  },
-  metricUnit: {
-    fontSize: 9,
-    color: '#A89A92',
-    marginTop: 3,
-  },
-  infoCard: {
-    borderWidth: 1,
-    borderColor: '#EFE7E2',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    marginTop: 9,
-    backgroundColor: '#FFFFFF',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 11,
-    gap: 10,
-  },
-  infoIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
-    backgroundColor: '#F8F5F2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoText: { flex: 1 },
-  infoLabel: {
-    fontSize: 9,
-    color: '#8D7B70',
-  },
-  infoValue: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#2C1810',
-    marginTop: 3,
-  },
-  infoDivider: {
-    height: 1,
-    backgroundColor: '#F0E7E1',
-  },
-  historyHeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  historySubtitle: {
-    fontSize: 9,
-    color: '#A89A92',
-    marginTop: 3,
-  },
-  historyCount: {
-    minWidth: 27,
-    height: 27,
-    paddingHorizontal: 7,
-    borderRadius: 9,
-    backgroundColor: '#FBEAEC',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  historyCountText: {
-    fontSize: 11,
+  progressValue: {
+    fontSize: 12,
     fontWeight: '800',
     color: '#C62828',
   },
-  historyCard: {
+  progressHint: {
+    fontSize: 11,
+    color: '#8D7B70',
+    marginTop: 6,
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 14,
+  },
+  metricBox: {
+    flex: 1,
+    minWidth: 130,
+    backgroundColor: '#FAFAF9',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EFE7E2',
+  },
+  metricLabel: {
+    fontSize: 11,
+    color: '#78665E',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  metricVal: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#2C1810',
+  },
+  metricUnit: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78665E',
+  },
+  metricDesc: {
+    fontSize: 10,
+    color: '#8D7B70',
+    marginTop: 4,
+  },
+  infoRowCard: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    backgroundColor: '#F8F5F2',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  infoItem: {
+    flexGrow: 1,
+    flexBasis: 200,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1E9E4',
+    gap: 8,
   },
-  historyIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+  infoLabel: {
+    fontSize: 10,
+    color: '#78665E',
+    fontWeight: '600',
+  },
+  infoValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2C1810',
+    marginTop: 2,
+  },
+  historySection: {
+    marginBottom: 10,
+  },
+  historyHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 10,
   },
-  historyContent: { flex: 1 },
-  historyName: {
-    fontSize: 11,
+  historyTitle: {
+    fontSize: 14,
     fontWeight: '800',
     color: '#2C1810',
   },
-  historyDate: {
-    fontSize: 9,
-    color: '#8D7B70',
-    marginTop: 3,
+  logCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EFE7E2',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
   },
-  historyDescription: {
-    fontSize: 9,
-    color: '#A89A92',
-    marginTop: 3,
-  },
-  historyAmount: {
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  emptyHistory: {
+  logTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 22,
-    paddingHorizontal: 15,
-    backgroundColor: '#FAF8F6',
-    borderRadius: 12,
+    marginBottom: 4,
   },
-  emptyTitle: {
+  logDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  logDate: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2C1810',
+  },
+  logQty: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#168653',
+  },
+  logBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  logSupplier: {
     fontSize: 11,
-    fontWeight: '800',
     color: '#78665E',
-    marginTop: 7,
   },
-  emptyDescription: {
-    fontSize: 9,
-    lineHeight: 14,
-    color: '#A89A92',
-    textAlign: 'center',
-    marginTop: 4,
+  logPic: {
+    fontSize: 10,
+    color: '#8D7B70',
+    backgroundColor: '#F4EFEB',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  emptyLog: {
+    fontSize: 12,
+    color: '#8D7B70',
+    fontStyle: 'italic',
+    paddingVertical: 8,
   },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
-    paddingTop: 13,
-    marginTop: 8,
+    gap: 10,
+    paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: '#F0E7E1',
+    borderTopColor: '#EFE7E2',
+    marginTop: 6,
   },
-  deleteButton: {
-    width: 42,
-    height: 42,
+  deleteBtn: {
+    width: 44,
+    height: 44,
     borderRadius: 10,
     backgroundColor: '#FEE2E2',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  editButton: {
-    height: 42,
+  editBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 6,
-    paddingHorizontal: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 10,
     backgroundColor: '#F4EFEB',
+    height: 44,
   },
   editText: {
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
     color: '#523C34',
   },
-  restockButton: {
+  restockBtn: {
     flex: 1,
-    height: 42,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 10,
     backgroundColor: '#C62828',
+    height: 44,
+    shadowColor: '#C62828',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 3,
   },
   restockText: {
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
 });

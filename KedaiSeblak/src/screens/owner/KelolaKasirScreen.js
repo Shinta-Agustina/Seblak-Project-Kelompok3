@@ -25,7 +25,7 @@ export default function KelolaKasirScreen() {
     if (typeof window !== 'undefined' && window.localStorage) {
       const savedSession = localStorage.getItem('activeCashierLogin');
       const savedUser = localStorage.getItem('kedaiSeblakUser');
-
+      
       if (savedSession) {
         setActiveCashierSession(savedSession);
       } else if (savedUser) {
@@ -87,13 +87,13 @@ export default function KelolaKasirScreen() {
 
     try {
       addCashier({ name, email, phone, password });
-
+      
       setName('');
       setEmail('');
       setPhone('');
       setPassword('');
       setModalVisible(false);
-
+      
       Alert.alert('Sukses', 'Akun kasir baru berhasil ditambahkan!');
     } catch (error) {
       Alert.alert('Error', error.message);
@@ -128,7 +128,7 @@ export default function KelolaKasirScreen() {
 
   const renderItem = ({ item }) => {
     // Pencocokan apakah kasir ini sedang aktif login di tab manapun
-    const isCurrentLoggedIn =
+    const isCurrentLoggedIn = 
       (user && user.role === 'Kasir' && user.name && user.name.trim().toLowerCase() === item.name.trim().toLowerCase()) ||
       (activeCashierSession && activeCashierSession.trim().toLowerCase() === item.name.trim().toLowerCase());
 
@@ -152,7 +152,7 @@ export default function KelolaKasirScreen() {
               {isCurrentLoggedIn ? 'Sedang Login' : 'Offline'}
             </Text>
           </View>
-
+          
           <TouchableOpacity
             onPress={() => handleDeleteCashier(item.id, item.name)}
             style={styles.deleteBtn}
