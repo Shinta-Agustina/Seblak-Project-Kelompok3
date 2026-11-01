@@ -14,8 +14,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useKasir } from '../../context/KasirContext'; // Terhubung ke state global
 
 export default function KelolaKasirScreen() {
-  // Mengambil data, fungsi, dan user yang sedang login dari KasirContext
-  const { cashiers, addCashier, deleteCashier, user } = useKasir();
+  // Mengambil data, fungsi (add, update, delete), dan user yang sedang login dari KasirContext
+  const { cashiers, addCashier, updateCashier, deleteCashier, user } = useKasir();
 
   // State lokal untuk mendeteksi kasir aktif lintas tab browser
   const [activeCashierSession, setActiveCashierSession] = useState(null);
@@ -49,7 +49,6 @@ export default function KelolaKasirScreen() {
   useEffect(() => {
     checkActiveSession();
 
-    // Listener khusus untuk mendeteksi perubahan storage dari tab browser lain
     const handleStorageChange = (event) => {
       if (event.key === 'activeCashierLogin' || event.key === 'kedaiSeblakUser') {
         checkActiveSession();
@@ -60,7 +59,6 @@ export default function KelolaKasirScreen() {
       window.addEventListener('storage', handleStorageChange);
     }
 
-    // Interval cadangan untuk memastikan sinkronisasi mulus
     const interval = setInterval(checkActiveSession, 500);
 
     return () => {
@@ -71,12 +69,20 @@ export default function KelolaKasirScreen() {
     };
   }, [user]);
 
-  // State untuk modal tambah kasir
+  // State untuk modal Tambah Kasir
   const [modalVisible, setModalVisible] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+
+  // State untuk modal Edit Kasir
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedKasirId, setSelectedKasirId] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editPassword, setEditPassword] = useState('');
 
   // Fungsi untuk menambah kasir baru ke state global
   const handleSaveCashier = () => {
@@ -100,7 +106,39 @@ export default function KelolaKasirScreen() {
     }
   };
 
-  // Fungsi untuk menghapus kasir (Mendukung Web & Mobile secara otomatis)
+  // Fungsi untuk membuka modal edit dan mengisi data awal
+  const handleOpenEdit = (item) => {
+    setSelectedKasirId(item.id);
+    setEditName(item.name || '');
+    setEditEmail(item.email || '');
+    setEditPhone(item.phone || '');
+    setEditPassword(''); // Kosongkan password agar opsional (hanya diisi jika ingin mengganti)
+    setEditModalVisible(true);
+  };
+
+  // Fungsi untuk menyimpan perubahan edit kasir
+  const handleUpdateCashier = () => {
+    if (!editName || !editEmail) {
+      Alert.alert('Peringatan', 'Nama dan Email wajib diisi!');
+      return;
+    }
+
+    try {
+      updateCashier(selectedKasirId, {
+        name: editName,
+        email: editEmail,
+        phone: editPhone,
+        password: editPassword, // Jika kosong, di context sudah diatur untuk mempertahankan password lama
+      });
+
+      setEditModalVisible(false);
+      Alert.alert('Sukses', 'Data kasir berhasil diperbarui!');
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    }
+  };
+
+  // Fungsi untuk menghapus kasir
   const handleDeleteCashier = (id, cashierName) => {
     if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
       const isConfirmed = window.confirm(`Apakah Anda yakin ingin menghapus akses kasir ${cashierName}?`);
@@ -127,7 +165,6 @@ export default function KelolaKasirScreen() {
   };
 
   const renderItem = ({ item }) => {
-    // Pencocokan apakah kasir ini sedang aktif login di tab manapun
     const isCurrentLoggedIn =
       (user && user.role === 'Kasir' && user.name && user.name.trim().toLowerCase() === item.name.trim().toLowerCase()) ||
       (activeCashierSession && activeCashierSession.trim().toLowerCase() === item.name.trim().toLowerCase());
@@ -145,21 +182,32 @@ export default function KelolaKasirScreen() {
           </View>
         </View>
 
-        <View style={styles.cardRight}>
-          {/* Badge Status Berubah Dinamis */}
+        <View style={styles.cardRightContainer}>
           <View style={[styles.statusBadge, isCurrentLoggedIn ? styles.badgeActive : styles.badgeOffline]}>
             <Text style={[styles.statusText, isCurrentLoggedIn ? styles.textActive : styles.textOffline]}>
               {isCurrentLoggedIn ? 'Sedang Login' : 'Offline'}
             </Text>
           </View>
 
-          <TouchableOpacity
-            onPress={() => handleDeleteCashier(item.id, item.name)}
-            style={styles.deleteBtn}
-            activeOpacity={0.6}
-          >
-            <Ionicons name="trash-outline" size={18} color="#D32F2F" />
-          </TouchableOpacity>
+          <View style={styles.actionButtonsRow}>
+            {/* Tombol Edit */}
+            <TouchableOpacity
+              onPress={() => handleOpenEdit(item)}
+              style={styles.editBtn}
+              activeOpacity={0.6}
+            >
+              <Ionicons name="pencil-outline" size={16} color="#1565C0" />
+            </TouchableOpacity>
+
+            {/* Tombol Hapus */}
+            <TouchableOpacity
+              onPress={() => handleDeleteCashier(item.id, item.name)}
+              style={styles.deleteBtn}
+              activeOpacity={0.6}
+            >
+              <Ionicons name="trash-outline" size={16} color="#D32F2F" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
@@ -171,7 +219,7 @@ export default function KelolaKasirScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Kelola Akun Kasir</Text>
-          <Text style={styles.headerSubtitle}>Tambah dan pantau akses staf kasir Kedai Seblak</Text>
+          <Text style={styles.headerSubtitle}>Tambah, edit, dan pantau akses staf kasir Kedai Seblak</Text>
         </View>
         <TouchableOpacity
           style={styles.addButton}
@@ -267,6 +315,77 @@ export default function KelolaKasirScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Modal Form Edit Kasir */}
+      <Modal visible={editModalVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Akun Kasir</Text>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                <Ionicons name="close" size={22} color="#4A3028" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.inputLabel}>Nama Lengkap</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Nama lengkap"
+                placeholderTextColor="#B0A097"
+                value={editName}
+                onChangeText={setEditName}
+              />
+
+              <Text style={styles.inputLabel}>Email / Username Login</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Email kasir"
+                placeholderTextColor="#B0A097"
+                value={editEmail}
+                onChangeText={setEditEmail}
+                autoCapitalize="none"
+              />
+
+              <Text style={styles.inputLabel}>Nomor Telepon / WhatsApp</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Nomor telepon"
+                placeholderTextColor="#B0A097"
+                keyboardType="phone-pad"
+                value={editPhone}
+                onChangeText={setEditPhone}
+              />
+
+              <Text style={styles.inputLabel}>Password Baru (Opsional)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Kosongkan jika tidak ingin diubah"
+                placeholderTextColor="#B0A097"
+                secureTextEntry
+                value={editPassword}
+                onChangeText={setEditPassword}
+              />
+
+              <View style={styles.modalButtonRow}>
+                <TouchableOpacity
+                  style={styles.cancelModalBtn}
+                  onPress={() => setEditModalVisible(false)}
+                >
+                  <Text style={styles.cancelModalText}>Batal</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.saveModalBtn}
+                  onPress={handleUpdateCashier}
+                >
+                  <Text style={styles.saveModalText}>Simpan Perubahan</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -355,11 +474,10 @@ const styles = StyleSheet.create({
     color: '#8D7B70',
     marginTop: 1,
   },
-  cardRight: {
+  cardRightContainer: {
     alignItems: 'flex-end',
     justifyContent: 'center',
     gap: 8,
-    zIndex: 10,
   },
   statusBadge: {
     paddingHorizontal: 8,
@@ -382,11 +500,19 @@ const styles = StyleSheet.create({
   textOffline: {
     color: '#8D7B70',
   },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  editBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#E3F2FD',
+  },
   deleteBtn: {
     padding: 8,
     borderRadius: 8,
     backgroundColor: '#FDECEC',
-    cursor: 'pointer',
   },
   emptyBox: {
     alignItems: 'center',
