@@ -12,10 +12,11 @@ import TopHeader from '../../components/TopHeader';
 import TabDashboard from '../../components/owner/tabs/TabDashboard';
 import TabPenjualan from '../../components/owner/tabs/TabPenjualan';
 import TabStok from '../../components/owner/tabs/TabStok';
-import TabPengeluaran from '../../components/owner/tabs/TabPengeluaran';
 import MenuHargaScreen from './MenuHargaScreen';
 import PengeluaranScreen from './PengeluaranScreen';
 import LaporanKeuanganScreen from './LaporanKeuanganScreen';
+import KelolaKasirScreen from './KelolaKasirScreen'; // <-- 1. IMPORT HALAMAN KELOLA KASIR YANG BENAR
+
 import { INITIAL_STOCK_ITEMS, INITIAL_EXPENSES } from '../../data/ownerData';
 
 const WARNA = {
@@ -145,6 +146,8 @@ export default function DashboardOwnerScreen() {
     switch (activeTab) {
       case 'dashboard':
         return 'Owner Portal · Ringkasan Kesehatan Kedai';
+      case 'Kelola Kasir':
+        return 'Owner Portal · Kelola Akun Kasir';
       case 'penjualan':
         return 'Owner Portal · Laporan Penjualan Seblak';
       case 'stok':
@@ -205,6 +208,11 @@ export default function DashboardOwnerScreen() {
         {activeTab === 'menu_harga' ? (
           <View style={styles.embeddedTabContainer}>
             <MenuHargaScreen isEmbedded={true} />
+          </View>
+        ) : activeTab === 'Kelola Kasir' ? (
+          /* 2. RENDERING KELOLA KASIR SCREEN DENGAN BENAR DI SINI */
+          <View style={styles.embeddedTabContainer}>
+            <KelolaKasirScreen isEmbedded={true} />
           </View>
         ) : activeTab === 'pengeluaran' || activeTab === 'transaksi' ? (
           <View style={styles.embeddedTabContainer}>

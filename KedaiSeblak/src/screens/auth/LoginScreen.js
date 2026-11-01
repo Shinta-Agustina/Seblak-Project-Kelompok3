@@ -22,9 +22,8 @@ import { useKasir } from '../../context/KasirContext';
 export default function LoginScreen({ onLogin }) {
   const { width } = useWindowDimensions();
   const isLargeScreen = width >= 768;
-  const { login } = useKasir();
+  const { login, cashiers } = useKasir(); // <-- Mengambil data cashiers dari context global
 
-  const [role, setRole] = useState('Kasir');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -32,31 +31,7 @@ export default function LoginScreen({ onLogin }) {
   const [focusedField, setFocusedField] = useState(null);
   const [errors, setErrors] = useState({});
 
-  // Memilih role dan mengosongkan form
-  const handleSelectRole = (newRole) => {
-    setRole(newRole);
-    setUsername('');
-    setPassword('');
-    setShowPassword(false);
-    setErrors({});
-    setFocusedField(null);
-  };
-
-  // Mengisi akun demo untuk pengujian
-  const fillDemoAccount = (demoRole) => {
-    setRole(demoRole);
-    setUsername(
-      demoRole === 'Kasir' ? 'Siti Aisyah' : 'Dewi'
-    );
-    setPassword(
-      demoRole === 'Kasir' ? 'kasir123' : 'owner123'
-    );
-    setShowPassword(false);
-    setErrors({});
-    setFocusedField(null);
-  };
-
-  // Validasi form login
+  // Validasi & Pencocokan Akun Berdasarkan Global Context & Owner
   const handleLogin = () => {
     if (loading) return;
 
@@ -76,45 +51,47 @@ export default function LoginScreen({ onLogin }) {
       return;
     }
 
-    /*
-     * Akun demo untuk pengujian UI.
-     * Sesuaikan bagian ini jika project menggunakan
-     * autentikasi dari database atau API.
-     */
-    const demoAccounts = {
-      Kasir: {
-        username: 'Siti Aisyah',
-        password: 'kasir123',
-      },
-      Owner: {
-        username: 'Dewi',
-        password: 'owner123',
-      },
-    };
-
-    const account = demoAccounts[role];
-
-    if (
-      !account ||
-      cleanUsername !== account.username ||
-      password !== account.password
-    ) {
-      setErrors({
-        form: 'Username atau password tidak sesuai.',
-      });
-      return;
-    }
-
     setErrors({});
     setLoading(true);
 
     setTimeout(() => {
       try {
-        login(cleanUsername, role);
+        let detectedRole = 'Kasir';
+
+        // 1. Cek apakah yang login adalah Owner (Dewi)
+        if (cleanUsername.toLowerCase() === 'dewi') {
+          if (password !== 'owner123') {
+            throw new Error('Password Owner salah.');
+          }
+          detectedRole = 'Owner';
+        } else {
+          // 2. Jika bukan owner, cari di dalam daftar kasir global (cashiers)
+          const foundCashier = cashiers.find(
+            (c) => c.name.toLowerCase() === cleanUsername.toLowerCase() || c.email.toLowerCase() === cleanUsername.toLowerCase()
+          );
+
+          if (!foundCashier) {
+            throw new Error('Username atau akun kasir tidak ditemukan.');
+          }
+
+          // Cek password kasir (jika tersimpan di data kasir)
+          if (foundCashier.password && foundCashier.password !== password) {
+            throw new Error('Password kasir salah.');
+          }
+
+          detectedRole = 'Kasir';
+        }
+
+        // Panggil fungsi login dari KasirContext dengan role yang sesuai
+        login(cleanUsername, password, detectedRole);
 
         if (onLogin) {
-          onLogin(cleanUsername, role);
+          onLogin(cleanUsername, detectedRole);
         }
+      } catch (error) {
+        setErrors({
+          form: error.message || 'Username atau password salah.',
+        });
       } finally {
         setLoading(false);
       }
@@ -136,9 +113,7 @@ export default function LoginScreen({ onLogin }) {
         <View
           style={[
             styles.heroSection,
-            isLargeScreen
-              ? styles.heroLarge
-              : styles.heroSmall,
+            isLargeScreen ? styles.heroLarge : styles.heroSmall,
           ]}
         >
           <Image
@@ -162,7 +137,6 @@ export default function LoginScreen({ onLogin }) {
                   <Text style={styles.heroBrandName}>
                     Seblak Prasmanan
                   </Text>
-
                   <Text style={styles.heroBrandSub}>
                     Sistem Kasir & Owner
                   </Text>
@@ -184,7 +158,6 @@ export default function LoginScreen({ onLogin }) {
                 color="#ECC4C8"
                 style={styles.footerIcon}
               />
-
               <Text style={styles.heroFooterText}>
                 Seblak Prasmanan
               </Text>
@@ -196,9 +169,7 @@ export default function LoginScreen({ onLogin }) {
         <View
           style={[
             styles.formSection,
-            isLargeScreen
-              ? styles.formLarge
-              : styles.formSmall,
+            isLargeScreen ? styles.formLarge : styles.formSmall,
           ]}
         >
           <ScrollView
@@ -207,175 +178,65 @@ export default function LoginScreen({ onLogin }) {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.loginCard}>
-              {/* Judul */}
               <View style={styles.cardHeader}>
-                <Text style={styles.title}>
-                  {role === 'Kasir'
-                    ? 'Login Kasir'
-                    : 'Login Owner'}
-                </Text>
-
+                <Text style={styles.title}>Selamat Datang</Text>
                 <Text style={styles.subtitle}>
-                  {role === 'Kasir'
-                    ? 'Masuk untuk memulai sesi kerja kasir'
-                    : 'Masuk untuk memantau omzet & laporan'}
+                  Masuk menggunakan akun Kasir atau Owner Anda
                 </Text>
               </View>
 
-              {/* Pilihan Role */}
-              <View style={styles.roleToggleContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.roleTab,
-                    role === 'Kasir' && styles.roleTabActive,
-                  ]}
-                  onPress={() => handleSelectRole('Kasir')}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Pilih login Kasir"
-                >
-                  <MaterialCommunityIcons
-                    name="point-of-sale"
-                    size={17}
-                    color={
-                      role === 'Kasir'
-                        ? '#FFFFFF'
-                        : '#8D7B70'
-                    }
-                  />
-
-                  <Text
-                    style={[
-                      styles.roleTabText,
-                      role === 'Kasir' &&
-                        styles.roleTabTextActive,
-                    ]}
-                  >
-                    Kasir
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.roleTab,
-                    role === 'Owner' && styles.roleTabActive,
-                  ]}
-                  onPress={() => handleSelectRole('Owner')}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Pilih login Owner"
-                >
-                  <Ionicons
-                    name="shield-checkmark-outline"
-                    size={17}
-                    color={
-                      role === 'Owner'
-                        ? '#FFFFFF'
-                        : '#8D7B70'
-                    }
-                  />
-
-                  <Text
-                    style={[
-                      styles.roleTabText,
-                      role === 'Owner' &&
-                        styles.roleTabTextActive,
-                    ]}
-                  >
-                    Owner
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Form Input */}
               <View style={styles.formGroup}>
                 {/* Username */}
-                <Text style={styles.inputLabel}>
-                  {role === 'Kasir'
-                    ? 'Username Kasir'
-                    : 'Username Owner'}
-                </Text>
-
+                <Text style={styles.inputLabel}>Username / Nama</Text>
                 <View
                   style={[
                     styles.inputBox,
-                    focusedField === 'username' &&
-                      styles.inputBoxFocused,
+                    focusedField === 'username' && styles.inputBoxFocused,
                     errors.username && styles.inputBoxError,
                   ]}
                 >
                   <Ionicons
-                    name={
-                      role === 'Kasir'
-                        ? 'person-outline'
-                        : 'shield-outline'
-                    }
+                    name="person-outline"
                     size={19}
                     color={
                       errors.username
                         ? '#D32F2F'
                         : focusedField === 'username'
-                          ? '#C62828'
-                          : '#8D7B70'
+                        ? '#C62828'
+                        : '#8D7B70'
                     }
                     style={styles.inputIcon}
                   />
 
                   <TextInput
                     style={styles.textInput}
-                    placeholder={
-                      role === 'Kasir'
-                        ? 'Masukkan username kasir'
-                        : 'Masukkan username owner'
-                    }
+                    placeholder="Masukkan username"
                     placeholderTextColor="#B0A097"
                     value={username}
                     onChangeText={(value) => {
                       setUsername(value);
-
-                      setErrors((prev) => ({
-                        ...prev,
-                        username: '',
-                        form: '',
-                      }));
+                      setErrors((prev) => ({ ...prev, username: '', form: '' }));
                     }}
-                    onFocus={() =>
-                      setFocusedField('username')
-                    }
-                    onBlur={() =>
-                      setFocusedField(null)
-                    }
+                    onFocus={() => setFocusedField('username')}
+                    onBlur={() => setFocusedField(null)}
                     autoCapitalize="none"
                     autoCorrect={false}
                     returnKeyType="next"
-                    accessibilityLabel="Username"
                   />
                 </View>
 
                 {errors.username ? (
-                  <Text
-                    style={styles.errorText}
-                    accessibilityRole="alert"
-                  >
-                    {errors.username}
-                  </Text>
+                  <Text style={styles.errorText}>{errors.username}</Text>
                 ) : null}
 
                 {/* Password */}
-                <Text
-                  style={[
-                    styles.inputLabel,
-                    { marginTop: 14 },
-                  ]}
-                >
+                <Text style={[styles.inputLabel, { marginTop: 14 }]}>
                   Password
                 </Text>
-
                 <View
                   style={[
                     styles.inputBox,
-                    focusedField === 'password' &&
-                      styles.inputBoxFocused,
+                    focusedField === 'password' && styles.inputBoxFocused,
                     errors.password && styles.inputBoxError,
                   ]}
                 >
@@ -386,8 +247,8 @@ export default function LoginScreen({ onLogin }) {
                       errors.password
                         ? '#D32F2F'
                         : focusedField === 'password'
-                          ? '#C62828'
-                          : '#8D7B70'
+                        ? '#C62828'
+                        : '#8D7B70'
                     }
                     style={styles.inputIcon}
                   />
@@ -399,46 +260,24 @@ export default function LoginScreen({ onLogin }) {
                     value={password}
                     onChangeText={(value) => {
                       setPassword(value);
-
-                      setErrors((prev) => ({
-                        ...prev,
-                        password: '',
-                        form: '',
-                      }));
+                      setErrors((prev) => ({ ...prev, password: '', form: '' }));
                     }}
-                    onFocus={() =>
-                      setFocusedField('password')
-                    }
-                    onBlur={() =>
-                      setFocusedField(null)
-                    }
+                    onFocus={() => setFocusedField('password')}
+                    onBlur={() => setFocusedField(null)}
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
                     autoCorrect={false}
                     returnKeyType="done"
                     onSubmitEditing={handleLogin}
-                    accessibilityLabel="Password"
                   />
 
                   <TouchableOpacity
-                    onPress={() =>
-                      setShowPassword((prev) => !prev)
-                    }
+                    onPress={() => setShowPassword((prev) => !prev)}
                     style={styles.eyeBtn}
                     activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      showPassword
-                        ? 'Sembunyikan password'
-                        : 'Tampilkan password'
-                    }
                   >
                     <Ionicons
-                      name={
-                        showPassword
-                          ? 'eye-off-outline'
-                          : 'eye-outline'
-                      }
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                       size={19}
                       color="#8D7B70"
                     />
@@ -446,145 +285,76 @@ export default function LoginScreen({ onLogin }) {
                 </View>
 
                 {errors.password ? (
-                  <Text
-                    style={styles.errorText}
-                    accessibilityRole="alert"
-                  >
-                    {errors.password}
-                  </Text>
+                  <Text style={styles.errorText}>{errors.password}</Text>
                 ) : null}
 
                 {/* Error Login */}
                 {errors.form ? (
                   <View style={styles.formErrorBox}>
-                    <Ionicons
-                      name="alert-circle-outline"
-                      size={17}
-                      color="#D32F2F"
-                    />
-
-                    <Text
-                      style={styles.formErrorText}
-                      accessibilityRole="alert"
-                    >
-                      {errors.form}
-                    </Text>
+                    <Ionicons name="alert-circle-outline" size={17} color="#D32F2F" />
+                    <Text style={styles.formErrorText}>{errors.form}</Text>
                   </View>
                 ) : null}
 
                 {/* Tombol Masuk */}
                 <TouchableOpacity
-                  style={[
-                    styles.submitButton,
-                    loading && styles.submitButtonDisabled,
-                  ]}
+                  style={[styles.submitButton, loading && styles.submitButtonDisabled]}
                   onPress={handleLogin}
                   activeOpacity={0.85}
                   disabled={loading}
-                  accessibilityRole="button"
                 >
                   {loading ? (
-                    <Text style={styles.submitButtonText}>
-                      Memproses...
-                    </Text>
+                    <Text style={styles.submitButtonText}>Memproses...</Text>
                   ) : (
                     <View style={styles.submitButtonContent}>
-                      <Text style={styles.submitButtonText}>
-                        {role === 'Kasir'
-                          ? 'Masuk'
-                          : 'Masuk sebagai Owner'}
-                      </Text>
-
-                      <Ionicons
-                        name="arrow-forward"
-                        size={18}
-                        color="#FFFFFF"
-                      />
+                      <Text style={styles.submitButtonText}>Masuk</Text>
+                      <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
                     </View>
                   )}
                 </TouchableOpacity>
 
                 {/* Informasi Akses */}
                 <View style={styles.noticeBox}>
-                  <Ionicons
-                    name={
-                      role === 'Kasir'
-                        ? 'lock-closed'
-                        : 'shield-checkmark'
-                    }
-                    size={13}
-                    color="#8D7B70"
-                  />
-
+                  <Ionicons name="shield-checkmark" size={13} color="#8D7B70" />
                   <Text style={styles.noticeText}>
-                    {role === 'Kasir'
-                      ? 'Hanya untuk kasir'
-                      : 'Akses Owner: Pemilik & Laporan'}
+                    Sistem mendeteksi hak akses secara otomatis
                   </Text>
                 </View>
 
-                {/* Akun Demo */}
+                {/* Akun Demo Pengujian Cepat */}
                 <View style={styles.quickAccessSection}>
-                  <Text style={styles.quickAccessTitle}>
-                    Pilih Cepat untuk Pengujian
-                  </Text>
-
+                  <Text style={styles.quickAccessTitle}>Coba Akun Demo</Text>
                   <View style={styles.quickBtnRow}>
                     <TouchableOpacity
-                      style={[
-                        styles.quickBtn,
-                        role === 'Kasir' &&
-                          styles.quickBtnSelected,
-                      ]}
-                      onPress={() =>
-                        fillDemoAccount('Kasir')
-                      }
+                      style={styles.quickBtn}
+                      onPress={() => {
+                        setUsername('Siti Aisyah');
+                        setPassword('123');
+                        setErrors({});
+                      }}
                       activeOpacity={0.8}
-                      accessibilityRole="button"
-                      accessibilityLabel="Isi akun demo Kasir"
                     >
-                      <MaterialCommunityIcons
-                        name="storefront-outline"
-                        size={17}
-                        color="#C62828"
-                      />
-
-                      <Text style={styles.quickBtnText}>
-                        Kasir: Siti Aisyah
-                      </Text>
+                      <MaterialCommunityIcons name="storefront-outline" size={17} color="#C62828" />
+                      <Text style={styles.quickBtnText}>Kasir: Siti Aisyah</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[
-                        styles.quickBtn,
-                        styles.quickBtnOwner,
-                        role === 'Owner' &&
-                          styles.quickBtnOwnerSelected,
-                      ]}
-                      onPress={() =>
-                        fillDemoAccount('Owner')
-                      }
+                      style={[styles.quickBtn, styles.quickBtnOwner]}
+                      onPress={() => {
+                        setUsername('Dewi');
+                        setPassword('owner123');
+                        setErrors({});
+                      }}
                       activeOpacity={0.8}
-                      accessibilityRole="button"
-                      accessibilityLabel="Isi akun demo Owner"
                     >
-                      <Ionicons
-                        name="shield-checkmark-outline"
-                        size={17}
-                        color="#E65100"
-                      />
-
-                      <Text
-                        style={[
-                          styles.quickBtnText,
-                          styles.quickBtnTextOwner,
-                        ]}
-                      >
+                      <Ionicons name="shield-checkmark-outline" size={17} color="#E65100" />
+                      <Text style={[styles.quickBtnText, styles.quickBtnTextOwner]}>
                         Owner: Dewi
                       </Text>
                     </TouchableOpacity>
                   </View>
                 </View>
+
               </View>
             </View>
           </ScrollView>
@@ -595,58 +365,21 @@ export default function LoginScreen({ onLogin }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1E0F0A',
-  },
-
-  mainLayout: {
-    flex: 1,
-  },
-
-  rowLayout: {
-    flexDirection: 'row',
-  },
-
-  heroSection: {
-    position: 'relative',
-    overflow: 'hidden',
-    backgroundColor: '#1E0F0A',
-  },
-
-  heroLarge: {
-    flex: 1.1,
-    height: '100%',
-  },
-
-  heroSmall: {
-    height: 200,
-    width: '100%',
-  },
-
-  heroImage: {
-    width: '100%',
-    height: '100%',
-  },
-
+  container: { flex: 1, backgroundColor: '#1E0F0A' },
+  mainLayout: { flex: 1 },
+  rowLayout: { flexDirection: 'row' },
+  heroSection: { position: 'relative', overflow: 'hidden', backgroundColor: '#1E0F0A' },
+  heroLarge: { flex: 1.1, height: '100%' },
+  heroSmall: { height: 200, width: '100%' },
+  heroImage: { width: '100%', height: '100%' },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(25, 10, 8, 0.65)',
     padding: 28,
     justifyContent: 'space-between',
   },
-
-  heroTopBrand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  heroLogoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-
+  heroTopBrand: { flexDirection: 'row', alignItems: 'center' },
+  heroLogoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   heroLogoCircle: {
     width: 44,
     height: 44,
@@ -657,74 +390,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.35)',
   },
-
-  heroBrandName: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
-  },
-
-  heroBrandSub: {
-    fontSize: 13,
-    color: '#F4C2C6',
-    fontWeight: '600',
-  },
-
-  heroTaglineBox: {
-    maxWidth: 380,
-  },
-
+  heroBrandName: { fontSize: 20, fontWeight: '900', color: '#FFFFFF', letterSpacing: 0.5 },
+  heroBrandSub: { fontSize: 13, color: '#F4C2C6', fontWeight: '600' },
+  heroTaglineBox: { maxWidth: 380 },
   heroTagline: {
     fontSize: 26,
     lineHeight: 36,
     color: '#FFFFFF',
     fontWeight: '800',
     fontStyle: 'italic',
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 6,
   },
-
-  heroFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  footerIcon: {
-    marginRight: 7,
-  },
-
-  heroFooterText: {
-    color: '#ECC4C8',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
-  formSection: {
-    backgroundColor: '#F8F5F2',
-    justifyContent: 'center',
-  },
-
-  formLarge: {
-    flex: 1,
-    minHeight: '100%',
-    paddingHorizontal: 40,
-  },
-
-  formSmall: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-  },
-
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 18,
-  },
-
+  heroFooter: { flexDirection: 'row', alignItems: 'center' },
+  footerIcon: { marginRight: 7 },
+  heroFooterText: { color: '#ECC4C8', fontSize: 13, fontWeight: '600' },
+  formSection: { backgroundColor: '#F8F5F2', justifyContent: 'center' },
+  formLarge: { flex: 1, minHeight: '100%', paddingHorizontal: 40 },
+  formSmall: { flex: 1, paddingHorizontal: 16, paddingVertical: 18 },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 18 },
   loginCard: {
     width: '100%',
     maxWidth: 420,
@@ -739,76 +421,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 18,
   },
-
-  cardHeader: {
-    alignItems: 'center',
-    marginBottom: 18,
-  },
-
-  title: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#2C1810',
-    letterSpacing: 0.3,
-  },
-
-  subtitle: {
-    fontSize: 13,
-    color: '#8D7B70',
-    marginTop: 4,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-
-  roleToggleContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#F3ECE7',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 20,
-    gap: 4,
-  },
-
-  roleTab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 9,
-  },
-
-  roleTabActive: {
-    backgroundColor: '#C62828',
-    elevation: 2,
-    shadowColor: '#C62828',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-
-  roleTabText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#7E6E67',
-  },
-
-  roleTabTextActive: {
-    color: '#FFFFFF',
-  },
-
-  formGroup: {
-    width: '100%',
-  },
-
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#4A3028',
-    marginBottom: 6,
-  },
-
+  cardHeader: { alignItems: 'center', marginBottom: 22 },
+  title: { fontSize: 24, fontWeight: '900', color: '#2C1810', letterSpacing: 0.3 },
+  subtitle: { fontSize: 13, color: '#8D7B70', marginTop: 4, fontWeight: '500', textAlign: 'center' },
+  formGroup: { width: '100%' },
+  inputLabel: { fontSize: 12, fontWeight: '700', color: '#4A3028', marginBottom: 6 },
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -819,39 +436,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 48,
   },
-
-  inputBoxFocused: {
-    borderColor: '#C62828',
-    borderWidth: 2,
-    backgroundColor: '#FFFAF8',
-  },
-
-  inputBoxError: {
-    borderColor: '#D32F2F',
-    borderWidth: 1.5,
-  },
-
-  inputIcon: {
-    marginRight: 10,
-  },
-
-  textInput: {
-    flex: 1,
-    fontSize: 14,
-    color: '#2C1810',
-  },
-
-  eyeBtn: {
-    padding: 6,
-  },
-
-  errorText: {
-    color: '#D32F2F',
-    fontSize: 12,
-    marginTop: 5,
-    marginLeft: 2,
-  },
-
+  inputBoxFocused: { borderColor: '#C62828', borderWidth: 2, backgroundColor: '#FFFAF8' },
+  inputBoxError: { borderColor: '#D32F2F', borderWidth: 1.5 },
+  inputIcon: { marginRight: 10 },
+  textInput: { flex: 1, fontSize: 14, color: '#2C1810' },
+  eyeBtn: { padding: 6 },
+  errorText: { color: '#D32F2F', fontSize: 12, marginTop: 5, marginLeft: 2 },
   formErrorBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -863,13 +453,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     gap: 7,
   },
-
-  formErrorText: {
-    flex: 1,
-    color: '#D32F2F',
-    fontSize: 12,
-  },
-
+  formErrorText: { flex: 1, color: '#D32F2F', fontSize: 12 },
   submitButton: {
     backgroundColor: '#C62828',
     height: 48,
@@ -883,59 +467,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
   },
-
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-
-  submitButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-  },
-
-  submitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-
-  noticeBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 16,
-  },
-
-  noticeText: {
-    fontSize: 12,
-    color: '#8D7B70',
-    fontWeight: '600',
-  },
-
-  quickAccessSection: {
-    marginTop: 18,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F0E5DF',
-  },
-
-  quickAccessTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#8D7B70',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-
-  quickBtnRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-
+  submitButtonDisabled: { opacity: 0.6 },
+  submitButtonContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  submitButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800', letterSpacing: 0.4 },
+  noticeBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16 },
+  noticeText: { fontSize: 12, color: '#8D7B70', fontWeight: '600' },
+  quickAccessSection: { marginTop: 18, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#F0E5DF' },
+  quickAccessTitle: { fontSize: 11, fontWeight: '700', color: '#8D7B70', marginBottom: 8, textAlign: 'center' },
+  quickBtnRow: { flexDirection: 'row', gap: 8 },
   quickBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -949,31 +488,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F8B4B4',
   },
-
-  quickBtnSelected: {
-    borderColor: '#C62828',
-    borderWidth: 1.5,
-  },
-
-  quickBtnOwner: {
-    backgroundColor: '#FFF4E5',
-    borderColor: '#FFD199',
-  },
-
-  quickBtnOwnerSelected: {
-    borderColor: '#E65100',
-    borderWidth: 1.5,
-  },
-
-  quickBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#C62828',
-    flexShrink: 1,
-    textAlign: 'center',
-  },
-
-  quickBtnTextOwner: {
-    color: '#E65100',
-  },
+  quickBtnOwner: { backgroundColor: '#FFF4E5', borderColor: '#FFD199' },
+  quickBtnText: { fontSize: 11, fontWeight: '700', color: '#C62828', flexShrink: 1, textAlign: 'center' },
+  quickBtnTextOwner: { color: '#E65100' },
 });

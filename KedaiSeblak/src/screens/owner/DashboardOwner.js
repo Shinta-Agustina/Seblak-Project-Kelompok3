@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -16,6 +15,7 @@ import TabStok from '../../components/owner/tabs/TabStok';
 import MenuHargaScreen from './MenuHargaScreen';
 import PengeluaranScreen from './PengeluaranScreen';
 import LaporanKeuanganScreen from './LaporanKeuanganScreen';
+import KelolaKasirScreen from './KelolaKasirScreen'; // <-- 1. IMPORT KELOLA KASIR SCREEN SESUAI NAMA FILE
 
 import {
   INITIAL_STOCK_ITEMS,
@@ -190,6 +190,9 @@ export default function DashboardOwnerScreen() {
       case 'dashboard':
         return 'Owner Portal · Ringkasan Kesehatan Kedai';
 
+      case 'Kelola Kasir':
+        return 'Owner Portal · Kelola Akun Kasir';
+
       case 'penjualan':
         return 'Owner Portal · Laporan Penjualan Seblak';
 
@@ -271,6 +274,11 @@ export default function DashboardOwnerScreen() {
               onDeleteExpense={handleDeleteExpense}
             />
           </View>
+        ) : activeTab === 'Kelola Kasir' ? (
+          /* 2. GUNAKAN KELOLA KASIR SCREEN DENGAN BENAR DI SINI */
+          <View style={styles.embeddedTabContainer}>
+            <KelolaKasirScreen isEmbedded={true} />
+          </View> 
         ) : activeTab === 'laporan_keuangan' ? (
           /* Tab Laporan Keuangan */
           <View style={styles.embeddedTabContainer}>
