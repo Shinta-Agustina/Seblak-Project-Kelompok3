@@ -5,7 +5,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from '../screens/auth/LoginScreen';
 import DashboardKasirScreen from '../screens/kasir/DashboardKasirScreen';
 import DashboardOwnerScreen from '../screens/owner/DashboardOwner';
-import MenuHargaScreen from '../screens/owner/MenuHargaScreen';
 import PengeluaranScreen from '../screens/owner/PengeluaranScreen';
 import LaporanKeuanganScreen from '../screens/owner/LaporanKeuanganScreen';
 import { useKasir } from '../context/KasirContext';
@@ -26,7 +25,6 @@ export default function AppNavigator() {
             name="DashboardOwner"
             component={DashboardOwnerScreen}
           />
-          <Stack.Screen name="MenuHarga" component={MenuHargaScreen} />
           <Stack.Screen name="Pengeluaran" component={PengeluaranScreen} />
           <Stack.Screen
             name="LaporanKeuangan"

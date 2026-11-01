@@ -165,9 +165,9 @@ export const RECENT_TRANSACTIONS_PREVIEW = [
 const tentukanSatuanStok = (nama = '', kategori = '') => {
   const teks = `${nama} ${kategori}`.toLowerCase();
 
-  if (/telur/.test(teks)) return 'butir';
+  if (/telur/.test(teks)) return 'pcs';
 
-  if (/enoki|pack|kemasan/.test(teks)) return 'pack';
+  if (/enoki|pack|kemasan/.test(teks)) return 'pcs';
 
   if (
     /kerupuk|makaroni|cabai|cabe|kencur|bawang|sawi|sayur|jamur/.test(teks)
@@ -185,14 +185,17 @@ const tentukanSatuanStok = (nama = '', kategori = '') => {
 };
 
 // Data stok topping mengikuti sumber data halaman kasir.
-const STOCK_TOPPING_ITEMS = TOPPING_ITEMS.map((topping) => ({
+const STOCK_TOPPING_ITEMS = TOPPING_ITEMS.map((topping, index) => {
+  const satuan = tentukanSatuanStok(topping.nama, topping.kategori);
+  return {
   id: `STK-${topping.id}`,
   toppingId: topping.id,
   nama: topping.nama,
   kategori: topping.kategori,
-  sisa: 0,
-  minimum: 1,
-  satuan: tentukanSatuanStok(topping.nama, topping.kategori),
+  // Stok awal contoh agar daftar tidak seluruhnya berstatus habis.
+  sisa: index % 9 === 0 ? (satuan === 'kg' ? 0.25 : 2) : (satuan === 'kg' ? 2 : 20),
+  minimum: satuan === 'kg' ? 0.5 : 5,
+  satuan,
   stokAwal: 0,
   terpakaiHariIni: 0,
   estimasiHabisHari: 0,
@@ -203,16 +206,11 @@ const STOCK_TOPPING_ITEMS = TOPPING_ITEMS.map((topping) => ({
   foto: topping.image || null,
 
   riwayatRestok: [],
-}));
+  };
+});
 
-// Foto bahan dasar
-const FOTO_BAHAN_DASAR = {
-  'Penyedap': require('../../assets/bahan-dasar/penyedap.png'),
-  'Cabai Rawit': require('../../assets/bahan-dasar/cabai-rawit.png'),
-  'Kencur': require('../../assets/bahan-dasar/kencur.png'),
-  'Bawang Putih': require('../../assets/bahan-dasar/bawang-putih.png'),
-  'Bawang Daun': require('../../assets/bahan-dasar/daun-bawang.png'),
-};
+// Foto bahan dasar belum disediakan pada project; komponen menampilkan placeholder.
+const FOTO_BAHAN_DASAR = {};
 
 
 // Bahan dasar yang tidak terdaftar sebagai topping kasir.
@@ -221,9 +219,9 @@ const STOCK_BAHAN_DASAR = [
     id: 'STK-BAHAN-KUAH',
     nama: 'Penyedap',
     kategori: 'Bumbu',
-    sisa: 0,
-    minimum: 1,
-    satuan: 'gr',
+    sisa: 500,
+    minimum: 100,
+    satuan: 'gram',
     stokAwal: 0,
     terpakaiHariIni: 0,
     estimasiHabisHari: 0,
@@ -236,7 +234,7 @@ const STOCK_BAHAN_DASAR = [
     id: 'STK-BAHAN-CABAI',
     nama: 'Cabai Rawit',
     kategori: 'Bumbu',
-    sisa: 0,
+    sisa: 2,
     minimum: 0.5,
     satuan: 'kg',
     stokAwal: 0,
@@ -251,7 +249,7 @@ const STOCK_BAHAN_DASAR = [
     id: 'STK-BAHAN-KENCUR',
     nama: 'Kencur',
     kategori: 'Bumbu',
-    sisa: 0,
+    sisa: 1,
     minimum: 0.25,
     satuan: 'kg',
     stokAwal: 0,
@@ -266,7 +264,7 @@ const STOCK_BAHAN_DASAR = [
     id: 'STK-BAHAN-BAWANG',
     nama: 'Bawang Putih',
     kategori: 'Bumbu',
-    sisa: 0,
+    sisa: 1,
     minimum: 0.25,
     satuan: 'kg',
     stokAwal: 0,
@@ -280,8 +278,9 @@ const STOCK_BAHAN_DASAR = [
   {
     id: 'STK-BAHAN-DAUN',
     nama: 'Bawang Daun',
-    kategori: 'Sayur & Jamur',
-    sisa: 0,
+    kategori: 'Bumbu',
+    jenisStok: 'Bumbu',
+    sisa: 5,
     minimum: 1,
     satuan: 'ikat',
     stokAwal: 0,
