@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import formatCurrency from '../utils/formatCurrency';
-import { getCategoryBadge } from '../screens/owner/MenuHargaScreen';
+import { getCategoryBadge } from '../utils/categoryUtils';
 
 export default function RincianPengeluaranModal({
   visible,
