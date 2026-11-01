@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   View,
@@ -101,9 +100,12 @@ export default function PesananAktifScreen({ onOpenDetail }) {
   const handleOpenDetail = (order) => {
     if (!onOpenDetail) return;
 
+    const orderTypeLabel = order.orderType || order.table || 'Dine In';
+
     onOpenDetail({
       orderNo: order.id,
-      tableNo: order.table,
+      orderType: orderTypeLabel,
+      tableNo: orderTypeLabel,
       date: order.date || getFormattedToday(),
       time: order.time || '09:45',
       items: order.details || [
@@ -122,7 +124,8 @@ export default function PesananAktifScreen({ onOpenDetail }) {
     <View style={[styles.tableHead, isMobile && styles.wideRow]}>
       <Text style={[styles.th, { width: 55 }]}>No</Text>
       <Text style={[styles.th, { width: 65 }]}>Waktu</Text>
-      <Text style={[styles.th, { width: 85 }]}>No. Meja</Text>
+      {/* Kolom No. Meja diubah menjadi Tipe Pesanan */}
+      <Text style={[styles.th, { width: 85 }]}>Tipe</Text>
       <Text style={[styles.th, { width: 150 }]}>Item</Text>
       <Text style={[styles.th, { width: 100, textAlign: 'right' }]}>
         Total
@@ -140,6 +143,9 @@ export default function PesananAktifScreen({ onOpenDetail }) {
     const currentStatus = normalizeStatus(order.status);
     const cfg =
       STATUS_CONFIG[currentStatus] || STATUS_CONFIG.Diproses;
+
+    // Mengambil label tipe pesanan (Dine In / Takeaway)
+    const orderTypeLabel = order.orderType || order.table || 'Dine In';
 
     return (
       <ScrollView
@@ -182,7 +188,7 @@ export default function PesananAktifScreen({ onOpenDetail }) {
               },
             ]}
           >
-            {order.table || 'Meja 1'}
+            {orderTypeLabel}
           </Text>
 
           <Text

@@ -9,7 +9,7 @@ const KasirContext = createContext(null);
 
 const DEFAULT_KUAH = 'Original';
 const DEFAULT_LEVEL = 3;
-const DEFAULT_MEJA = 'Meja 2';
+const DEFAULT_ORDER_TYPE = 'Dine In'; // Ganti default meja menjadi tipe pesanan
 
 export function KasirProvider({ children }) {
   // =========================
@@ -18,7 +18,7 @@ export function KasirProvider({ children }) {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('Kasir');
 
-  // State global daftar kasir (bisa ditambah/dihapus oleh Owner dan divalidasi saat login)
+  // State global daftar kasir
   const [cashiers, setCashiers] = useState([
     { id: '1', name: 'Siti Aisyah', email: 'siti@kedaiseblak.com', phone: '081234567890', password: '123', status: 'Aktif' },
     { id: '2', name: 'Rini Wulandari', email: 'rini@kedaiseblak.com', phone: '089876543210', password: '123', status: 'Aktif' },
@@ -65,7 +65,7 @@ export function KasirProvider({ children }) {
   const [cart, setCart] = useState([]);
   const [selectedKuah, setSelectedKuah] = useState(DEFAULT_KUAH);
   const [selectedLevel, setSelectedLevel] = useState(DEFAULT_LEVEL);
-  const [selectedMeja, setSelectedMeja] = useState(DEFAULT_MEJA);
+  const [selectedOrderType, setSelectedOrderType] = useState(DEFAULT_ORDER_TYPE); // Dine In atau Takeaway
   const [catatan, setCatatan] = useState('');
   const [activeCategory, setActiveCategory] = useState('Semua');
 
@@ -119,7 +119,6 @@ export function KasirProvider({ children }) {
       setActiveTab('dashboard');
     }
 
-    // Simpan sesi ke localStorage agar terbaca di tab browser lain secara sinkron
     if (typeof window !== 'undefined' && window.localStorage) {
       localStorage.setItem('kedaiSeblakUser', JSON.stringify(loggedInUser));
       if (normalizedRole === 'Kasir') {
@@ -221,7 +220,7 @@ export function KasirProvider({ children }) {
     setCart([]);
     setSelectedKuah(DEFAULT_KUAH);
     setSelectedLevel(DEFAULT_LEVEL);
-    setSelectedMeja(DEFAULT_MEJA);
+    setSelectedOrderType(DEFAULT_ORDER_TYPE);
     setCatatan('');
   };
 
@@ -314,13 +313,16 @@ export function KasirProvider({ children }) {
       .map((item) => `${item.qty}x ${item.name}`)
       .join(', ');
 
+    const orderTypeVal = customData?.orderType || selectedOrderType;
+
     const newOrder = {
       id: orderNo,
       orderNo,
       time: customData?.time || time,
       date: customData?.date || date,
-      table: customData?.tableNo || selectedMeja,
-      tableNo: customData?.tableNo || selectedMeja,
+      table: orderTypeVal, // Menyimpan Dine In / Takeaway sebagai pengganti meja
+      tableNo: orderTypeVal,
+      orderType: orderTypeVal,
       items: itemsSummary,
       details: items,
       total,
@@ -343,8 +345,9 @@ export function KasirProvider({ children }) {
       waktu: newOrder.time,
       time: newOrder.time,
       date: newOrder.date,
-      meja: newOrder.table,
-      tableNo: newOrder.table,
+      meja: orderTypeVal,
+      tableNo: orderTypeVal,
+      orderType: orderTypeVal,
       item: itemsSummary,
       items,
       total,
@@ -458,8 +461,8 @@ export function KasirProvider({ children }) {
         setSelectedKuah,
         selectedLevel,
         setSelectedLevel,
-        selectedMeja,
-        setSelectedMeja,
+        selectedOrderType,    // Mengekspor state tipe pesanan
+        setSelectedOrderType, // Mengekspor fungsi pengubah tipe pesanan
         catatan,
         setCatatan,
         activeCategory,
