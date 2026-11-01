@@ -92,6 +92,7 @@ Berdasarkan hasil analisis dan rancangan kebutuhan, sistem **Seblak Prasmanan PO
 ## Pembagian Tugas
 1. Shinta PM : Screen Login Kasir, Dashboard POS Kasir (Pilih Topping, Level Pedas, Ringkasan Pesanan), Screen & Modal Pembayaran (Support Tunai, QRIS, E-Wallet + Keypad Numpad), Modal Struk Transaksi (*ReceiptModal*)
 
+![alt text](Recording-2026-10-19-095956-1.gif)
 
 2. Maya : Screen Pesanan Aktif (Filter Status & No. Meja),Screen Riwayat Transaksi & Laporan Penjualan
 
