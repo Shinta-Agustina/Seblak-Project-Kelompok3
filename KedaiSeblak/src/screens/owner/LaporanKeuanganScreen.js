@@ -13,598 +13,460 @@ import Sidebar from '../../components/Sidebar';
 import TopHeader from '../../components/TopHeader';
 import LaporanDatePickerModal from '../../components/owner/LaporanDatePickerModal';
 import PreviewLaporanModal from '../../components/owner/PreviewLaporanModal';
-import ComboBarLineChart from '../../components/owner/ComboBarLineChart';
-import { FINANCIAL_REPORT_DATA } from '../../data/mockFinancialReport';
-import { MASTER_EXPENSES } from '../../data/mockExpenses';
-import { getCategoryBadge } from './MenuHargaScreen';
+import { getFinancialReportData } from '../../data/mockFinancialReport';
 
-// Palet Warna Konsisten Khas Proyek Seblak Prasmanan
+// Palet Warna Elegan Khas Proyek Seblak Prasmanan
 const WARNA = {
-  merahTua: '#52141D',     // Brand Deep Maroon Identity
-  merahCabe: '#C62828',    // Crimson Accent (Warna Tombol Login)
-  merahJreng: '#DC2626',   // Merah Pengeluaran / Warning
-  hijauLaba: '#168653',    // Hijau Success Laba Bersih
-  kuningGold: '#F59E0B',   // Kuning Gold Accent
-  goldTua: '#B45309',      // Gold Tua
+  merahTua: '#52141D',     // Brand Deep Maroon
+  merahCabe: '#C62828',    // Crimson Accent (Tombol Aktif / Cetak)
+  merahJreng: '#DC2626',   // Merah Pengeluaran
+  hijauLaba: '#168653',    // Hijau Sukses Laba & Omzet
+  kuningGold: '#F59E0B',   // Kuning Gold Bintang & Ranking
   latar: '#F8F5F2',        // Background netral hangat
-  kartu: '#FFFFFF',
-  teks: '#2C1810',
-  abu: '#78665E',
-  garis: '#EDE5E0',
+  kartu: '#FFFFFF',        // Background putih kartu
+  teks: '#2C1810',         // Teks utama
+  abu: '#78665E',          // Teks sekunder
+  garis: '#EDE5E0',        // Garis batas
 };
 
 export default function LaporanKeuanganScreen({ isEmbedded = false, navigation }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
 
-  // 1. Tab Periode: HANYA 3 PERIODE (Harian | Bulanan | Tahunan)
-  // Default awal masuk fitur Laporan Keuangan: HARIAN
+  // View state: 'main' | 'detail_pemasukan' | 'detail_pengeluaran'
+  const [viewMode, setViewMode] = useState('main');
+
+  // Tab Periode: 'harian' | 'bulanan' | 'tahunan'
   const [activeTab, setActiveTab] = useState('harian');
 
-  // 2. State Nilai Selector Periode
-  const [harianValue, setHarianValue] = useState('16 Oktober 2026');
-  const [bulananValue, setBulananValue] = useState('Oktober 2026');
-  const [tahunanValue, setTahunanValue] = useState('2026');
+  // Selector value state
+  const [harianDate, setHarianDate] = useState('16 Oktober 2026');
+  const [bulananDate, setBulananDate] = useState('Oktober 2026');
+  const [tahunanDate, setTahunanDate] = useState('2026');
 
   // State Modal
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
 
-  // State Standalone Sidebar
+  // State Sidebar
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
-  // Data Pengeluaran Hari Ini (Sesuai dengan Data Proyek di MASTER_EXPENSES)
-  const selectedHarianExpenses = useMemo(() => {
-    const matched = MASTER_EXPENSES.filter(
-      (item) => item.tanggalStr === harianValue || item.tanggal === harianValue
-    );
-    if (matched && matched.length > 0) {
-      return matched.map((item, idx) => ({
-        id: item.id || `EXP-${idx}`,
-        no: idx + 1,
-        waktu: item.waktu || '08:00',
-        keterangan: item.keterangan || 'Topping',
-        kategori: item.kategori,
-        jumlah: item.jumlah || 1,
-        satuan: item.satuan || 'kg',
-        total: item.total || 0,
-      }));
-    }
-    const defaultData = FINANCIAL_REPORT_DATA.harian.rekapPengeluaranHarian || [];
-    return defaultData;
-  }, [harianValue]);
-
-  const totalPengeluaranHarianTabel = useMemo(() => {
-    return selectedHarianExpenses.reduce((sum, item) => sum + (item.total || 0), 0);
-  }, [selectedHarianExpenses]);
-
-  // Ambil Data Laporan Berdasarkan Periode Terpilih
-  const currentReport = useMemo(() => {
-    const raw = FINANCIAL_REPORT_DATA[activeTab] || FINANCIAL_REPORT_DATA.harian;
-    let label = harianValue;
-    if (activeTab === 'bulanan') label = bulananValue;
-    else if (activeTab === 'tahunan') label = tahunanValue;
-
-    return {
-      ...raw,
-      periodeLabel: label,
-      rekapPengeluaranHarian: selectedHarianExpenses,
-    };
-  }, [activeTab, harianValue, bulananValue, tahunanValue, selectedHarianExpenses]);
-
+  // Ambil label selector saat ini
   const currentSelectorText = useMemo(() => {
-    if (activeTab === 'harian') return harianValue;
-    if (activeTab === 'bulanan') return bulananValue;
-    return tahunanValue;
-  }, [activeTab, harianValue, bulananValue, tahunanValue]);
+    if (activeTab === 'harian') return harianDate;
+    if (activeTab === 'bulanan') return bulananDate;
+    return tahunanDate;
+  }, [activeTab, harianDate, bulananDate, tahunanDate]);
+
+  // Ambil data laporan berdasarkan periode dan tanggal yang dipilih
+  const reportData = useMemo(() => {
+    return getFinancialReportData(activeTab, currentSelectorText);
+  }, [activeTab, currentSelectorText]);
 
   const handleSelectDate = (newVal) => {
-    if (activeTab === 'harian') setHarianValue(newVal);
-    else if (activeTab === 'bulanan') setBulananValue(newVal);
-    else setTahunanValue(newVal);
+    if (activeTab === 'harian') setHarianDate(newVal);
+    else if (activeTab === 'bulanan') setBulananDate(newVal);
+    else setTahunanDate(newVal);
   };
 
-  // Header Title Sesuai Tab (Detail Harian, Detail Bulanan, Detail Tahunan)
-  const headerDetailTitle = useMemo(() => {
-    if (activeTab === 'harian') return 'Detail Harian';
-    if (activeTab === 'bulanan') return 'Detail Bulanan';
-    return 'Detail Tahunan';
-  }, [activeTab]);
+  // =========================================================================
+  // 1. TAMPILAN UTAMA (RINGKASAN KEUANGAN)
+  // =========================================================================
+  const renderMainView = () => (
+    <View style={styles.viewContainer}>
+      {/* 1. HEADER JUDUL & TOMBOL CETAK LAPORAN BERDAMPINGAN TANPA IKON KIRI */}
+      <View style={styles.titleRow}>
+        <View style={styles.titleWithBtnGroup}>
+          <Text style={styles.mainTitleText}>Laporan Keuangan</Text>
 
-  // Emoji Topping
-  const getToppingEmoji = (name) => {
-    const lower = (name || '').toLowerCase();
-    if (lower.includes('sosis')) return '🥩';
-    if (lower.includes('bakso')) return '🥟';
-    if (lower.includes('ceker')) return '🍗';
-    if (lower.includes('kerupuk')) return '🍘';
-    if (lower.includes('makaroni')) return '🍝';
-    return '🍲';
-  };
-
-  // ==========================================================================
-  // KONTEN UTAMA HALAMAN LAPORAN KEUANGAN
-  // ==========================================================================
-  const content = (
-    <View style={styles.mainContainer}>
-      {/* STICKY HEADER SECTION: Detail Title, Printer, Tab Periode, & Tanggal (Tetap di posisinya saat di-scroll) */}
-      <View style={styles.stickyHeaderSection}>
-        {/* 1. TOP BAR SESUAI WIREFRAME GAMBAR: BACK ARROW, TITLE, & IKON PRINTER PREVIEW */}
-        <View style={styles.subTopHeader}>
-          <View style={styles.subTopLeft}>
-            <Text style={styles.subTopTitle}>{headerDetailTitle}</Text>
-          </View>
-
-          {/* IKON PRINTER (AKSES PREVIEW LAPORAN) */}
           <TouchableOpacity
-            style={styles.printIconBtn}
+            style={styles.cetakLaporanBtn}
             onPress={() => setPreviewModalVisible(true)}
             activeOpacity={0.7}
-            accessibilityLabel="Buka Preview Laporan"
           >
-            <Ionicons name="print-outline" size={20} color={WARNA.teks} />
+            <Ionicons name="print-outline" size={17} color={WARNA.merahCabe} style={{ marginRight: 6 }} />
+            <Text style={styles.cetakLaporanBtnText}>Cetak Laporan</Text>
           </TouchableOpacity>
         </View>
+      </View>
 
-        {/* 2. TAB PERIODE (HANYA HARIAN | BULANAN | TAHUNAN) */}
-        <View style={styles.tabPeriodWrapper}>
-          <View style={styles.tabPeriodContainer}>
-            <TouchableOpacity
-              style={[
-                styles.tabPeriodBtn,
-                activeTab === 'harian' && styles.tabPeriodBtnActive,
-              ]}
-              onPress={() => setActiveTab('harian')}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.tabPeriodText,
-                  activeTab === 'harian' && styles.tabPeriodTextActive,
-                ]}
-              >
-                Harian
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.tabPeriodBtn,
-                activeTab === 'bulanan' && styles.tabPeriodBtnActive,
-              ]}
-              onPress={() => setActiveTab('bulanan')}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.tabPeriodText,
-                  activeTab === 'bulanan' && styles.tabPeriodTextActive,
-                ]}
-              >
-                Bulanan
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.tabPeriodBtn,
-                activeTab === 'tahunan' && styles.tabPeriodBtnActive,
-              ]}
-              onPress={() => setActiveTab('tahunan')}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.tabPeriodText,
-                  activeTab === 'tahunan' && styles.tabPeriodTextActive,
-                ]}
-              >
-                Tahunan
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 3. SELECTOR PERIODE CARD */}
+      {/* 2. TABS PERIODE: HARIAN | BULANAN | TAHUNAN */}
+      <View style={styles.tabPeriodWrapper}>
         <TouchableOpacity
-          style={styles.dateFilterCard}
-          onPress={() => setDatePickerVisible(true)}
-          activeOpacity={0.7}
-          accessibilityLabel="Pilih periode laporan"
+          style={[styles.tabPeriodBtn, activeTab === 'harian' && styles.tabPeriodBtnActive]}
+          onPress={() => setActiveTab('harian')}
+          activeOpacity={0.8}
         >
-          <View style={styles.dateFilterLeft}>
-            <Ionicons name="calendar-outline" size={18} color="#55433B" />
-            <Text style={styles.dateFilterText}>{currentSelectorText}</Text>
-          </View>
-          <Ionicons name="chevron-down" size={16} color={WARNA.abu} />
+          <Ionicons
+            name="calendar"
+            size={16}
+            color={activeTab === 'harian' ? '#FFFFFF' : '#55433B'}
+            style={{ marginRight: 6 }}
+          />
+          <Text style={[styles.tabPeriodText, activeTab === 'harian' && styles.tabPeriodTextActive]}>
+            Harian
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabPeriodBtn, activeTab === 'bulanan' && styles.tabPeriodBtnActive]}
+          onPress={() => setActiveTab('bulanan')}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name="calendar-outline"
+            size={16}
+            color={activeTab === 'bulanan' ? '#FFFFFF' : '#55433B'}
+            style={{ marginRight: 6 }}
+          />
+          <Text style={[styles.tabPeriodText, activeTab === 'bulanan' && styles.tabPeriodTextActive]}>
+            Bulanan
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabPeriodBtn, activeTab === 'tahunan' && styles.tabPeriodBtnActive]}
+          onPress={() => setActiveTab('tahunan')}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name="calendar-outline"
+            size={16}
+            color={activeTab === 'tahunan' ? '#FFFFFF' : '#55433B'}
+            style={{ marginRight: 6 }}
+          />
+          <Text style={[styles.tabPeriodText, activeTab === 'tahunan' && styles.tabPeriodTextActive]}>
+            Tahunan
+          </Text>
         </TouchableOpacity>
       </View>
 
-      {/* AREA SCROLLABLE: KEUANGAN, GRAFIK, DAN REKAP TABEL */}
-      <ScrollView
-        style={styles.bodyScrollArea}
-        contentContainerStyle={styles.bodyScrollContent}
-        showsVerticalScrollIndicator={true}
+      {/* 3. SELECTOR PERIODE CARD */}
+      <TouchableOpacity
+        style={styles.dateSelectorCard}
+        onPress={() => setDatePickerVisible(true)}
+        activeOpacity={0.7}
       >
-        {/* 4. SECTION 1: RINGKASAN KEUANGAN */}
-        <View style={styles.sectionBlock}>
-        <Text style={styles.sectionHeading}>Ringkasan Keuangan</Text>
+        <View style={styles.dateSelectorLeft}>
+          <Ionicons name="calendar-outline" size={18} color="#55433B" style={{ marginRight: 8 }} />
+          <Text style={styles.dateSelectorText}>{currentSelectorText}</Text>
+        </View>
+        <Ionicons name="chevron-down" size={18} color={WARNA.abu} />
+      </TouchableOpacity>
 
-        {/* Banner Omzet Pelengkap */}
-        <View style={styles.omzetBannerCard}>
-          <View style={styles.omzetBannerLeft}>
-            <View style={styles.omzetIconCircle}>
-              <Ionicons name="cash-outline" size={18} color={WARNA.merahCabe} />
+      {/* 4. SECTION: RINGKASAN KEUANGAN (3 STAT CARDS) */}
+      <View style={styles.sectionHeaderRow}>
+        <Ionicons name="newspaper-outline" size={17} color={WARNA.abu} style={{ marginRight: 6 }} />
+        <Text style={styles.sectionTitleText}>Ringkasan Keuangan</Text>
+      </View>
+
+      <View style={styles.statCardsRow}>
+        {/* Card 1: Total Omzet */}
+        <View style={[styles.statCard, { backgroundColor: '#F0FDF4' }]}>
+          <View style={styles.statCardHeader}>
+            <View style={[styles.statIconBox, { backgroundColor: '#DCFCE7' }]}>
+              <Ionicons name="layers" size={18} color={WARNA.hijauLaba} />
             </View>
-            <View>
-              <Text style={styles.omzetBannerLabel}>TOTAL OMZET</Text>
-              <Text style={styles.omzetBannerAmount}>
-                {formatCurrency(currentReport.summary.omzet)}
-              </Text>
-            </View>
+            <Text style={styles.statCardLabel}>Total Omzet</Text>
           </View>
-          <View style={styles.omzetBadgePill}>
-            <Text style={styles.omzetBadgeText}>Pemasukan Kotor</Text>
-          </View>
+          <Text style={[styles.statCardValue, { color: WARNA.hijauLaba }]}>
+            {formatCurrency(reportData.summary.omzet)}
+          </Text>
         </View>
 
-        {/* Dua Card Berdampingan (Total Pengeluaran & Laba Bersih Sesuai Gambar) */}
-        <View style={styles.dualCardRow}>
-          {/* Card Kiri: Total Pengeluaran */}
-          <View style={[styles.dualCard, styles.dualCardPengeluaran]}>
-            <View style={styles.dualCardHeader}>
-              <View style={[styles.dualCardIconBox, { backgroundColor: '#FEE2E2' }]}>
-                <Ionicons name="receipt-outline" size={16} color={WARNA.merahJreng} />
-              </View>
-              <Text style={styles.dualCardLabelPengeluaran}>Total Pengeluaran</Text>
+        {/* Card 2: Total Pengeluaran */}
+        <View style={[styles.statCard, { backgroundColor: '#FEF2F2' }]}>
+          <View style={styles.statCardHeader}>
+            <View style={[styles.statIconBox, { backgroundColor: '#FEE2E2' }]}>
+              <Ionicons name="wallet" size={18} color={WARNA.merahJreng} />
             </View>
-            <Text style={[styles.dualCardAmount, { color: WARNA.merahJreng }]}>
-              {formatCurrency(currentReport.summary.pengeluaran)}
-            </Text>
-            <View style={styles.trendRow}>
-              <Ionicons name="arrow-up" size={13} color={WARNA.merahJreng} />
-              <Text style={[styles.trendText, { color: WARNA.merahJreng }]}>
-                {activeTab === 'harian'
-                  ? '12% vs kemarin'
-                  : activeTab === 'bulanan'
-                  ? '10% vs bulan lalu'
-                  : '12% vs tahun lalu'}
-              </Text>
-            </View>
+            <Text style={styles.statCardLabel}>Total Pengeluaran</Text>
           </View>
+          <Text style={[styles.statCardValue, { color: WARNA.merahJreng }]}>
+            {formatCurrency(reportData.summary.pengeluaran)}
+          </Text>
+        </View>
 
-          {/* Card Kanan: Laba Bersih */}
-          <View style={[styles.dualCard, styles.dualCardLaba]}>
-            <View style={styles.dualCardHeader}>
-              <View style={[styles.dualCardIconBox, { backgroundColor: '#DCFCE7' }]}>
-                <Ionicons name="trending-up-outline" size={16} color={WARNA.hijauLaba} />
-              </View>
-              <Text style={styles.dualCardLabelLaba}>Laba Bersih</Text>
+        {/* Card 3: Laba Bersih */}
+        <View style={[styles.statCard, { backgroundColor: '#52141D', borderColor: '#52141D' }]}>
+          <View style={styles.statCardHeader}>
+            <View style={[styles.statIconBox, { backgroundColor: 'rgba(255, 255, 255, 0.18)' }]}>
+              <Ionicons name="trophy" size={18} color="#FFFFFF" />
             </View>
-            <Text style={[styles.dualCardAmount, { color: WARNA.hijauLaba }]}>
-              {formatCurrency(currentReport.summary.labaBersih)}
-            </Text>
-            <View style={styles.trendRow}>
-              <Ionicons name="arrow-up" size={13} color={WARNA.hijauLaba} />
-              <Text style={[styles.trendText, { color: WARNA.hijauLaba }]}>
-                {activeTab === 'harian'
-                  ? '20% vs kemarin'
-                  : activeTab === 'bulanan'
-                  ? '18% vs bulan lalu'
-                  : '18% vs tahun lalu'}
-              </Text>
-            </View>
+            <Text style={[styles.statCardLabel, { color: '#FBEAEC' }]}>Laba Bersih</Text>
           </View>
+          <Text style={[styles.statCardValue, { color: '#FFFFFF' }]}>
+            {formatCurrency(reportData.summary.labaBersih)}
+          </Text>
         </View>
       </View>
 
-      {/* 5. SECTION 2: GRAFIK KEUANGAN */}
-      <View style={styles.sectionBlock}>
-        <Text style={styles.sectionHeading}>Grafik Keuangan</Text>
+      {/* 5. DUA ACTION BUTTONS: DETAIL PEMASUKAN & DETAIL PENGELUARAN */}
+      <View style={styles.detailActionsRow}>
+        <TouchableOpacity
+          style={styles.detailPemasukanBtn}
+          onPress={() => setViewMode('detail_pemasukan')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.detailBtnLeft}>
+            <Ionicons name="bar-chart" size={18} color={WARNA.merahTua} style={{ marginRight: 8 }} />
+            <Text style={styles.detailPemasukanBtnText}>Detail Pemasukan</Text>
+          </View>
+        </TouchableOpacity>
 
-        <View style={styles.chartWrapperCard}>
-          <ComboBarLineChart
-            data={currentReport.chart}
-            height={195}
-            showLegend={true}
-          />
-        </View>
+        <TouchableOpacity
+          style={styles.detailPengeluaranBtn}
+          onPress={() => setViewMode('detail_pengeluaran')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.detailBtnLeft}>
+            <Ionicons name="newspaper-outline" size={18} color={WARNA.merahTua} style={{ marginRight: 8 }} />
+            <Text style={styles.detailPengeluaranBtnText}>Detail Pengeluaran</Text>
+          </View>
+        </TouchableOpacity>
       </View>
 
-      {/* 6. SECTION 3: PENGELUARAN TERBESAR (TOP 3) */}
-      <View style={styles.sectionBlock}>
-        <Text style={styles.sectionHeading}>Pengeluaran Terbesar (Top 3)</Text>
+      {/* 6. TOP 3 PENGELUARAN TERBESAR */}
+      <View style={styles.topExpenseCard}>
+        <View style={styles.topExpenseHeader}>
+          <View style={styles.topExpenseTitleGroup}>
+            <Ionicons name="star" size={18} color={WARNA.kuningGold} style={{ marginRight: 6 }} />
+            <Text style={styles.topExpenseTitleText}>Top 3 Pengeluaran Terbesar</Text>
+          </View>
+        </View>
 
-        <View style={styles.topExpenseCardContainer}>
-          {currentReport.topPengeluaran.slice(0, 3).map((item, idx) => (
-            <View
-              key={idx}
-              style={[
-                styles.topExpenseRowItem,
-                idx === 2 && styles.topExpenseRowItemLast,
-              ]}
-            >
-              {/* Ranking Number */}
-              <Text style={styles.expenseRankNum}>{item.rank.replace(/^0/, '')}</Text>
-
-              {/* Emoji Icon Circle */}
-              <View style={styles.foodEmojiBadge}>
-                <Text style={styles.foodEmojiText}>{getToppingEmoji(item.nama)}</Text>
+        <View style={styles.topExpenseList}>
+          {reportData.topPengeluaran.map((item, idx) => (
+            <View key={idx} style={styles.topExpenseRow}>
+              <View style={[styles.rankCircle, idx === 0 ? styles.rank1 : idx === 1 ? styles.rank2 : styles.rank3]}>
+                <Text style={styles.rankNumText}>{item.rank}</Text>
               </View>
 
-              {/* Nama Topping */}
-              <View style={styles.expenseNameCol}>
-                <Text style={styles.expenseNameText} numberOfLines={1}>
-                  {item.nama}
-                </Text>
+              <Text style={styles.topExpenseNameText} numberOfLines={1}>
+                {item.nama}
+              </Text>
+
+              <View style={styles.progressBarWrapper}>
+                <View
+                  style={[
+                    styles.progressBarFill,
+                    { width: `${Math.max(10, Math.min(100, item.proporsi || 40))}%` },
+                  ]}
+                />
               </View>
 
-              {/* Nominal & Persentase */}
-              <Text style={styles.expenseNominalAndPct}>
-                {formatCurrency(item.nominal)}{' '}
-                <Text style={styles.expensePctText}>({item.persen}%)</Text>
+              <Text style={styles.topExpenseNominalText}>
+                {formatCurrency(item.nominal)}
               </Text>
             </View>
           ))}
         </View>
       </View>
+    </View>
+  );
 
-      {/* 7. SECTION 4: REKAP PERIODE & RINGKASAN */}
-      <View style={styles.sectionBlock}>
-        {activeTab === 'harian' ? (
-          /* ========================================================== */
-          /* KONDISI A: TAB HARIAN (RINGKASAN AKTIVITAS + REKAP HARIAN) */
-          /* ========================================================== */
-          <>
-            {/* 1. Ringkasan Aktivitas Harian */}
-            <Text style={styles.sectionHeading}>Ringkasan Aktivitas</Text>
-            <View style={styles.activityGrid}>
-              {currentReport.ringkasanAktivitas.map((act, idx) => {
-                const iconNames = ['receipt-outline', 'cart-outline', 'cube-outline'];
-                const iconColors = [WARNA.merahCabe, WARNA.goldTua, WARNA.hijauLaba];
-                const bgColors = ['#FEE2E2', '#FEF3C7', '#DCFCE7'];
-                return (
-                  <View key={idx} style={styles.activityCard}>
-                    <View style={[styles.activityIconCircle, { backgroundColor: bgColors[idx] }]}>
-                      <Ionicons name={iconNames[idx]} size={16} color={iconColors[idx]} />
-                    </View>
-                    <Text style={styles.activityLabel}>{act.label}</Text>
-                    <Text style={styles.activityValue}>{act.value}</Text>
-                    <Text style={styles.activityUnit}>{act.unit}</Text>
-                  </View>
-                );
-              })}
-            </View>
+  // =========================================================================
+  // 2. TAMPILAN DETAIL PEMASUKAN
+  // * Tabel membentang penuh 100% tanpa celah kosong di kanan
+  // * Scroll pada isi tabel internal (bukan scroll seluruh layar ke bawah)
+  // * Tombol Kembali diposisikan di bawah tabel sesuai instruksi user
+  // =========================================================================
+  const renderDetailPemasukanView = () => (
+    <View style={styles.viewContainer}>
+      {/* Subheader: Judul di kiri dan Badge Tanggal di kanan */}
+      <View style={styles.detailSubheaderRow}>
+        <Text style={styles.detailSubheaderTitle}>Detail Pemasukan</Text>
 
-            {/* 2. Rekap Harian (Tabel Pengeluaran Hari Ini Sesuai Data Proyek) */}
-            <View style={{ marginTop: 18 }}>
-              <View style={styles.sectionHeadingRow}>
-                <Text style={styles.sectionHeading}>Rekap Harian</Text>
-                <Text style={styles.sectionHeadingSub}>
-                  {harianValue} • {selectedHarianExpenses.length} Pembelian Topping
-                </Text>
-              </View>
-              <View style={styles.tableCardContainer}>
-                <ScrollView
-                  horizontal={true}
-                  showsHorizontalScrollIndicator={true}
-                  contentContainerStyle={styles.tableHorizontalScroll}
-                >
-                  <View style={styles.tableInnerWrapper}>
-                    {/* Header Kolom Tabel Pengeluaran */}
-                    <View style={styles.tableHeaderRow}>
-                      <Text style={[styles.headerCellText, styles.colNo]}>No</Text>
-                      <Text style={[styles.headerCellText, styles.colWaktu]}>Waktu</Text>
-                      <Text style={[styles.headerCellText, styles.colTopping]}>List Topping</Text>
-                      <Text style={[styles.headerCellText, styles.colJumlah]}>Jumlah</Text>
-                      <Text style={[styles.headerCellText, styles.colTotal]}>Total Biaya</Text>
-                    </View>
-
-                    {/* Baris Data Pengeluaran Hari Ini */}
-                    {selectedHarianExpenses.map((row, idx) => {
-                      const catBadge = getCategoryBadge(row.kategori, row.keterangan);
-                      return (
-                        <View
-                          key={row.id || idx}
-                          style={[
-                            styles.tableDataRow,
-                            idx % 2 === 1 && styles.tableDataRowAlt,
-                            idx === selectedHarianExpenses.length - 1 && styles.tableDataRowLast,
-                          ]}
-                        >
-                          <Text style={[styles.dataCellText, styles.colNo, { color: WARNA.abu }]}>
-                            {row.no || idx + 1}
-                          </Text>
-                          <Text style={[styles.dataCellText, styles.colWaktu, { color: WARNA.abu }]}>
-                            {row.waktu}
-                          </Text>
-                          <View style={styles.colToppingWrapper}>
-                            <Text
-                              style={[styles.dataCellText, styles.boldCellText, styles.colToppingText]}
-                            >
-                              {row.keterangan}
-                            </Text>
-                            <View style={[styles.categoryBadge, { backgroundColor: catBadge.bg }]}>
-                              <Text style={[styles.categoryBadgeText, { color: catBadge.color }]}>
-                                {catBadge.label}
-                              </Text>
-                            </View>
-                          </View>
-                          <Text style={[styles.dataCellText, styles.colJumlah, { color: '#55453E' }]}>
-                            {row.jumlah} {row.satuan || 'kg'}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.dataCellText,
-                              styles.boldCellText,
-                              styles.colTotal,
-                              { color: WARNA.merahJreng },
-                            ]}
-                          >
-                            {formatCurrency(row.total)}
-                          </Text>
-                        </View>
-                      );
-                    })}
-
-                    {/* Footer Total Pengeluaran Hari Ini */}
-                    <View style={styles.tableFooterRow}>
-                      <Text style={styles.tableFooterLabel}>
-                        Total Pengeluaran ({selectedHarianExpenses.length} Pembelian)
-                      </Text>
-                      <Text style={styles.tableFooterValue}>
-                        {formatCurrency(totalPengeluaranHarianTabel)}
-                      </Text>
-                    </View>
-                  </View>
-                </ScrollView>
-              </View>
-            </View>
-          </>
-        ) : activeTab === 'bulanan' ? (
-          /* ========================================================== */
-          /* KONDISI B: TAB BULANAN (REKAP MINGGUAN + RINGKASAN BULANAN) */
-          /* ========================================================== */
-          <>
-            {/* 1. Rekap Mingguan Table */}
-            <Text style={styles.sectionHeading}>Rekap Mingguan</Text>
-            <View style={styles.tableCardContainer}>
-              <View style={styles.tableHeaderRow}>
-                <Text style={[styles.headerCellText, { flex: 1.4 }]}>Minggu</Text>
-                <Text style={[styles.headerCellText, { flex: 1.3, textAlign: 'right' }]}>
-                  Pengeluaran
-                </Text>
-                <Text style={[styles.headerCellText, { flex: 1.3, textAlign: 'right' }]}>
-                  Laba Bersih
-                </Text>
-              </View>
-
-              {currentReport.rekapTabel.map((row, idx) => (
-                <View
-                  key={idx}
-                  style={[
-                    styles.tableDataRow,
-                    idx % 2 === 1 && styles.tableDataRowAlt,
-                    idx === currentReport.rekapTabel.length - 1 && styles.tableDataRowLast,
-                  ]}
-                >
-                  <Text style={[styles.dataCellText, styles.boldCellText, { flex: 1.4 }]}>
-                    {row.periode.replace(/\s*\(.*?\)/, '')}
-                  </Text>
-                  <Text style={[styles.dataCellText, { flex: 1.3, textAlign: 'right', color: WARNA.merahJreng, fontWeight: '700' }]}>
-                    {formatCurrency(row.pengeluaran)}
-                  </Text>
-                  <Text style={[styles.dataCellText, styles.boldCellText, { flex: 1.3, textAlign: 'right', color: WARNA.hijauLaba }]}>
-                    {formatCurrency(row.labaBersih)}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
-            {/* 2. Ringkasan Bulanan */}
-            <View style={{ marginTop: 18 }}>
-              <Text style={styles.sectionHeading}>Ringkasan Bulanan</Text>
-              <View style={styles.activityGrid}>
-                {currentReport.ringkasanBulanan.map((act, idx) => {
-                  const iconNames = ['receipt-outline', 'cube-outline', 'trophy-outline'];
-                  const iconColors = [WARNA.merahCabe, WARNA.hijauLaba, WARNA.goldTua];
-                  const bgColors = ['#FEE2E2', '#DCFCE7', '#FEF3C7'];
-                  return (
-                    <View key={idx} style={styles.activityCard}>
-                      <View style={[styles.activityIconCircle, { backgroundColor: bgColors[idx] }]}>
-                        <Ionicons name={iconNames[idx]} size={16} color={iconColors[idx]} />
-                      </View>
-                      <Text style={styles.activityLabel}>{act.label}</Text>
-                      <Text style={styles.activityValue}>{act.value}</Text>
-                      <Text style={styles.activityUnit}>{act.unit}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-          </>
-        ) : (
-          /* ========================================================== */
-          /* KONDISI C: TAB TAHUNAN (REKAP BULANAN + RINGKASAN TAHUN INI) */
-          /* ========================================================== */
-          <>
-            <Text style={styles.sectionHeading}>Rekap Bulanan</Text>
-            <View style={styles.tableCardContainer}>
-              <View style={styles.tableHeaderRow}>
-                <Text style={[styles.headerCellText, { flex: 1.4 }]}>Bulan</Text>
-                <Text style={[styles.headerCellText, { flex: 1.3, textAlign: 'right' }]}>
-                  Pengeluaran
-                </Text>
-                <Text style={[styles.headerCellText, { flex: 1.3, textAlign: 'right' }]}>
-                  Laba Bersih
-                </Text>
-              </View>
-
-              {currentReport.rekapTabel.map((row, idx) => (
-                <View
-                  key={idx}
-                  style={[
-                    styles.tableDataRow,
-                    idx % 2 === 1 && styles.tableDataRowAlt,
-                    idx === currentReport.rekapTabel.length - 1 && styles.tableDataRowLast,
-                  ]}
-                >
-                  <Text style={[styles.dataCellText, styles.boldCellText, { flex: 1.4 }]}>
-                    {row.periode.replace(/\s*2026/, '')}
-                  </Text>
-                  <Text style={[styles.dataCellText, { flex: 1.3, textAlign: 'right', color: WARNA.merahJreng, fontWeight: '700' }]}>
-                    {formatCurrency(row.pengeluaran)}
-                  </Text>
-                  <Text style={[styles.dataCellText, styles.boldCellText, { flex: 1.3, textAlign: 'right', color: WARNA.hijauLaba }]}>
-                    {formatCurrency(row.labaBersih)}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
-            {/* Ringkasan Tahun Ini */}
-            <View style={{ marginTop: 18 }}>
-              <Text style={styles.sectionHeading}>Ringkasan Tahun Ini</Text>
-              <View style={styles.dualCardRow}>
-                <View style={[styles.dualCard, { backgroundColor: '#FFFFFF', borderColor: '#EDE5E0' }]}>
-                  <View style={styles.dualCardHeader}>
-                    <View style={[styles.dualCardIconBox, { backgroundColor: '#FEF3C7' }]}>
-                      <Ionicons name="trophy-outline" size={16} color={WARNA.goldTua} />
-                    </View>
-                    <Text style={[styles.dualCardLabelPengeluaran, { color: WARNA.goldTua }]}>
-                      Bulan Terbaik
-                    </Text>
-                  </View>
-                  <Text style={[styles.dualCardAmount, { fontSize: 15, color: '#2C1810' }]}>
-                    Okt 2026
-                  </Text>
-                  <Text style={[styles.trendText, { color: WARNA.hijauLaba, marginTop: 2 }]}>
-                    Omzet Rp 25.460.000
-                  </Text>
-                </View>
-
-                <View style={[styles.dualCard, { backgroundColor: '#FFFFFF', borderColor: '#EDE5E0' }]}>
-                  <View style={styles.dualCardHeader}>
-                    <View style={[styles.dualCardIconBox, { backgroundColor: '#FEE2E2' }]}>
-                      <Ionicons name="flame-outline" size={16} color={WARNA.merahJreng} />
-                    </View>
-                    <Text style={styles.dualCardLabelPengeluaran}>Pengeluaran Terbesar</Text>
-                  </View>
-                  <Text style={[styles.dualCardAmount, { fontSize: 15, color: '#2C1810' }]}>
-                    Sep 2026
-                  </Text>
-                  <Text style={[styles.trendText, { color: WARNA.merahJreng, marginTop: 2 }]}>
-                    Rp 8.150.000
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </>
-        )}
+        <View style={styles.dateBadgePill}>
+          <Ionicons name="calendar-outline" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.dateBadgeText}>{currentSelectorText}</Text>
         </View>
+      </View>
+
+      {/* Tabel Transaksi Kasir Full Width dengan Inner Scroll */}
+      <View style={styles.detailTableCard}>
+        <View style={styles.detailTableBanner}>
+          <Ionicons name="bar-chart" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+          <Text style={styles.detailTableBannerTitle}>Detail Transaksi Kasir</Text>
+        </View>
+
+        <View style={styles.tableFullWidthWrapper}>
+          {/* Header Kolom Fixed */}
+          <View style={styles.thRow}>
+            <Text style={[styles.thCell, { flex: 0.5, textAlign: 'center' }]}>No</Text>
+            <Text style={[styles.thCell, { flex: 1, textAlign: 'center' }]}>Waktu</Text>
+            <Text style={[styles.thCell, { flex: 2.2, paddingLeft: 8 }]}>Kasir</Text>
+            <Text style={[styles.thCell, { flex: 1.8, textAlign: 'right' }]}>Total Transaksi</Text>
+            <Text style={[styles.thCell, { flex: 1.5, textAlign: 'center' }]}>Metode Pembayaran</Text>
+          </View>
+
+          {/* Area Data yang discroll secara internal */}
+          <ScrollView
+            style={styles.innerTableScroll}
+            nestedScrollEnabled={true}
+            showsVerticalScrollIndicator={true}
+          >
+            {reportData.pemasukan.map((item, idx) => (
+              <View
+                key={idx}
+                style={[
+                  styles.tdRow,
+                  idx % 2 === 1 && styles.tdRowAlt,
+                ]}
+              >
+                <Text style={[styles.tdCell, { flex: 0.5, textAlign: 'center', color: WARNA.abu }]}>
+                  {item.no || idx + 1}
+                </Text>
+                <Text style={[styles.tdCell, { flex: 1, textAlign: 'center', color: WARNA.abu }]}>
+                  {item.waktu}
+                </Text>
+                <Text style={[styles.tdCell, { flex: 2.2, fontWeight: '600', paddingLeft: 8 }]}>
+                  {item.kasir}
+                </Text>
+                <Text style={[styles.tdCell, { flex: 1.8, textAlign: 'right', fontWeight: '700' }]}>
+                  {formatCurrency(item.totalTransaksi)}
+                </Text>
+                <Text style={[styles.tdCell, { flex: 1.5, textAlign: 'center', color: '#55433B' }]}>
+                  {item.metodePembayaran}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+
+          {/* Footer Total Fixed */}
+          <View style={styles.tfootRow}>
+            <Text style={styles.tfootLabel}>Total Jumlah Transaksi</Text>
+            <Text style={[styles.tfootValue, { color: WARNA.hijauLaba }]}>
+              {formatCurrency(reportData.summary.omzet)}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Tombol Kembali di Bawah Tabel */}
+      <View style={styles.bottomNavRow}>
+        <TouchableOpacity
+          style={styles.kembaliBtnBottom}
+          onPress={() => setViewMode('main')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={17} color={WARNA.merahCabe} style={{ marginRight: 6 }} />
+          <Text style={styles.kembaliBtnBottomText}>Kembali</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  // =========================================================================
+  // 3. TAMPILAN DETAIL PENGELUARAN
+  // * Tabel membentang penuh 100% tanpa celah kosong di kanan
+  // * Scroll pada isi tabel internal (bukan scroll seluruh layar ke bawah)
+  // * Tombol Kembali diposisikan di bawah tabel
+  // =========================================================================
+  const renderDetailPengeluaranView = () => (
+    <View style={styles.viewContainer}>
+      {/* Subheader: Judul di kiri dan Badge Tanggal di kanan */}
+      <View style={styles.detailSubheaderRow}>
+        <Text style={styles.detailSubheaderTitle}>Detail Pengeluaran / Restok</Text>
+
+        <View style={styles.dateBadgePill}>
+          <Ionicons name="calendar-outline" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.dateBadgeText}>{currentSelectorText}</Text>
+        </View>
+      </View>
+
+      {/* Tabel Pengeluaran Full Width dengan Inner Scroll */}
+      <View style={styles.detailTableCard}>
+        <View style={styles.detailTableBanner}>
+          <Ionicons name="newspaper-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+          <Text style={styles.detailTableBannerTitle}>Detail Pengeluaran</Text>
+        </View>
+
+        <View style={styles.tableFullWidthWrapper}>
+          {/* Header Kolom Fixed */}
+          <View style={styles.thRow}>
+            <Text style={[styles.thCell, { flex: 0.5, textAlign: 'center' }]}>No</Text>
+            <Text style={[styles.thCell, { flex: 1.1, textAlign: 'center' }]}>Waktu</Text>
+            <Text style={[styles.thCell, { flex: 2.2, paddingLeft: 8 }]}>Keterangan</Text>
+            <Text style={[styles.thCell, { flex: 1.7, textAlign: 'center' }]}>Supplier</Text>
+            <Text style={[styles.thCell, { flex: 1.2, textAlign: 'center', paddingRight: 12 }]}>Jumlah</Text>
+            <Text style={[styles.thCell, { flex: 1.8, textAlign: 'right', paddingRight: 8 }]}>Nominal</Text>
+          </View>
+
+          {/* Area Data yang discroll secara internal */}
+          <ScrollView
+            style={styles.innerTableScroll}
+            nestedScrollEnabled={true}
+            showsVerticalScrollIndicator={true}
+          >
+            {reportData.pengeluaran.map((item, idx) => (
+              <View
+                key={idx}
+                style={[
+                  styles.tdRow,
+                  idx % 2 === 1 && styles.tdRowAlt,
+                ]}
+              >
+                <Text style={[styles.tdCell, { flex: 0.5, textAlign: 'center', color: WARNA.abu }]}>
+                  {item.no || idx + 1}
+                </Text>
+                <Text style={[styles.tdCell, { flex: 1.1, textAlign: 'center', color: WARNA.abu }]}>
+                  {item.waktu}
+                </Text>
+                <Text style={[styles.tdCell, { flex: 2.2, fontWeight: '600', paddingLeft: 8 }]}>
+                  {item.keterangan}
+                </Text>
+                <Text style={[styles.tdCell, { flex: 1.7, textAlign: 'center', color: '#55433B' }]}>
+                  {item.supplier}
+                </Text>
+                <Text style={[styles.tdCell, { flex: 1.2, textAlign: 'center', color: '#55433B', paddingRight: 12 }]}>
+                  {item.jumlah} {item.satuan || ''}
+                </Text>
+                <Text style={[styles.tdCell, { flex: 1.8, textAlign: 'right', fontWeight: '700', paddingRight: 8 }]}>
+                  {formatCurrency(item.nominal || item.total)}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+
+          {/* Footer Total Fixed */}
+          <View style={styles.tfootRow}>
+            <Text style={styles.tfootLabel}>Total Pengeluaran</Text>
+            <Text style={[styles.tfootValue, { color: WARNA.merahJreng }]}>
+              {formatCurrency(reportData.summary.pengeluaran)}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Tombol Kembali di Bawah Tabel */}
+      <View style={styles.bottomNavRow}>
+        <TouchableOpacity
+          style={styles.kembaliBtnBottom}
+          onPress={() => setViewMode('main')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={17} color={WARNA.merahCabe} style={{ marginRight: 6 }} />
+          <Text style={styles.kembaliBtnBottomText}>Kembali</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  // Konten Utama
+  const content = (
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.mainScroll}
+        contentContainerStyle={styles.mainScrollContent}
+        showsVerticalScrollIndicator={true}
+      >
+        {viewMode === 'main' && renderMainView()}
+        {viewMode === 'detail_pemasukan' && renderDetailPemasukanView()}
+        {viewMode === 'detail_pengeluaran' && renderDetailPengeluaranView()}
       </ScrollView>
 
-      {/* MODAL DATE PICKER */}
+      {/* Date Picker Modal */}
       <LaporanDatePickerModal
         visible={datePickerVisible}
         onClose={() => setDatePickerVisible(false)}
@@ -613,639 +475,456 @@ export default function LaporanKeuanganScreen({ isEmbedded = false, navigation }
         onSelectDate={handleSelectDate}
       />
 
-      {/* MODAL PREVIEW DOKUMEN LAPORAN & CETAK PDF */}
+      {/* Preview Laporan Modal */}
       <PreviewLaporanModal
         visible={previewModalVisible}
         onClose={() => setPreviewModalVisible(false)}
-        reportData={currentReport}
+        reportData={reportData}
       />
     </View>
   );
 
-  // Jika di-embed ke dalam DashboardOwnerScreen
   if (isEmbedded) {
     return content;
   }
 
-  // Jika dibuka sebagai Halaman Standalone
   return (
-    <View style={styles.standaloneRoot}>
+    <View style={styles.container}>
       {!isMobile && sidebarOpen && (
         <Sidebar
           role="owner"
           activeTab="laporan_keuangan"
           setActiveTab={(tab) => {
-            if (navigation) navigation.navigate(tab);
+            if (tab === 'dashboard' && navigation) navigation.navigate('DashboardOwner');
           }}
           isMobile={false}
         />
       )}
 
-      {isMobile && sidebarOpen && (
-        <View style={styles.mobileBackdrop}>
-          <TouchableOpacity
-            style={styles.backdropTouch}
-            onPress={() => setSidebarOpen(false)}
-            activeOpacity={1}
-          />
-          <Sidebar
-            role="owner"
-            activeTab="laporan_keuangan"
-            setActiveTab={(tab) => {
-              setSidebarOpen(false);
-              if (navigation) navigation.navigate(tab);
-            }}
-            isMobile={true}
-            onClose={() => setSidebarOpen(false)}
-          />
-        </View>
-      )}
-
-      <View style={styles.standaloneWrapper}>
+      <View style={styles.mainWrapper}>
         <TopHeader
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
           isSidebarOpen={sidebarOpen}
-          title="Owner Portal · Laporan Keuangan"
+          title="Owner Portal • Laporan Keuangan"
           role="Owner"
         />
-        <View style={styles.standaloneMainArea}>
-          {content}
-        </View>
+        {content}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  standaloneRoot: {
+  container: {
     flex: 1,
-    flexDirection: 'row',
     backgroundColor: WARNA.latar,
+    flexDirection: 'row',
   },
-  standaloneWrapper: {
+  mainWrapper: {
     flex: 1,
+    flexDirection: 'column',
     minWidth: 0,
-    height: '100%',
   },
-  standaloneMainArea: {
-    flex: 1,
-    backgroundColor: WARNA.latar,
-  },
-  embeddedContainer: {
-    flex: 1,
-    backgroundColor: WARNA.latar,
-  },
-  mobileBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 999,
-    flexDirection: 'row',
-  },
-  backdropTouch: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  mainContainer: {
-    flex: 1,
-    backgroundColor: WARNA.latar,
-  },
-  stickyHeaderSection: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 4,
-    backgroundColor: WARNA.latar,
-    zIndex: 10,
-  },
-  bodyScrollArea: {
+  mainScroll: {
     flex: 1,
   },
-  bodyScrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
+  mainScrollContent: {
+    padding: 16,
     paddingBottom: 40,
   },
+  viewContainer: {
+    width: '100%',
+    maxWidth: 960,
+    alignSelf: 'center',
+  },
 
-  // Sub Top Header
-  subTopHeader: {
+  // Title Row & Cetak Button Berdampingan
+  titleRow: {
+    marginBottom: 16,
+  },
+  titleWithBtnGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+    gap: 12,
+    flexWrap: 'wrap',
   },
-  subTopLeft: {
+  mainTitleText: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: WARNA.teks,
+  },
+  cetakLaporanBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  subTopTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#2C1810',
-    letterSpacing: 0.2,
-  },
-  printIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E8DCD4',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E6D7D2',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  cetakLaporanBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: WARNA.teks,
   },
 
-  // 2. Tab Periode Segmented Control (Hanya Harian | Bulanan | Tahunan)
+  // Tabs Periode
   tabPeriodWrapper: {
-    marginBottom: 10,
-  },
-  tabPeriodContainer: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 3,
-    borderWidth: 1.5,
-    borderColor: '#E8DCD4',
-    gap: 4,
+    gap: 10,
+    marginBottom: 14,
   },
   tabPeriodBtn: {
     flex: 1,
-    paddingVertical: 8,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EFE7E2',
+    paddingVertical: 10,
+    borderRadius: 8,
   },
   tabPeriodBtnActive: {
     backgroundColor: WARNA.merahCabe,
-    shadowColor: WARNA.merahCabe,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.22,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: WARNA.merahCabe,
   },
   tabPeriodText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: WARNA.abu,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#55433B',
   },
   tabPeriodTextActive: {
     color: '#FFFFFF',
-    fontWeight: '800',
-  },
-
-  // 3. Date Filter Card
-  dateFilterCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E8DCD4',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 16,
-  },
-  dateFilterLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  dateFilterText: {
-    fontSize: 13,
     fontWeight: '700',
-    color: '#2C1810',
   },
 
-  // Section Blocks
-  sectionBlock: {
+  // Date Selector
+  dateSelectorCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EFE7E2',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 8,
     marginBottom: 18,
   },
-  sectionHeading: {
+  dateSelectorLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateSelectorText: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#2C1810',
-    marginBottom: 8,
-  },
-  sectionHeadingRowBetween: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  grafikBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    backgroundColor: '#FBEAEC',
-  },
-  grafikBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: WARNA.merahCabe,
+    fontWeight: '600',
+    color: WARNA.teks,
   },
 
-  // Banner Omzet
-  omzetBannerCard: {
+  // Section Header
+  sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#EDE5E0',
+    marginBottom: 12,
+  },
+  sectionTitleText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: WARNA.teks,
+  },
+
+  // Stat Cards (Ringkasan Keuangan)
+  statCardsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+  },
+  statCard: {
+    flex: 1,
+    minWidth: 140,
     borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#EFE7E2',
+  },
+  statCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 8,
   },
-  omzetBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  omzetIconCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#FBEAEC',
+  statIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  omzetBannerLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#78665E',
-    letterSpacing: 0.3,
+  statCardLabel: {
+    fontSize: 12,
+    color: WARNA.abu,
+    fontWeight: '600',
   },
-  omzetBannerAmount: {
+  statCardValue: {
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '800',
+  },
+
+  // Detail Action Buttons Row
+  detailActionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+  detailPemasukanBtn: {
+    flex: 1,
+    minWidth: 160,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: WARNA.merahTua,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderRadius: 10,
+  },
+  detailPengeluaranBtn: {
+    flex: 1,
+    minWidth: 160,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: WARNA.merahTua,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderRadius: 10,
+  },
+  detailBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailPemasukanBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
     color: WARNA.merahTua,
   },
-  omzetBadgePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: '#FAF5F3',
-  },
-  omzetBadgeText: {
-    fontSize: 10,
+  detailPengeluaranBtnText: {
+    fontSize: 14,
     fontWeight: '700',
-    color: '#78665E',
+    color: WARNA.merahTua,
   },
 
-  // Dual Cards (Total Pengeluaran & Laba Bersih)
-  dualCardRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  dualCard: {
-    flex: 1,
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1.5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  dualCardPengeluaran: {
-    backgroundColor: '#FFF8F8',
-    borderColor: '#FEE2E2',
-  },
-  dualCardLaba: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#DCFCE7',
-  },
-  dualCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  dualCardIconBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dualCardLabelPengeluaran: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#78665E',
-  },
-  dualCardLabelLaba: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#78665E',
-  },
-  dualCardAmount: {
-    fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 0.2,
-    marginBottom: 4,
-  },
-  trendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  trendText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-
-  // Chart Wrapper
-  chartWrapperCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#EDE5E0',
-    padding: 14,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-
-  // Pengeluaran Terbesar (Top 3)
-  topExpenseCardContainer: {
+  // Top 3 Pengeluaran Terbesar Card
+  topExpenseCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#EDE5E0',
-    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#EFE7E2',
+    padding: 16,
   },
-  topExpenseRowItem: {
+  topExpenseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  topExpenseTitleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 11,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5ECE7',
+  },
+  topExpenseTitleText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: WARNA.teks,
+  },
+  topExpenseList: {
+    gap: 14,
+  },
+  topExpenseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
   },
-  topExpenseRowItemLast: {
-    borderBottomWidth: 0,
-  },
-  expenseRankNum: {
-    width: 14,
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#78665E',
-    textAlign: 'center',
-  },
-  foodEmojiBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FAF5F3',
+  rankCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  foodEmojiText: {
-    fontSize: 14,
+  rank1: {
+    backgroundColor: '#F59E0B',
   },
-  expenseNameCol: {
+  rank2: {
+    backgroundColor: '#D1D5DB',
+  },
+  rank3: {
+    backgroundColor: '#EA580C',
+  },
+  rankNumText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  topExpenseNameText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: WARNA.teks,
+    width: 130,
+  },
+  progressBarWrapper: {
     flex: 1,
+    height: 10,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 5,
+    overflow: 'hidden',
   },
-  expenseNameText: {
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#F87171',
+    borderRadius: 5,
+  },
+  topExpenseNominalText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#2C1810',
-  },
-  expenseNominalAndPct: {
-    fontSize: 12,
-    fontWeight: '800',
     color: WARNA.merahJreng,
-  },
-  expensePctText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#78665E',
-  },
-
-  // Ringkasan Aktivitas / Bulanan
-  activityGrid: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  activityCard: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#EDE5E0',
-    padding: 10,
-    alignItems: 'center',
-  },
-  activityIconCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  activityLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#78665E',
-    textAlign: 'center',
-    marginBottom: 2,
-  },
-  activityValue: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#2C1810',
-  },
-  activityUnit: {
-    fontSize: 9,
-    color: '#A69A90',
-  },
-
-  // Table Card Container
-  tableCardContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#EDE5E0',
-    overflow: 'hidden',
-  },
-  tableHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8F4F0',
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1.5,
-    borderBottomColor: '#E8DCD4',
-  },
-  headerCellText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#2C1810',
-  },
-  tableDataRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5ECE7',
-  },
-  tableDataRowAlt: {
-    backgroundColor: '#FAF7F5',
-  },
-  tableDataRowHighlight: {
-    backgroundColor: '#FDF2F4',
-  },
-  tableDataRowLast: {
-    borderBottomWidth: 0,
-  },
-  dataCellText: {
-    fontSize: 12,
-    color: '#2C1810',
-  },
-  boldCellText: {
-    fontWeight: '700',
-  },
-  sectionHeadingRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  sectionHeadingSub: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#78665E',
-  },
-  tableHorizontalScroll: {
-    minWidth: 540,
-    flexGrow: 1,
-  },
-  tableInnerWrapper: {
-    minWidth: 540,
-    flex: 1,
-  },
-  colNo: {
-    width: 28,
-    textAlign: 'center',
-  },
-  colWaktu: {
-    width: 50,
-    textAlign: 'center',
-  },
-  colTopping: {
-    flex: 1,
-    minWidth: 240,
-    paddingHorizontal: 6,
-    textAlign: 'left',
-  },
-  colToppingWrapper: {
-    flex: 1,
-    minWidth: 240,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-    gap: 6,
-  },
-  categoryBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    alignSelf: 'center',
-  },
-  categoryBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  colToppingText: {
-    fontSize: 12,
-    color: '#2C1810',
-    flexShrink: 0,
-  },
-  colJumlah: {
-    width: 75,
-    textAlign: 'center',
-  },
-  colTotal: {
     width: 90,
     textAlign: 'right',
-    paddingRight: 4,
-  },
-  tableFooterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8F4F0',
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    borderTopWidth: 1.5,
-    borderTopColor: '#E8DCD4',
-    minWidth: 540,
-  },
-  tableFooterLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#2C1810',
-  },
-  tableFooterValue: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: WARNA.merahTua,
   },
 
-  // Top 3 Topping Card List
-  topToppingCardList: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#EDE5E0',
-    overflow: 'hidden',
+  // Subheader Detail View
+  detailSubheaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  toppingItemRow: {
+  detailSubheaderTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: WARNA.teks,
+  },
+  dateBadgePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    backgroundColor: WARNA.merahTua,
     paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5ECE7',
-    gap: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
   },
-  toppingItemRowLast: {
-    borderBottomWidth: 0,
-  },
-  toppingRankIndex: {
-    width: 14,
+  dateBadgeText: {
     fontSize: 12,
-    fontWeight: '800',
-    color: '#78665E',
-    textAlign: 'center',
-  },
-  toppingEmojiBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#FDF7F4',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  toppingNameText: {
-    flex: 1,
-    fontSize: 13,
     fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  // Detail Table Card (Full Width & Inner Scroll)
+  detailTableCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#EFE7E2',
+    overflow: 'hidden',
+    marginBottom: 18,
+  },
+  detailTableBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: WARNA.merahTua,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  detailTableBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  tableFullWidthWrapper: {
+    width: '100%',
+  },
+  innerTableScroll: {
+    maxHeight: 380,
+  },
+  thRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F8F5F2',
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDE5E0',
+  },
+  thCell: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#78665E',
+  },
+  tdRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDE5E0',
+  },
+  tdRowAlt: {
+    backgroundColor: '#FAF7F5',
+  },
+  tdCell: {
+    fontSize: 12.5,
     color: '#2C1810',
   },
-  toppingPorsiText: {
-    fontSize: 12,
+  tfootRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    backgroundColor: '#F8F5F2',
+    borderTopWidth: 1,
+    borderTopColor: '#EDE5E0',
+  },
+  tfootLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4B3830',
+  },
+  tfootValue: {
+    fontSize: 14,
     fontWeight: '800',
-    color: WARNA.hijauLaba,
+  },
+
+  // Bottom Navigation Row
+  bottomNavRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    marginTop: 6,
+    marginBottom: 20,
+  },
+  kembaliBtnBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EFE7E2',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 8,
+  },
+  kembaliBtnBottomText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: WARNA.merahCabe,
   },
 });

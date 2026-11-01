@@ -431,13 +431,17 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation }) {
       {/* ================================================================== */}
       {activeTab === 'harian' ? (
         <View style={styles.harianWrapper}>
-          {/* TOMBOL + CATAT PENGELUARAN: WARNA BIRU, SIMBOL '+' SATU SAJA */}
-          <CustomButton
-            title="+ Catat Pengeluaran"
-            variant="primary"
-            onPress={handleOpenCreateModal}
-            style={styles.catatPengeluaranBtn}
-          />
+          {/* TOMBOL + CATAT PENGELUARAN: Di sebelah kanan atas tabel, ukuran disesuaikan panjang teks */}
+          <View style={styles.catatBtnContainer}>
+            <TouchableOpacity
+              style={styles.catatPengeluaranBtn}
+              onPress={handleOpenCreateModal}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="add" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
+              <Text style={styles.catatPengeluaranBtnText}>Catat Pengeluaran</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* TABEL PENGELUARAN HARIAN (Dapat digeser menyamping jika nama/label panjang) */}
           <View style={styles.tableCard}>
@@ -452,7 +456,7 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation }) {
                   <Text style={[styles.headerColText, styles.colNo]}>No</Text>
                   <Text style={[styles.headerColText, styles.colWaktu]}>Waktu</Text>
                   <Text style={[styles.headerColText, styles.colKet]}>
-                    List Topping
+                    Nama Bahan / Keterangan
                   </Text>
                   <Text style={[styles.headerColText, styles.colJumlah]}>
                     Jumlah
@@ -542,9 +546,16 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation }) {
                     <View style={styles.rekapItemLeft}>
                       <Text style={styles.rekapDateTitle}>{dayDateText}</Text>
                       <Text style={styles.rekapItemCount}>
-                        {itemCount > 0
-                          ? `${itemCount} pembelian topping`
-                          : 'Tidak ada pembelian'}
+                        {(() => {
+                          if (itemCount === 0) return 'Tidak ada pembelian';
+                          const bumbuCount = group.items.filter(it => (it.kategori || '').toLowerCase().includes('bumbu')).length;
+                          const toppingCount = itemCount - bumbuCount;
+                          if (bumbuCount > 0 && toppingCount > 0) {
+                            return `${toppingCount} pembelian topping, ${bumbuCount} bumbu`;
+                          }
+                          if (bumbuCount > 0) return `${bumbuCount} pembelian bumbu`;
+                          return `${toppingCount} pembelian topping`;
+                        })()}
                       </Text>
                     </View>
 
@@ -604,7 +615,16 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation }) {
                     <View style={styles.rekapItemLeft}>
                       <Text style={styles.rekapDateTitle}>{dateLabel}</Text>
                       <Text style={styles.rekapItemCount}>
-                        {itemCount} pembelian topping
+                        {(() => {
+                          if (itemCount === 0) return 'Tidak ada pembelian';
+                          const bumbuCount = group.items.filter(it => (it.kategori || '').toLowerCase().includes('bumbu')).length;
+                          const toppingCount = itemCount - bumbuCount;
+                          if (bumbuCount > 0 && toppingCount > 0) {
+                            return `${toppingCount} pembelian topping, ${bumbuCount} bumbu`;
+                          }
+                          if (bumbuCount > 0) return `${bumbuCount} pembelian bumbu`;
+                          return `${toppingCount} pembelian topping`;
+                        })()}
                       </Text>
                     </View>
 
@@ -918,12 +938,29 @@ const styles = StyleSheet.create({
   harianWrapper: {
     flex: 1,
   },
+  catatBtnContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    marginBottom: 12,
+  },
   catatPengeluaranBtn: {
-    marginBottom: 10,
-    height: 42,
-    backgroundColor: WARNA.biruCatat, // Biru Project
-    borderColor: WARNA.biruCatat,
-    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: WARNA.biruCatat,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  catatPengeluaranBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
 
   // Table Card
