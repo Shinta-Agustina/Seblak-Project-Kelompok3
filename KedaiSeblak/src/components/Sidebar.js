@@ -49,10 +49,10 @@ export default function Sidebar({
 
   const activeOrdersCount = orders
     ? orders.filter(
-        (order) =>
-          order.status === 'Diproses' ||
-          order.status === 'Siap Bayar'
-      ).length
+      (order) =>
+        order.status === 'Diproses' ||
+        order.status === 'Siap Bayar'
+    ).length
     : 0;
 
   const kasirMenuItems = [
@@ -86,9 +86,9 @@ export default function Sidebar({
       icon: 'dashboard',
     },
     {
-      id: 'Kelola Kasir',
-      label: 'Kelola Kasir',
-      icon: 'people', // Ditambahkan di sini agar muncul di sidebar owner
+      id: 'kelola_kasir',
+      label: 'Manajemen Kasir',
+      icon: 'people',
     },
     {
       id: 'penjualan',

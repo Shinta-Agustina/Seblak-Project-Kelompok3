@@ -7,3 +7,5 @@
 ### 3. Menambahkan Manajemen Kasir
 
 ### 4. Inputan stok nominal harga manual (diganti dengan sistem pengeluaran yang langsung terhubung ke stok)
+
+### 5. Stok hanya melihat apa yang perlu di stok

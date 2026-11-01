@@ -36,19 +36,26 @@ const WARNA = {
   garis: '#EDE5E0',
 };
 
-export default function PengeluaranScreen({ isEmbedded = false, navigation }) {
+export default function PengeluaranScreen({ isEmbedded = false, navigation, expenses: expensesProp, onAddExpense, onUpdateExpense, onDeleteExpense }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
 
   // 1. Single Source of Truth untuk seluruh data Pengeluaran Topping
-  const [expenses, setExpenses] = useState(MASTER_EXPENSES);
+  const [localExpenses, setLocalExpenses] = useState(MASTER_EXPENSES);
+  const expenses = Array.isArray(expensesProp) ? expensesProp : localExpenses;
+  const saveExpenses = (updater) => {
+    if (Array.isArray(expensesProp)) return;
+    setLocalExpenses(updater);
+  };
 
   // 2. Tab Periode: 'harian' | 'mingguan' | 'bulanan'
   const [activeTab, setActiveTab] = useState('harian');
 
   // 3. Filter Tanggal per Periode (Default)
-  const [harianDate, setHarianDate] = useState('16 Oktober 2026');
-  const [mingguanDate, setMingguanDate] = useState('13 Oktober 2026 ΓÇô 19 Oktober 2026');
+  const [harianDate, setHarianDate] = useState(() => new Date().toLocaleDateString('id-ID', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  }));
+  const [mingguanDate, setMingguanDate] = useState('13 Oktober 2026 – 19 Oktober 2026');
   const [bulananDate, setBulananDate] = useState('1 Oktober 2026 ΓÇô 31 Oktober 2026');
 
   // State Date Picker Modal
@@ -80,6 +87,26 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation }) {
     return match ? parseInt(match[1], 10) : null;
   };
 
+  const tanggalKeISO = (dateStr) => {
+    if (!dateStr) return '';
+    const parsed = new Date(dateStr);
+    if (!Number.isNaN(parsed.getTime())) {
+      const y = parsed.getFullYear();
+      const m = String(parsed.getMonth() + 1).padStart(2, '0');
+      const d = String(parsed.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    const match = String(dateStr).match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+    if (!match) return '';
+    const bulan = {
+      januari: '01', februari: '02', maret: '03', april: '04',
+      mei: '05', juni: '06', juli: '07', agustus: '08',
+      september: '09', oktober: '10', november: '11', desember: '12',
+    };
+    const mm = bulan[match[2].toLowerCase()];
+    return mm ? `${match[3]}-${mm}-${match[1].padStart(2, '0')}` : '';
+  };
+
   const parseWeekRange = (rangeStr) => {
     if (!rangeStr) return [13, 19];
     const match = rangeStr.match(/(\d{1,2}).*?ΓÇô.*?(\d{1,2})/);
@@ -101,13 +128,8 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation }) {
 
   // A. Data Harian
   const currentHarianItems = useMemo(() => {
-    const isOktober2026 = harianDate.includes('Oktober 2026');
-    if (!isOktober2026) return [];
-
-    const targetDay = parseDayNumber(harianDate);
-    if (!targetDay) return [];
-
-    const targetIso = `2026-10-${String(targetDay).padStart(2, '0')}`;
+    const targetIso = tanggalKeISO(harianDate);
+    if (!targetIso) return [];
     return expenses.filter(
       (item) => item.tanggal === targetIso || item.tanggalStr === harianDate
     );
@@ -259,26 +281,32 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation }) {
 
   const handleSaveExpense = (itemData) => {
     if (editingItem) {
-      setExpenses((prev) =>
-        prev.map((e) => (e.id === editingItem.id ? { ...e, ...itemData } : e))
-      );
+      const updated = { ...editingItem, ...itemData };
+      if (onUpdateExpense) onUpdateExpense(updated);
+      else saveExpenses((prev) => prev.map((e) => (e.id === editingItem.id ? updated : e)));
     } else {
-      const targetDay = parseDayNumber(itemData.tanggalStr || harianDate) || 16;
-      const targetIso = `2026-10-${String(targetDay).padStart(2, '0')}`;
+      const tanggalStr = itemData.tanggalStr || harianDate;
+      const targetIso = tanggalKeISO(tanggalStr);
+      const targetDate = new Date(`${targetIso}T00:00:00`);
       const newRecord = {
         ...itemData,
         id: `EXP-${Date.now()}`,
         tanggal: targetIso,
-        tanggalStr: itemData.tanggalStr || harianDate,
-        hari: `Kamis, ${targetDay} Oktober`,
+        tanggalStr,
+        hari: Number.isNaN(targetDate.getTime())
+          ? tanggalStr
+          : targetDate.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+        jumlah: Number(itemData.jumlah || 0),
       };
-      setExpenses((prev) => [newRecord, ...prev]);
+      if (onAddExpense) onAddExpense(newRecord);
+      else saveExpenses((prev) => [newRecord, ...prev]);
     }
   };
 
   const handleConfirmDelete = () => {
     if (itemToDelete) {
-      setExpenses((prev) => prev.filter((e) => e.id !== itemToDelete.id));
+      if (onDeleteExpense) onDeleteExpense(itemToDelete.id);
+      else saveExpenses((prev) => prev.filter((e) => e.id !== itemToDelete.id));
       setDeleteModalVisible(false);
       setItemToDelete(null);
     }
@@ -538,7 +566,7 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation }) {
                     style={[
                       styles.rekapItemRow,
                       index === currentMingguanGroups.length - 1 &&
-                        styles.rekapItemRowLast,
+                      styles.rekapItemRowLast,
                     ]}
                     onPress={() => handleOpenRincian(group)}
                     activeOpacity={0.7}
@@ -607,7 +635,7 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation }) {
                     style={[
                       styles.rekapItemRow,
                       index === currentBulananGroups.length - 1 &&
-                        styles.rekapItemRowLast,
+                      styles.rekapItemRowLast,
                     ]}
                     onPress={() => handleOpenRincian(group)}
                     activeOpacity={0.7}
@@ -727,7 +755,7 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation }) {
         <TopHeader
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
           isSidebarOpen={sidebarOpen}
-          title="Owner Portal ┬╖ Pengeluaran"
+          title="Owner Portal · Pengeluaran"
           role="Owner"
         />
         <View style={styles.standaloneContent}>{content}</View>
