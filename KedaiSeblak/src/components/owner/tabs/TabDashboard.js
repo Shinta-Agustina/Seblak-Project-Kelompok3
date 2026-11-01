@@ -85,8 +85,14 @@ export default function TabDashboard({
   // Sesuai aturan kedai: satu checkout lunas dihitung satu porsi.
   const jumlahPorsiTerjual = transaksiHariIni.length;
 
-  // Fitur pengeluaran belum tersedia.
-  const pengeluaranHariIni = null;
+  const tanggalHariIni = new Date().toISOString().slice(0, 10);
+  const pengeluaranHariIni = useMemo(() => (
+    (expenses || []).reduce((total, item) => {
+      const tanggal = item.tanggal || '';
+      const nominal = Number(item.total ?? item.nominal ?? 0);
+      return tanggal === tanggalHariIni ? total + nominal : total;
+    }, 0)
+  ), [expenses, tanggalHariIni]);
 
   const lowStockItems = useMemo(
     () =>
@@ -202,12 +208,8 @@ export default function TabDashboard({
 
         <StatCard
           title="Pengeluaran"
-          value={
-            pengeluaranHariIni === null
-              ? 'Belum tersedia'
-              : rupiah(pengeluaranHariIni)
-          }
-          subtitle="Fitur pengeluaran belum terhubung"
+          value={rupiah(pengeluaranHariIni)}
+          subtitle="Total pengeluaran hari ini"
           iconName="cash-outline"
           iconColor="#D97706"
           iconBg="#FEF3C7"

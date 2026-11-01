@@ -46,10 +46,10 @@ const parseTanggalKasir = (value) => {
   return Number.isNaN(parsed.getTime())
     ? null
     : new Date(
-        parsed.getFullYear(),
-        parsed.getMonth(),
-        parsed.getDate()
-      );
+      parsed.getFullYear(),
+      parsed.getMonth(),
+      parsed.getDate()
+    );
 };
 
 const toppingIds = new Set([
@@ -156,7 +156,7 @@ export function normalisasiTransaksiKasir(rawTransactions = []) {
         trx?.waktu || trx?.time || '00:00'
       );
 
-      const waktuMatch = waktuRaw.match(/(\d{1,2}):(\d{2})/);
+      const waktuMatch = waktuRaw.match(/(\d{1,2})[:.](\d{2})/);
 
       return {
         ...trx,

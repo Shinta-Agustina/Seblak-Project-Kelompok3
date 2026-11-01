@@ -14,18 +14,17 @@ import TabPenjualan from '../../components/owner/tabs/TabPenjualan';
 import TabStok from '../../components/owner/tabs/TabStok';
 
 import MenuHargaScreen from './MenuHargaScreen';
-import ManajemenKasirScreen from './ManajemenKasirScreen';
 import PengeluaranScreen from './PengeluaranScreen';
 import LaporanKeuanganScreen from './LaporanKeuanganScreen';
-import KelolaKasirScreen from './KelolaKasirScreen'; // <-- 1. IMPORT KELOLA KASIR SCREEN SESUAI NAMA FILE
+import KelolaKasirScreen from './KelolaKasirScreen';
 
 import { useKasir } from '../../context/KasirContext';
 import { TOPPING_ITEMS } from '../../data/mockData';
 
 import {
   INITIAL_STOCK_ITEMS,
-  INITIAL_EXPENSES,
 } from '../../data/ownerData';
+import { MASTER_EXPENSES } from '../../data/mockExpenses';
 
 const WARNA = {
   merah: '#C62828',
@@ -48,7 +47,7 @@ export default function DashboardOwnerScreen() {
   const [stockItems, setStockItems] = useState(INITIAL_STOCK_ITEMS);
   const [stockPresetFilter, setStockPresetFilter] = useState('Semua');
 
-  const [expenses, setExpenses] = useState(INITIAL_EXPENSES);
+  const [expenses, setExpenses] = useState(MASTER_EXPENSES);
 
   const processedTransactionIds = useRef(new Set());
 
@@ -252,67 +251,108 @@ export default function DashboardOwnerScreen() {
     setExpenses((prev) => [modalExpense, ...prev]);
   };
 
-  // Pengeluaran
+  // Sinkronisasi stok berdasarkan pembelian yang dicatat pada Pengeluaran.
+  // Hanya bahan dengan nama dan satuan yang cocok yang diubah.
+  const adjustStockFromExpense = (expense, multiplier = 1) => {
+    const jumlah = Number(expense?.jumlah || 0);
+    const namaBahan = String(expense?.keterangan || '').trim().toLowerCase();
+    const satuanBeli = String(expense?.satuan || '').trim().toLowerCase();
+    if (!jumlah || !namaBahan || !satuanBeli) return;
+
+    setStockItems((prev) => {
+      const normalizeName = (value) => String(value || '').trim().toLowerCase().replace(/rasa$/i, '').trim();
+      const index = prev.findIndex((item) => normalizeName(item.nama) === normalizeName(namaBahan));
+
+      if (index === -1) {
+        if (multiplier < 0) return prev;
+        const record = {
+          tanggal: expense.tanggalStr || expense.tanggal,
+          jumlah,
+          satuan: satuanBeli,
+          supplier: expense.supplier || '',
+          hargaBeli: Number(expense.total || 0) / jumlah,
+          total: Number(expense.total || 0),
+          pic: 'Owner',
+          jenis: 'Restok',
+          expenseId: expense.id,
+        };
+        return [{
+          id: `STK-EXP-${expense.id}`,
+          nama: expense.keterangan,
+          kategori: expense.kategori || 'Bahan Baku',
+          sisa: jumlah,
+          stokAwal: jumlah,
+          minimum: 1,
+          satuan: satuanBeli,
+          terpakaiHariIni: 0,
+          estimasiHabisHari: 0,
+          supplier: expense.supplier || '',
+          hargaBeli: record.hargaBeli,
+          foto: null,
+          riwayatRestok: [record],
+        }, ...prev];
+      }
+
+      const item = prev[index];
+      const satuanStok = String(item.satuan || '').trim().toLowerCase();
+      let qtyMasuk = jumlah;
+      if (satuanBeli === 'gram' && satuanStok === 'kg') qtyMasuk = jumlah / 1000;
+      else if (satuanBeli === 'kg' && satuanStok === 'gram') qtyMasuk = jumlah * 1000;
+      else if (satuanBeli !== satuanStok) return prev;
+
+      const delta = qtyMasuk * multiplier;
+      const record = {
+        tanggal: expense.tanggalStr || expense.tanggal,
+        jumlah: qtyMasuk,
+        satuan: satuanStok,
+        supplier: expense.supplier || '',
+        hargaBeli: Number(expense.total || 0) / jumlah,
+        total: Number(expense.total || 0),
+        pic: 'Owner',
+        jenis: 'Restok',
+        expenseId: expense.id,
+      };
+      return prev.map((stock, i) => i !== index ? stock : ({
+        ...stock,
+        sisa: Math.max(0, Number((Number(stock.sisa || 0) + delta).toFixed(3))),
+        stokAwal: Math.max(0, Number(stock.stokAwal || 0) + delta),
+        supplier: multiplier > 0 ? (expense.supplier || stock.supplier) : stock.supplier,
+        hargaBeli: multiplier > 0 ? record.hargaBeli : stock.hargaBeli,
+        riwayatRestok: multiplier > 0
+          ? [record, ...(stock.riwayatRestok || [])]
+          : (stock.riwayatRestok || []).filter((r) => r.expenseId !== expense.id),
+      }));
+    });
+  };
+
   const handleAddExpense = (newExpense) => {
     setExpenses((prev) => [newExpense, ...prev]);
+    adjustStockFromExpense(newExpense, 1);
+  };
+
+  const handleUpdateExpense = (updatedExpense) => {
+    const previous = expenses.find((expense) => expense.id === updatedExpense.id);
+    if (previous) adjustStockFromExpense(previous, -1);
+    adjustStockFromExpense(updatedExpense, 1);
+    setExpenses((prev) => prev.map((expense) =>
+      expense.id === updatedExpense.id ? updatedExpense : expense
+    ));
   };
 
   const handleDeleteExpense = (expenseId) => {
-    setExpenses((prev) =>
-      prev.filter((expense) => expense.id !== expenseId)
-    );
-  };
-
-  const handleUpdateStockFromExpense = (
-    itemId,
-    newSisa,
-    newModal,
-    newHargaRata
-  ) => {
-    setStockItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== itemId) return item;
-
-        const addedQty = Math.max(
-          0,
-          Number(newSisa) - Number(item.sisa || 0)
-        );
-
-        const record = {
-          tanggal: new Date().toLocaleDateString('id-ID', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-          }),
-          jumlah: addedQty,
-          satuan: item.satuan,
-          supplier: 'Pembelian melalui Pengeluaran',
-          hargaBeli: Number(newHargaRata || 0),
-          pic: 'Owner',
-        };
-
-        return {
-          ...item,
-          sisa: Number(newSisa),
-          modalTertanam: Number(newModal),
-          hargaBeli: Number(newHargaRata),
-          riwayatRestok:
-            addedQty > 0
-              ? [record, ...(item.riwayatRestok || [])]
-              : item.riwayatRestok || [],
-        };
-      })
-    );
+    const target = expenses.find((expense) => expense.id === expenseId);
+    if (target) adjustStockFromExpense(target, -1);
+    setExpenses((prev) => prev.filter((expense) => expense.id !== expenseId));
   };
 
   // Judul header
   const getHeaderTitle = () => {
     switch (activeTab) {
-case 'dashboard':
-  return 'Owner Portal · Ringkasan Kesehatan Kedai';
+      case 'dashboard':
+        return 'Owner Portal · Ringkasan Kesehatan Kedai';
 
-case 'Kelola Kasir':
-  return 'Owner Portal · Kelola Akun Kasir';
+      case 'kelola_kasir':
+        return 'Owner Portal · Kelola Akun Kasir';
 
       case 'penjualan':
         return 'Owner Portal · Laporan Penjualan Seblak';
@@ -324,8 +364,6 @@ case 'Kelola Kasir':
         return 'Owner Portal · Modal Belanja Bahan Baku';
       case 'laporan_keuangan':
         return 'Owner Portal · Laporan Keuangan';
-      case 'manajemen_kasir':
-        return 'Owner Portal · Manajemen Kasir';
       default:
         return 'Owner Portal · Kedai Seblak Prasmanan';
     }
@@ -375,10 +413,6 @@ case 'Kelola Kasir':
           <View style={styles.embeddedTabContainer}>
             <MenuHargaScreen isEmbedded={true} />
           </View>
-        ) : activeTab === 'manajemen_kasir' ? (
-          <View style={styles.embeddedTabContainer}>
-            <ManajemenKasirScreen />
-          </View>
         ) : activeTab === 'pengeluaran' ? (
           <View style={styles.embeddedTabContainer}>
             <PengeluaranScreen
@@ -386,12 +420,11 @@ case 'Kelola Kasir':
               expenses={expenses}
               stockItems={stockItems}
               onAddExpense={handleAddExpense}
+              onUpdateExpense={handleUpdateExpense}
               onDeleteExpense={handleDeleteExpense}
-              onUpdateStockAfterRestock={handleUpdateStockFromExpense}
             />
           </View>
-        ) : activeTab === 'Kelola Kasir' ? (
-          /* 2. GUNAKAN KELOLA KASIR SCREEN DENGAN BENAR DI SINI */
+        ) : activeTab === 'kelola_kasir' ? (
           <View style={styles.embeddedTabContainer}>
             <KelolaKasirScreen isEmbedded={true} />
           </View>

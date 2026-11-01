@@ -96,13 +96,13 @@ Berdasarkan hasil analisis dan rancangan kebutuhan, sistem **Seblak Prasmanan PO
 2. Maya : Screen Pesanan Aktif (Filter Status & No. Meja),Screen Riwayat Transaksi & Laporan Penjualan
 
 Fitur Pesanan Aktif
-![alt text](iPhone-14-PRO-MAX-localhost-p1f1rsc-i97jf4.gif)
+![alt text](<WhatsApp Video 2026-10-26 at 10.30.22.gif>)
 
 Fitur Riwayat Transaksi
-![alt text](iPhone-14-PRO-MAX-localhost-n2o2jbvzbuqaq-.gif)
+![alt text](<WhatsApp Video 2026-10-26 at 10.30.26.gif>)
 
 Fitur Laporan Penjualan
-![alt text](iPhone-14-PRO-MAX-localhost-pbzxtcf5baf4ld.gif)
+![alt text](<WhatsApp Video 2026-10-26 at 10.30.30.gif>)
 
 3. Faija : Screen Menu dan Harga, Pengeluaran dan Laporan Keuangan
 
@@ -117,17 +117,14 @@ Fitur Laporan Keuangan
 
 4. Dewi : Dashboard Owner, Penjualan dan Stok
 
-**Fitur Dashboard Owner**
+Fitur Dashboard Owner
+![alt text](dashboard.gif)
 
-![Screen Recordings](dashboard.gif)
+Fitur Penjualan
+![alt text](penjualan.gif)
 
-**Fitur Penjualan**
-
-![Screen Recording](penjualan.gif)
-
-**Fitur Stok Bahan**
-
-![Screen Recording](stok.gif)
+Fitur Stok Bahan
+![alt text](stok.gif)
 
 ## Bukti Membangun Layer 
 Bukti Wawancara:
