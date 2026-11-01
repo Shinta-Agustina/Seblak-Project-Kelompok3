@@ -97,12 +97,15 @@ Berdasarkan hasil analisis dan rancangan kebutuhan, sistem **Seblak Prasmanan PO
 2. Maya : Screen Pesanan Aktif (Filter Status & No. Meja),Screen Riwayat Transaksi & Laporan Penjualan
 
 Fitur Pesanan Aktif
+
 ![alt text](<WhatsApp Video 2026-10-26 at 10.30.22.gif>)
 
 Fitur Riwayat Transaksi
+
 ![alt text](<WhatsApp Video 2026-10-26 at 10.30.26.gif>)
 
 Fitur Laporan Penjualan
+
 ![alt text](<WhatsApp Video 2026-10-26 at 10.30.30.gif>)
 
 3. Faija : Screen Menu dan Harga, Pengeluaran dan Laporan Keuangan
