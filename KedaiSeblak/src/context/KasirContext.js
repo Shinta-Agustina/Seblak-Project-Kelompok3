@@ -15,7 +15,6 @@ export function KasirProvider({ children }) {
   // =========================
   // USER, NAVIGASI, & MANAJEMEN KASIR
   // =========================
-  // Nilai awal user diatur ke null agar setiap refresh/buka aplikasi selalu wajib login
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('Kasir');
 
@@ -24,9 +23,6 @@ export function KasirProvider({ children }) {
     { id: '1', name: 'Siti Aisyah', email: 'siti@kedaiseblak.com', phone: '081234567890', password: '123', status: 'Aktif' },
     { id: '2', name: 'Rini Wulandari', email: 'rini@kedaiseblak.com', phone: '089876543210', password: '123', status: 'Aktif' },
   ]);
-
-  // ❌ BLOK useEffect PENGECEKAN localStorage SAAT REFRESH TELAH DIHAPUS
-  // Ini memastikan setiap kali Anda menjalankan npm run web / refresh, user kembali null (wajib login).
 
   const addCashier = (newCashierData) => {
     const newCashier = {

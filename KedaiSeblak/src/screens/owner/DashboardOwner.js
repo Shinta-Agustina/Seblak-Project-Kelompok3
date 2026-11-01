@@ -13,7 +13,6 @@ import TabDashboard from '../../components/owner/tabs/TabDashboard';
 import TabPenjualan from '../../components/owner/tabs/TabPenjualan';
 import TabStok from '../../components/owner/tabs/TabStok';
 
-import MenuHargaScreen from './MenuHargaScreen';
 import PengeluaranScreen from './PengeluaranScreen';
 import LaporanKeuanganScreen from './LaporanKeuanganScreen';
 import KelolaKasirScreen from './KelolaKasirScreen';
@@ -404,8 +403,6 @@ export default function DashboardOwnerScreen() {
         return 'Owner Portal · Laporan Penjualan Seblak';
       case 'stok':
         return 'Owner Portal · Inventaris Stok Bahan Baku';
-      case 'menu_harga':
-        return 'Owner Portal · Manajemen Menu & Harga';
       case 'pengeluaran':
         return 'Owner Portal · Modal Belanja Bahan Baku';
       case 'laporan_keuangan':
@@ -455,11 +452,6 @@ export default function DashboardOwnerScreen() {
           role="Owner"
         />
 
-        {activeTab === 'menu_harga' ? (
-          <View style={styles.embeddedTabContainer}>
-            <MenuHargaScreen isEmbedded={true} />
-          </View>
-        ) : activeTab === 'pengeluaran' ? (
           <View style={styles.embeddedTabContainer}>
             <PengeluaranScreen
               isEmbedded={true}
