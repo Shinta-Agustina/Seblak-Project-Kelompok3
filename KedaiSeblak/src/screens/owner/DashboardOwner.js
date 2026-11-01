@@ -17,7 +17,7 @@ import MenuHargaScreen from './MenuHargaScreen';
 import ManajemenKasirScreen from './ManajemenKasirScreen';
 import PengeluaranScreen from './PengeluaranScreen';
 import LaporanKeuanganScreen from './LaporanKeuanganScreen';
-import KelolaKasirScreen from './KelolaKasirScreen'; // <-- 1. IMPORT KELOLA KASIR SCREEN SESUAI NAMA FILE
+import KelolaKasirScreen from './KelolaKasirScreen';
 
 import { useKasir } from '../../context/KasirContext';
 import { TOPPING_ITEMS } from '../../data/mockData';
@@ -168,11 +168,7 @@ export default function DashboardOwnerScreen() {
     }
   };
 
-  // CRUD stok
-  const handleAddItem = (newItem) => {
-    setStockItems((prev) => [newItem, ...prev]);
-  };
-
+  // Update Item Stok (misalnya hasil stock opname)
   const handleUpdateItem = (updatedItem) => {
     setStockItems((prev) =>
       prev.map((item) =>
@@ -181,13 +177,7 @@ export default function DashboardOwnerScreen() {
     );
   };
 
-  const handleDeleteItem = (itemId) => {
-    setStockItems((prev) =>
-      prev.filter((item) => item.id !== itemId)
-    );
-  };
-
-  // Restok stok
+  // Restok stok dari modul stok
   const handleRestockItem = (itemId, addedQty, restockRecord) => {
     const targetItem = stockItems.find(
       (item) => item.id === itemId
@@ -263,6 +253,7 @@ export default function DashboardOwnerScreen() {
     );
   };
 
+  // Sinkronisasi otomatis dari Pengeluaran ke Stok Bahan
   const handleUpdateStockFromExpense = (
     itemId,
     newSisa,
@@ -308,12 +299,10 @@ export default function DashboardOwnerScreen() {
   // Judul header
   const getHeaderTitle = () => {
     switch (activeTab) {
-case 'dashboard':
-  return 'Owner Portal · Ringkasan Kesehatan Kedai';
-
-case 'Kelola Kasir':
-  return 'Owner Portal · Kelola Akun Kasir';
-
+      case 'dashboard':
+        return 'Owner Portal · Ringkasan Kesehatan Kedai';
+      case 'Kelola Kasir':
+        return 'Owner Portal · Kelola Akun Kasir';
       case 'penjualan':
         return 'Owner Portal · Laporan Penjualan Seblak';
       case 'stok':
@@ -391,7 +380,6 @@ case 'Kelola Kasir':
             />
           </View>
         ) : activeTab === 'Kelola Kasir' ? (
-          /* 2. GUNAKAN KELOLA KASIR SCREEN DENGAN BENAR DI SINI */
           <View style={styles.embeddedTabContainer}>
             <KelolaKasirScreen isEmbedded={true} />
           </View>
@@ -418,9 +406,7 @@ case 'Kelola Kasir':
             {activeTab === 'stok' && (
               <TabStok
                 stockItems={stockItems}
-                onAddItem={handleAddItem}
                 onUpdateItem={handleUpdateItem}
-                onDeleteItem={handleDeleteItem}
                 onRestockItem={handleRestockItem}
                 initialFilterStatus={stockPresetFilter}
               />
@@ -438,30 +424,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: WARNA.latar,
   },
-
   mobileBackdrop: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 999,
     flexDirection: 'row',
   },
-
   backdropTouch: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(44, 24, 16, 0.45)',
   },
-
   mainWrapper: {
     flex: 1,
     minWidth: 0,
     height: '100%',
   },
-
   tabContent: {
     flex: 1,
     minWidth: 0,
     width: '100%',
   },
-
   embeddedTabContainer: {
     flex: 1,
     minWidth: 0,

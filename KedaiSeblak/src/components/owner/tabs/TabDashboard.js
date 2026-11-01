@@ -85,8 +85,28 @@ export default function TabDashboard({
   // Sesuai aturan kedai: satu checkout lunas dihitung satu porsi.
   const jumlahPorsiTerjual = transaksiHariIni.length;
 
-  // Fitur pengeluaran belum tersedia.
-  const pengeluaranHariIni = null;
+  // TERHUBUNG & FILTER PER HARI: Menghitung total pengeluaran khusus hari ini
+  const pengeluaranHariIni = useMemo(() => {
+    // Format tanggal string standar yang dicocokkan (misal: "24 Okt 2026" atau sesuai format sistem)
+    const tanggalHariIniStr = new Date().toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+
+    return (expenses || []).reduce((sum, item) => {
+      const isHariIni =
+        !item.tanggal ||
+        item.tanggal === tanggalHariIniStr ||
+        item.tanggal === 'Hari ini' ||
+        item.tanggal === 'Baru saja';
+
+      if (isHariIni) {
+        return sum + Number(item.nominal || item.total || 0);
+      }
+      return sum;
+    }, 0);
+  }, [expenses]);
 
   const lowStockItems = useMemo(
     () =>
@@ -202,12 +222,8 @@ export default function TabDashboard({
 
         <StatCard
           title="Pengeluaran"
-          value={
-            pengeluaranHariIni === null
-              ? 'Belum tersedia'
-              : rupiah(pengeluaranHariIni)
-          }
-          subtitle="Fitur pengeluaran belum terhubung"
+          value={rupiah(pengeluaranHariIni)}
+          subtitle="Belanja bahan & operasional hari ini"
           iconName="cash-outline"
           iconColor="#D97706"
           iconBg="#FEF3C7"
