@@ -24,7 +24,6 @@ import {
   TOPPING_ITEMS,
   SPICE_LEVELS,
   BROTH_OPTIONS,
-  TABLE_OPTIONS,
 } from '../../data/mockData';
 
 import formatCurrency from '../../utils/formatCurrency';
@@ -58,8 +57,8 @@ export default function DashboardKasirScreen({ navigation }) {
     setSelectedKuah,
     selectedLevel,
     setSelectedLevel,
-    selectedMeja,
-    setSelectedMeja,
+    selectedOrderType,
+    setSelectedOrderType,
     catatan,
     setCatatan,
     activeCategory,
@@ -67,7 +66,7 @@ export default function DashboardKasirScreen({ navigation }) {
     user,
   } = useKasir();
 
-  const [sidebarOpen, setSidebarOpen] = useState(false); // Default tertutup di layar kecil agar tidak menabrak
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [paymentVisible, setPaymentVisible] = useState(false);
   const [receiptVisible, setReceiptVisible] = useState(false);
   const [currentOrderPayload, setCurrentOrderPayload] = useState(null);
@@ -84,7 +83,6 @@ export default function DashboardKasirScreen({ navigation }) {
     if (activeCategory === 'Semua') {
       return true;
     }
-
     return item.kategori === activeCategory;
   });
 
@@ -158,7 +156,8 @@ export default function DashboardKasirScreen({ navigation }) {
 
     const payload = {
       orderNo: `TRX-${Date.now()}`,
-      tableNo: selectedMeja || 'Meja 2',
+      orderType: selectedOrderType || 'Dine In',
+      tableNo: selectedOrderType || 'Dine In',
       time: timeStr,
       date: dateStr,
       kuah: selectedKuah,
@@ -213,11 +212,16 @@ export default function DashboardKasirScreen({ navigation }) {
         txData.orderNo ||
         fallbackOrder.orderNo ||
         `TRX-${Date.now()}`,
-      tableNo:
+      orderType:
+        txData.orderType ||
         txData.tableNo ||
-        txData.no_meja ||
-        fallbackOrder.tableNo ||
-        '-',
+        fallbackOrder.orderType ||
+        'Dine In',
+      tableNo:
+        txData.orderType ||
+        txData.tableNo ||
+        fallbackOrder.orderType ||
+        'Dine In',
       date: txData.date || fallbackOrder.date || '-',
       time: txData.time || fallbackOrder.time || '-',
       kuah: txData.kuah ?? fallbackOrder.kuah ?? '-',
@@ -319,7 +323,7 @@ export default function DashboardKasirScreen({ navigation }) {
         <View style={styles.orderHeaderInfo}>
           <Text style={styles.orderTitle}>Pesanan Saat Ini</Text>
           <Text style={styles.orderSubtitle}>
-            {totalItemsCount} item dipilih ({selectedMeja || 'Meja 2'})
+            {totalItemsCount} item dipilih ({selectedOrderType || 'Dine In'})
           </Text>
         </View>
 
@@ -333,37 +337,34 @@ export default function DashboardKasirScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
+      {/* Bagian Pilihan Tipe Pesanan (Dine In / Takeaway) */}
       <View style={styles.mejaSelectBox}>
-        <Text style={styles.mejaSelectLabel}>Pilih No. Meja</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.mejaPillsRow}
-        >
-          {TABLE_OPTIONS.map((meja) => {
-            const isSelected = selectedMeja === meja;
+        <Text style={styles.mejaSelectLabel}>Tipe Pesanan</Text>
+        <View style={styles.orderTypeRow}>
+          {['Dine In', 'Takeaway'].map((type) => {
+            const isSelected = selectedOrderType === type;
             return (
               <TouchableOpacity
-                key={meja}
+                key={type}
                 style={[
-                  styles.mejaPill,
-                  isSelected && styles.mejaPillActive,
+                  styles.orderTypePill,
+                  isSelected && styles.orderTypePillActive,
                 ]}
-                onPress={() => setSelectedMeja(meja)}
+                onPress={() => setSelectedOrderType(type)}
                 activeOpacity={0.7}
               >
                 <Text
                   style={[
-                    styles.mejaPillText,
-                    isSelected && styles.mejaPillTextActive,
+                    styles.orderTypePillText,
+                    isSelected && styles.orderTypePillTextActive,
                   ]}
                 >
-                  {meja}
+                  {type === 'Dine In' ? 'Dine In' : 'Bungkus (Takeaway)'}
                 </Text>
               </TouchableOpacity>
             );
           })}
-        </ScrollView>
+        </View>
       </View>
 
       <View style={styles.tableHeader}>
@@ -500,12 +501,10 @@ export default function DashboardKasirScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Sidebar Desktop / Tablet Besar */}
       {!isMobile && sidebarOpen && (
         <Sidebar isMobile={false} />
       )}
 
-      {/* Sidebar Mobile Overlay */}
       {sidebarOpen && (
         <View style={styles.mobileBackdrop}>
           <TouchableOpacity
@@ -520,7 +519,6 @@ export default function DashboardKasirScreen({ navigation }) {
         </View>
       )}
 
-      {/* Konten Utama */}
       <View style={styles.mainWrapper}>
         <TopHeader
           onToggleSidebar={() => {
@@ -721,7 +719,7 @@ export default function DashboardKasirScreen({ navigation }) {
               <View style={styles.mobileBottomBar}>
                 <View style={styles.mobileCartSummary}>
                   <Text style={styles.mobileCartCount}>
-                    {totalItemsCount} item ({selectedMeja || 'Meja 2'})
+                    {totalItemsCount} item ({selectedOrderType || 'Dine In'})
                   </Text>
                   <Text style={styles.mobileCartTotal}>
                     {formatCurrency(total)}
@@ -824,7 +822,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   posContainer: {
-    flex: 1, // Diperbaiki dari position: 'column' yang salah
+    flex: 1,
   },
   posInner: {
     flex: 1,
@@ -1044,27 +1042,30 @@ const styles = StyleSheet.create({
     color: '#4A3028',
     marginBottom: 5,
   },
-  mejaPillsRow: {
-    gap: 6,
+  orderTypeRow: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  mejaPill: {
-    paddingVertical: 5,
+  orderTypePill: {
+    flex: 1,
+    paddingVertical: 7,
     paddingHorizontal: 10,
-    borderRadius: 6,
+    borderRadius: 8,
     backgroundColor: '#FAF5F1',
     borderWidth: 1,
     borderColor: '#EFE7E2',
+    alignItems: 'center',
   },
-  mejaPillActive: {
+  orderTypePillActive: {
     backgroundColor: '#C62828',
     borderColor: '#C62828',
   },
-  mejaPillText: {
-    fontSize: 11,
+  orderTypePillText: {
+    fontSize: 12,
     fontWeight: '700',
     color: '#6F5C53',
   },
-  mejaPillTextActive: {
+  orderTypePillTextActive: {
     color: '#FFFFFF',
   },
   tableHeader: {
@@ -1177,44 +1178,44 @@ const styles = StyleSheet.create({
   },
   removeItemText: {
     fontSize: 10,
-    color: '#C62828',
-    fontWeight: '600',
+    fontWeight: '700',
+    color: '#D32F2F',
   },
   specsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
     backgroundColor: '#FAF5F1',
-    borderRadius: 8,
+    borderRadius: 10,
+    padding: 10,
+    marginVertical: 10,
     borderWidth: 1,
     borderColor: '#EFE7E2',
-    marginTop: 8,
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   specItem: {
     flex: 1,
+    alignItems: 'center',
   },
   specLabel: {
     fontSize: 10,
-    color: '#8D7B70',
     fontWeight: '700',
+    color: '#8D7B70',
+    marginBottom: 3,
   },
   specValue: {
     fontSize: 12,
     fontWeight: '800',
     color: '#2C1810',
-    marginTop: 1,
   },
   specChiliRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 1,
+    gap: 2,
+    minHeight: 16,
   },
   specChiliMuted: {
     fontSize: 11,
     color: '#8D7B70',
-    fontWeight: '600',
   },
   notesContainer: {
     marginBottom: 12,
@@ -1227,49 +1228,43 @@ const styles = StyleSheet.create({
   },
   notesInput: {
     backgroundColor: '#FAF5F1',
-    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#EFE7E2',
+    borderRadius: 8,
     paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 11,
+    paddingVertical: 6,
+    fontSize: 12,
     color: '#2C1810',
-    minHeight: 45,
+    minHeight: 40,
     textAlignVertical: 'top',
   },
   checkoutButton: {
+    flexDirection: 'row',
     backgroundColor: '#C62828',
-    borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    flexDirection: 'row',
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'space-between',
-    elevation: 3,
-    shadowColor: '#C62828',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
+    elevation: 2,
   },
   checkoutButtonDisabled: {
-    backgroundColor: '#D7CCC8',
-    shadowOpacity: 0,
-    elevation: 0,
+    backgroundColor: '#D1B8B3',
   },
   checkoutBtnLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   checkoutBtnText: {
     color: '#FFFFFF',
+    fontWeight: '700',
     fontSize: 13,
-    fontWeight: '800',
   },
   checkoutBtnAmount: {
     color: '#FFFFFF',
-    fontSize: 15,
     fontWeight: '900',
+    fontSize: 14,
   },
   mobileBottomBar: {
     position: 'absolute',
@@ -1277,17 +1272,17 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#EDE5DF',
-    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#EFE7E2',
     elevation: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
+    shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
-    shadowRadius: 6,
+    shadowRadius: 4,
   },
   mobileCartSummary: {
     flex: 1,
@@ -1298,54 +1293,54 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   mobileCartTotal: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
     color: '#2C1810',
   },
   mobileViewCartBtn: {
+    flexDirection: 'row',
     backgroundColor: '#C62828',
     paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    flexDirection: 'row',
+    paddingHorizontal: 16,
+    borderRadius: 10,
     alignItems: 'center',
     gap: 6,
   },
   mobileViewCartBtnDisabled: {
-    backgroundColor: '#D7CCC8',
+    backgroundColor: '#D1B8B3',
   },
   mobileViewCartBtnText: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
+    fontSize: 13,
   },
   mobileModalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   mobileModalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   mobileModalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     maxHeight: '85%',
-    minHeight: '50%',
+    paddingBottom: 20,
   },
   mobileSheetHeader: {
     alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5ECE6',
+    paddingTop: 8,
+    paddingBottom: 4,
     position: 'relative',
   },
   sheetHandle: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#D7CCC8',
+    backgroundColor: '#D1B8B3',
+    marginBottom: 4,
   },
   sheetCloseBtn: {
     position: 'absolute',

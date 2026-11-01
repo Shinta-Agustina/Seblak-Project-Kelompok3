@@ -37,7 +37,6 @@ const getFormattedYesterday = () => {
   return getFormattedDate(yesterday);
 };
 
-// Membantu membaca tanggal transaksi dari beberapa format umum.
 const getTransactionDate = (transaction) => {
   const rawDate = transaction?.date || transaction?.tanggal;
   if (!rawDate) return null;
@@ -88,7 +87,6 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
   const todayFormatted = getFormattedToday();
   const yesterdayFormatted = getFormattedYesterday();
 
-  // Filter berdasarkan metode pembayaran dan tanggal.
   const filtered = useMemo(() => {
     return transactions.filter((transaction) => {
       const method = getPaymentMethod(transaction).toLowerCase();
@@ -102,9 +100,6 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
       if (dateFilterMode === 'all') return true;
 
       const transactionDate = getTransactionDate(transaction);
-
-      // Jika transaksi tidak memiliki tanggal yang dapat dibaca,
-      // transaksi hanya bisa ditampilkan pada filter semua riwayat.
       if (!transactionDate) return false;
 
       if (dateFilterMode === 'today') {
@@ -119,7 +114,6 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
     });
   }, [transactions, activeMethod, dateFilterMode]);
 
-  // Ringkasan nilai transaksi.
   const totalAll = transactions.reduce(
     (sum, transaction) => sum + Number(transaction.total || 0),
     0
@@ -139,9 +133,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
       0
     );
 
-  // Pagination.
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-
   const safeCurrentPage = Math.min(currentPage, totalPages);
 
   const paginatedItems = useMemo(() => {
@@ -173,7 +165,8 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
 
     onOpenReceipt({
       orderNo: transaction.orderNo || transaction.no || transaction.id || '-',
-      tableNo: transaction.tableNo || transaction.meja || transaction.table || '-',
+      orderType: transaction.orderType || transaction.tableNo || transaction.meja || 'Dine In',
+      tableNo: transaction.orderType || transaction.tableNo || transaction.meja || 'Dine In',
       date: transactionDate
         ? transactionDate.toLocaleDateString('id-ID')
         : transaction.tanggal || '-',
@@ -191,69 +184,74 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
     });
   };
 
-  const renderTransaction = ({ item: trx, index }) => (
-    <View
-      style={[
-        styles.tableRow,
-        index % 2 === 1 && styles.rowAlternate,
-      ]}
-    >
-      <Text
+  const renderTransaction = ({ item: trx, index }) => {
+    // Menampilkan tipe pesanan (Dine In / Takeaway)
+    const orderTypeLabel = trx.orderType || trx.tableNo || trx.meja || 'Dine In';
+
+    return (
+      <View
         style={[
-          styles.td,
-          { width: 60, fontWeight: '700', color: '#8D7B70' },
+          styles.tableRow,
+          index % 2 === 1 && styles.rowAlternate,
         ]}
       >
-        {trx.no || `#00${index + 1}`}
-      </Text>
-
-      <Text style={[styles.td, { width: 70, color: '#6F5C53' }]}>
-        {trx.waktu || '-'}
-      </Text>
-
-      <Text
-        style={[
-          styles.td,
-          { width: 90, fontWeight: '700', color: '#2C1810' },
-        ]}
-      >
-        {trx.meja || '-'}
-      </Text>
-
-      <Text
-        style={[
-          styles.td,
-          {
-            flex: 1.5,
-            textAlign: 'right',
-            fontWeight: '800',
-            color: '#C62828',
-          },
-        ]}
-      >
-        {formatCurrency(Number(trx.total || 0))}
-      </Text>
-
-      <Text
-        style={[
-          styles.td,
-          { width: 110, textAlign: 'center', color: '#4A3028' },
-        ]}
-      >
-        {getPaymentMethod(trx) || '-'}
-      </Text>
-
-      <View style={{ width: 75, alignItems: 'center' }}>
-        <TouchableOpacity
-          style={styles.detailBtn}
-          onPress={() => openReceipt(trx)}
-          activeOpacity={0.7}
+        <Text
+          style={[
+            styles.td,
+            { width: 60, fontWeight: '700', color: '#8D7B70' },
+          ]}
         >
-          <Text style={styles.detailBtnText}>Detail</Text>
-        </TouchableOpacity>
+          {trx.no || `#00${index + 1}`}
+        </Text>
+
+        <Text style={[styles.td, { width: 70, color: '#6F5C53' }]}>
+          {trx.waktu || '-'}
+        </Text>
+
+        <Text
+          style={[
+            styles.td,
+            { width: 90, fontWeight: '700', color: '#2C1810' },
+          ]}
+        >
+          {orderTypeLabel}
+        </Text>
+
+        <Text
+          style={[
+            styles.td,
+            {
+              flex: 1.5,
+              textAlign: 'right',
+              fontWeight: '800',
+              color: '#C62828',
+            },
+          ]}
+        >
+          {formatCurrency(Number(trx.total || 0))}
+        </Text>
+
+        <Text
+          style={[
+            styles.td,
+            { width: 110, textAlign: 'center', color: '#4A3028' },
+          ]}
+        >
+          {getPaymentMethod(trx) || '-'}
+        </Text>
+
+        <View style={{ width: 75, alignItems: 'center' }}>
+          <TouchableOpacity
+            style={styles.detailBtn}
+            onPress={() => openReceipt(trx)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.detailBtnText}>Detail</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderEmptyList = () => (
     <View style={styles.emptyContainer}>
@@ -275,7 +273,6 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
       <View
         style={[
           styles.headerSection,
@@ -324,7 +321,6 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         </View>
       </View>
 
-      {/* Ringkasan transaksi */}
       <View
         style={[
           styles.metricsRow,
@@ -380,7 +376,6 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         </View>
       </View>
 
-      {/* Filter metode pembayaran */}
       <View style={styles.tabsRow}>
         {METHOD_TABS.map((tab) => {
           const isActive = activeMethod === tab;
@@ -405,7 +400,6 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         })}
       </View>
 
-      {/* Tabel riwayat transaksi */}
       <View style={styles.tableCard}>
         <ScrollView
           horizontal={isMobile}
@@ -415,7 +409,8 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
             <View style={styles.tableHead}>
               <Text style={[styles.th, { width: 60 }]}>No</Text>
               <Text style={[styles.th, { width: 70 }]}>Waktu</Text>
-              <Text style={[styles.th, { width: 90 }]}>No. Meja</Text>
+              {/* Kolom Meja diubah menjadi Tipe Pesanan */}
+              <Text style={[styles.th, { width: 90 }]}>Tipe</Text>
               <Text
                 style={[
                   styles.th,
@@ -457,7 +452,6 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         </ScrollView>
       </View>
 
-      {/* Pagination */}
       <View style={styles.paginationRow}>
         <TouchableOpacity
           style={[
@@ -522,7 +516,6 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         </TouchableOpacity>
       </View>
 
-      {/* Modal filter tanggal */}
       <Modal
         visible={filterModalVisible}
         transparent
@@ -707,8 +700,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
                 </Text>
 
                 <Text style={styles.optionSub}>
-                  Tampilkan seluruh riwayat transaksi yang pernah
-                  dicatat
+                  Tampilkan seluruh riwayat transaksi yang pernah dicatat
                 </Text>
               </View>
 

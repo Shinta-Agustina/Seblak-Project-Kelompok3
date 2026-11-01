@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   INITIAL_ORDERS,
   INITIAL_TRANSACTIONS,
@@ -9,14 +9,52 @@ const KasirContext = createContext(null);
 
 const DEFAULT_KUAH = 'Original';
 const DEFAULT_LEVEL = 3;
-const DEFAULT_MEJA = 'Meja 2';
+const DEFAULT_ORDER_TYPE = 'Dine In'; // Ganti default meja menjadi tipe pesanan
 
 export function KasirProvider({ children }) {
   // =========================
-  // USER DAN NAVIGASI
+  // USER, NAVIGASI, & MANAJEMEN KASIR
   // =========================
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('Kasir');
+
+  // State global daftar kasir
+  const [cashiers, setCashiers] = useState([
+    { id: '1', name: 'Siti Aisyah', email: 'siti@kedaiseblak.com', phone: '081234567890', password: '123', status: 'Aktif' },
+    { id: '2', name: 'Rini Wulandari', email: 'rini@kedaiseblak.com', phone: '089876543210', password: '123', status: 'Aktif' },
+  ]);
+
+  // Sinkronisasi sesi login kasir lintas tab menggunakan localStorage (khusus web)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const savedUser = localStorage.getItem('kedaiSeblakUser');
+      if (savedUser) {
+        try {
+          const parsedUser = JSON.parse(savedUser);
+          setUser(parsedUser);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+  }, []);
+
+  const addCashier = (newCashierData) => {
+    const newCashier = {
+      id: Date.now().toString(),
+      name: newCashierData.name,
+      email: newCashierData.email,
+      phone: newCashierData.phone || '-',
+      password: newCashierData.password,
+      status: 'Aktif',
+    };
+    setCashiers((prev) => [...prev, newCashier]);
+    return newCashier;
+  };
+
+  const deleteCashier = (id) => {
+    setCashiers((prev) => prev.filter((item) => item.id !== id));
+  };
 
   // Owner Menu & Harga state
   const [menuItems, setMenuItems] = useState(INITIAL_MENU_ITEMS);
@@ -27,7 +65,7 @@ export function KasirProvider({ children }) {
   const [cart, setCart] = useState([]);
   const [selectedKuah, setSelectedKuah] = useState(DEFAULT_KUAH);
   const [selectedLevel, setSelectedLevel] = useState(DEFAULT_LEVEL);
-  const [selectedMeja, setSelectedMeja] = useState(DEFAULT_MEJA);
+  const [selectedOrderType, setSelectedOrderType] = useState(DEFAULT_ORDER_TYPE); // Dine In atau Takeaway
   const [catatan, setCatatan] = useState('');
   const [activeCategory, setActiveCategory] = useState('Semua');
 
@@ -42,40 +80,69 @@ export function KasirProvider({ children }) {
   // =========================
   // LOGIN DAN LOGOUT
   // =========================
-  const login = (username, role = 'Kasir') => {
+  const login = (identifier, password = '', role = 'Kasir') => {
     const normalizedRole =
       String(role).toLowerCase() === 'owner' ? 'Owner' : 'Kasir';
 
-    setUser({
-      name:
-        username ||
-        (normalizedRole === 'Owner' ? 'Dewi' : 'Siti Aisyah'),
-      role: normalizedRole,
-      avatar:
-        normalizedRole === 'Owner'
-          ? {
-            uri: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
-          }
-          : require('../../assets/images/avatar-kasir.png'),
-    });
+    let loggedInUser = null;
 
-    setActiveTab(
-      normalizedRole === 'Owner' ? 'Laporan' : 'Kasir'
-    );
+    if (normalizedRole === 'Kasir') {
+      const foundCashier = cashiers.find(
+        (c) => c.email.toLowerCase() === identifier.toLowerCase() || c.name.toLowerCase() === identifier.toLowerCase()
+      );
+
+      if (!foundCashier) {
+        throw new Error('Akun kasir tidak ditemukan atau belum didaftarkan oleh Owner.');
+      }
+      if (foundCashier.password && foundCashier.password !== password) {
+        throw new Error('Password kasir salah!');
+      }
+
+      loggedInUser = {
+        name: foundCashier.name,
+        role: 'Kasir',
+        avatar: require('../../assets/images/avatar-kasir.png'),
+      };
+      
+      setUser(loggedInUser);
+      setActiveTab('Kasir');
+    } else {
+      loggedInUser = {
+        name: identifier || 'Dewi',
+        role: 'Owner',
+        avatar: {
+          uri: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
+        },
+      };
+
+      setUser(loggedInUser);
+      setActiveTab('dashboard');
+    }
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem('kedaiSeblakUser', JSON.stringify(loggedInUser));
+      if (normalizedRole === 'Kasir') {
+        localStorage.setItem('activeCashierLogin', loggedInUser.name);
+      } else {
+        localStorage.removeItem('activeCashierLogin');
+      }
+    }
   };
 
   const logout = () => {
     setUser(null);
     setActiveTab('Kasir');
     resetCart();
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.removeItem('kedaiSeblakUser');
+      localStorage.removeItem('activeCashierLogin');
+    }
   };
 
   // =========================
   // KERANJANG
   // =========================
-
-  // Menambahkan topping/menu ke keranjang.
-  // Item dengan ID sama akan menambah jumlah.
   const addToCart = (item) => {
     if (!item || item.id == null) {
       return;
@@ -84,7 +151,6 @@ export function KasirProvider({ children }) {
     const price = Number(item.harga ?? item.price);
 
     if (!Number.isFinite(price) || price < 0) {
-      console.warn('Harga item tidak valid:', item);
       return;
     }
 
@@ -97,9 +163,9 @@ export function KasirProvider({ children }) {
         return previousCart.map((cartItem) =>
           cartItem.id === item.id
             ? {
-              ...cartItem,
-              qty: Number(cartItem.qty || 1) + 1,
-            }
+                ...cartItem,
+                qty: Number(cartItem.qty || 1) + 1,
+              }
             : cartItem
         );
       }
@@ -115,8 +181,6 @@ export function KasirProvider({ children }) {
     });
   };
 
-  // Mengubah jumlah item.
-  // Jika jumlah menjadi 0, item dihapus.
   const updateCartQty = (itemId, delta) => {
     const change = Number(delta);
 
@@ -146,26 +210,23 @@ export function KasirProvider({ children }) {
     );
   };
 
-  // Menghapus item tertentu.
   const removeFromCart = (itemId) => {
     setCart((previousCart) =>
       previousCart.filter((item) => item.id !== itemId)
     );
   };
 
-  // Mengosongkan keranjang dan mengembalikan pilihan ke awal.
   const resetCart = () => {
     setCart([]);
     setSelectedKuah(DEFAULT_KUAH);
     setSelectedLevel(DEFAULT_LEVEL);
-    setSelectedMeja(DEFAULT_MEJA);
+    setSelectedOrderType(DEFAULT_ORDER_TYPE);
     setCatatan('');
   };
 
   // =========================
   // PERHITUNGAN TOTAL
   // =========================
-
   const getTotalPrice = () =>
     cart.reduce((total, item) => {
       const price = Number(item.harga ?? item.price ?? 0);
@@ -183,22 +244,11 @@ export function KasirProvider({ children }) {
   // =========================
   // CHECKOUT DAN PEMBAYARAN
   // =========================
-  //
-  // PENTING:
-  // Fungsi ini harus dipanggil setelah PaymentModal
-  // mengonfirmasi pembayaran berhasil.
-  //
-  // Parameter:
-  // paymentMethod = 'Tunai', 'QRIS', atau metode lain
-  // cashAmount    = nominal uang yang diterima
-  // customData    = detail pesanan dari Dashboard
-  //
   const checkoutOrder = (
     paymentMethod,
     cashAmount = 0,
     customData = null
   ) => {
-    // Pastikan metode pembayaran dipilih.
     if (
       typeof paymentMethod !== 'string' ||
       paymentMethod.trim() === ''
@@ -211,10 +261,9 @@ export function KasirProvider({ children }) {
       normalizedMethod.toLowerCase()
     );
 
-    // Ambil item dari payload Dashboard atau keranjang.
     const sourceItems =
       Array.isArray(customData?.items) &&
-        customData.items.length > 0
+      customData.items.length > 0
         ? customData.items
         : cart;
 
@@ -222,28 +271,15 @@ export function KasirProvider({ children }) {
       throw new Error('Keranjang masih kosong.');
     }
 
-    // Normalisasi data item untuk keranjang, transaksi, dan struk.
     const items = sourceItems.map((item) => {
       const price = Number(item.price ?? item.harga ?? 0);
       const qty = Number(item.qty ?? 1);
 
-      if (!Number.isFinite(price) || price < 0) {
-        throw new Error(
-          `Harga item ${item.name || item.nama || ''} tidak valid.`
-        );
-      }
-
-      if (!Number.isInteger(qty) || qty < 1) {
-        throw new Error('Jumlah item harus minimal 1.');
-      }
-
-      const name = item.name || item.nama || 'Item';
-
       return {
         ...item,
         id: item.id,
-        name,
-        nama: name,
+        name: item.name || item.nama || 'Item',
+        nama: item.name || item.nama || 'Item',
         price,
         harga: price,
         qty,
@@ -251,31 +287,18 @@ export function KasirProvider({ children }) {
       };
     });
 
-    // Hitung ulang dari item untuk menghindari total yang keliru.
     const total = items.reduce(
       (sum, item) => sum + item.subtotal,
       0
     );
 
-    if (!Number.isFinite(total) || total <= 0) {
-      throw new Error('Total pembayaran tidak valid.');
-    }
-
-    // Validasi pembayaran tunai.
     const paidAmount = Number(cashAmount ?? 0);
 
-    if (isCash) {
-      if (
-        !Number.isFinite(paidAmount) ||
-        paidAmount < total
-      ) {
-        throw new Error('Uang pembayaran masih kurang.');
-      }
+    if (isCash && paidAmount < total) {
+      throw new Error('Uang pembayaran masih kurang.');
     }
 
     const change = isCash ? paidAmount - total : 0;
-
-    // Waktu dan nomor transaksi.
     const now = new Date();
 
     const time = now.toLocaleTimeString('id-ID', {
@@ -285,23 +308,21 @@ export function KasirProvider({ children }) {
     });
 
     const date = now.toLocaleDateString('id-ID');
-
-    const orderNo =
-      customData?.orderNo ||
-      `TRX-${now.getTime()}`;
-
+    const orderNo = customData?.orderNo || `TRX-${now.getTime()}`;
     const itemsSummary = items
       .map((item) => `${item.qty}x ${item.name}`)
       .join(', ');
 
-    // Data pesanan.
+    const orderTypeVal = customData?.orderType || selectedOrderType;
+
     const newOrder = {
       id: orderNo,
       orderNo,
       time: customData?.time || time,
       date: customData?.date || date,
-      table: customData?.tableNo || selectedMeja,
-      tableNo: customData?.tableNo || selectedMeja,
+      table: orderTypeVal, // Menyimpan Dine In / Takeaway sebagai pengganti meja
+      tableNo: orderTypeVal,
+      orderType: orderTypeVal,
       items: itemsSummary,
       details: items,
       total,
@@ -317,7 +338,6 @@ export function KasirProvider({ children }) {
       kasir: customData?.kasir || user?.name || 'Kasir',
     };
 
-    // Data transaksi untuk riwayat dan struk.
     const newTransaction = {
       id: `TRX-${now.getTime()}`,
       no: orderNo,
@@ -325,8 +345,9 @@ export function KasirProvider({ children }) {
       waktu: newOrder.time,
       time: newOrder.time,
       date: newOrder.date,
-      meja: newOrder.table,
-      tableNo: newOrder.table,
+      meja: orderTypeVal,
+      tableNo: orderTypeVal,
+      orderType: orderTypeVal,
       item: itemsSummary,
       items,
       total,
@@ -342,7 +363,6 @@ export function KasirProvider({ children }) {
       catatan: newOrder.catatan,
     };
 
-    // Simpan ke state aplikasi.
     setOrders((previousOrders) => [
       newOrder,
       ...previousOrders,
@@ -353,16 +373,10 @@ export function KasirProvider({ children }) {
       ...previousTransactions,
     ]);
 
-    // Kosongkan keranjang setelah transaksi berhasil dibuat.
     resetCart();
-
-    // Kembalikan data agar Dashboard bisa membuka struk.
     return newTransaction;
   };
 
-  // =========================
-  // UPDATE STATUS PESANAN
-  // =========================
   const updateOrderStatus = (orderId, newStatus) => {
     setOrders((previousOrders) =>
       previousOrders.map((order) =>
@@ -373,9 +387,6 @@ export function KasirProvider({ children }) {
     );
   };
 
-  // =========================
-  // CONTEXT PROVIDER
-  // =========================
   // Menu CRUD actions (Owner)
   const addMenuItem = (menuData) => {
     const newItem = {
@@ -385,7 +396,7 @@ export function KasirProvider({ children }) {
       stok: Number(menuData.stok) || 0,
       status: menuData.status || 'Aktif',
       kategori: menuData.kategori || 'Topping',
-      emoji: menuData.emoji || '≡ƒìÿ',
+      emoji: menuData.emoji || '🥘',
       image: menuData.image || null,
       createdAt: new Date().toISOString(),
     };
@@ -421,49 +432,41 @@ export function KasirProvider({ children }) {
     setMenuItems(INITIAL_MENU_ITEMS);
   };
 
-
-
   return (
     <KasirContext.Provider
       value={{
-        // User dan navigasi
         user,
         login,
         logout,
         activeTab,
         setActiveTab,
+        cashiers,
+        addCashier,
+        deleteCashier,
         menuItems,
         setMenuItems,
         addMenuItem,
         updateMenuItem,
         deleteMenuItem,
         resetMenuItems,
-
-        // Keranjang
         cart,
         setCart,
         addToCart,
         updateCartQty,
         removeFromCart,
         resetCart,
-
-        // Perhitungan
         getTotalPrice,
         getTotalItemsCount,
-
-        // Pilihan pesanan
         selectedKuah,
         setSelectedKuah,
         selectedLevel,
         setSelectedLevel,
-        selectedMeja,
-        setSelectedMeja,
+        selectedOrderType,    // Mengekspor state tipe pesanan
+        setSelectedOrderType, // Mengekspor fungsi pengubah tipe pesanan
         catatan,
         setCatatan,
         activeCategory,
         setActiveCategory,
-
-        // Pesanan dan transaksi
         orders,
         setOrders,
         transactions,
@@ -477,7 +480,6 @@ export function KasirProvider({ children }) {
   );
 }
 
-// Hook untuk mengakses context.
 export function useKasir() {
   const context = useContext(KasirContext);
 
