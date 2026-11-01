@@ -167,11 +167,7 @@ export default function DashboardOwnerScreen() {
     }
   };
 
-  // CRUD stok
-  const handleAddItem = (newItem) => {
-    setStockItems((prev) => [newItem, ...prev]);
-  };
-
+  // Update Item Stok (misalnya hasil stock opname)
   const handleUpdateItem = (updatedItem) => {
     setStockItems((prev) =>
       prev.map((item) =>
@@ -180,13 +176,7 @@ export default function DashboardOwnerScreen() {
     );
   };
 
-  const handleDeleteItem = (itemId) => {
-    setStockItems((prev) =>
-      prev.filter((item) => item.id !== itemId)
-    );
-  };
-
-  // Restok stok
+  // Restok stok dari modul stok
   const handleRestockItem = (itemId, addedQty, restockRecord) => {
     const targetItem = stockItems.find(
       (item) => item.id === itemId
@@ -339,11 +329,66 @@ export default function DashboardOwnerScreen() {
     ));
   };
 
+
   const handleDeleteExpense = (expenseId) => {
-    const target = expenses.find((expense) => expense.id === expenseId);
-    if (target) adjustStockFromExpense(target, -1);
-    setExpenses((prev) => prev.filter((expense) => expense.id !== expenseId));
+    const target = expenses.find(
+      (expense) => expense.id === expenseId
+    );
+
+    // Kurangi kembali stok jika pengeluaran merupakan pembelian stok.
+    if (target) {
+      adjustStockFromExpense(target, -1);
+    }
+
+    // Hapus data pengeluaran.
+    setExpenses((prev) =>
+      prev.filter((expense) => expense.id !== expenseId)
+    );
   };
+
+  // Sinkronisasi otomatis stok dari modul Pengeluaran.
+  const handleUpdateStockFromExpense = (
+    itemId,
+    newSisa,
+    newModal,
+    newHargaRata
+  ) => {
+    setStockItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== itemId) return item;
+
+        const addedQty = Math.max(
+          0,
+          Number(newSisa) - Number(item.sisa || 0)
+        );
+
+        const record = {
+          tanggal: new Date().toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          }),
+          jumlah: addedQty,
+          satuan: item.satuan,
+          supplier: 'Pembelian melalui Pengeluaran',
+          hargaBeli: Number(newHargaRata || 0),
+          pic: 'Owner',
+        };
+
+        return {
+          ...item,
+          sisa: Number(newSisa),
+          modalTertanam: Number(newModal),
+          hargaBeli: Number(newHargaRata),
+          riwayatRestok:
+            addedQty > 0
+              ? [record, ...(item.riwayatRestok || [])]
+              : item.riwayatRestok || [],
+        };
+      })
+    );
+  };
+
 
   // Judul header
   const getHeaderTitle = () => {
@@ -353,6 +398,7 @@ export default function DashboardOwnerScreen() {
 
       case 'kelola_kasir':
         return 'Owner Portal · Kelola Akun Kasir';
+
 
       case 'penjualan':
         return 'Owner Portal · Laporan Penjualan Seblak';
@@ -424,7 +470,9 @@ export default function DashboardOwnerScreen() {
               onDeleteExpense={handleDeleteExpense}
             />
           </View>
+
         ) : activeTab === 'kelola_kasir' ? (
+
           <View style={styles.embeddedTabContainer}>
             <KelolaKasirScreen isEmbedded={true} />
           </View>
@@ -451,9 +499,7 @@ export default function DashboardOwnerScreen() {
             {activeTab === 'stok' && (
               <TabStok
                 stockItems={stockItems}
-                onAddItem={handleAddItem}
                 onUpdateItem={handleUpdateItem}
-                onDeleteItem={handleDeleteItem}
                 onRestockItem={handleRestockItem}
                 initialFilterStatus={stockPresetFilter}
               />
@@ -471,30 +517,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: WARNA.latar,
   },
-
   mobileBackdrop: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 999,
     flexDirection: 'row',
   },
-
   backdropTouch: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(44, 24, 16, 0.45)',
   },
-
   mainWrapper: {
     flex: 1,
     minWidth: 0,
     height: '100%',
   },
-
   tabContent: {
     flex: 1,
     minWidth: 0,
     width: '100%',
   },
-
   embeddedTabContainer: {
     flex: 1,
     minWidth: 0,

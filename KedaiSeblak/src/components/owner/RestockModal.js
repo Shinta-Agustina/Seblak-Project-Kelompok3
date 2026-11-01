@@ -1,5 +1,4 @@
-﻿
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   View,
@@ -17,8 +16,18 @@ import { Ionicons } from '@expo/vector-icons';
 const formatRupiah = (value) =>
   `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
 
-const parseNumber = (value) =>
-  Number(String(value || '').replace(',', '.'));
+const parseNumber = (value) => {
+  const normalized = String(value || '').trim().replace(',', '.');
+  if (!normalized) return 0;
+  return Number(normalized);
+};
+
+const getTanggalISO = (date) => {
+  const tahun = date.getFullYear();
+  const bulan = String(date.getMonth() + 1).padStart(2, '0');
+  const hari = String(date.getDate()).padStart(2, '0');
+  return `${tahun}-${bulan}-${hari}`;
+};
 
 export default function RestockModal({
   visible,
@@ -30,32 +39,42 @@ export default function RestockModal({
   const [hargaBeli, setHargaBeli] = useState('');
   const [supplier, setSupplier] = useState('');
   const [catatan, setCatatan] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (visible) {
-      setJumlah('');
-      setHargaBeli(String(item?.hargaBeli || ''));
-      setSupplier(item?.supplier || '');
-      setCatatan('');
-    }
+    if (!visible) return;
+
+    setJumlah('');
+    setHargaBeli(String(item?.hargaBeli || ''));
+    setSupplier(item?.supplier || '');
+    setCatatan('');
+    setSaving(false);
   }, [visible, item]);
 
   const qty = parseNumber(jumlah);
-  const price = Number(String(hargaBeli).replace(/[^0-9]/g, ''));
 
-  const totalBiaya = useMemo(
-    () => (qty > 0 && price > 0 ? qty * price : 0),
-    [qty, price]
+  const price = Number(
+    String(hargaBeli || '').replace(/[^0-9]/g, '')
   );
 
-  const stokSekarang = Number(item?.sisa || 0);
-  const stokSetelahRestok = stokSekarang + (qty > 0 ? qty : 0);
+  const totalBiaya = useMemo(() => {
+    if (!Number.isFinite(qty) || qty <= 0 || price <= 0) return 0;
+    return Math.round(qty * price);
+  }, [qty, price]);
 
-  const handleSave = () => {
-    if (!item) return;
+  const stokSekarang = Number(item?.sisa || 0);
+  const stokSetelahPembelian = stokSekarang + (qty > 0 ? qty : 0);
+
+  const handleSave = async () => {
+    if (saving) return;
+
+    if (!item?.id) {
+      Alert.alert('Bahan belum dipilih', 'Pilih bahan yang akan dibeli.');
+      return;
+    }
 
     if (!Number.isFinite(qty) || qty <= 0) {
-      Alert.alert('Jumlah belum valid', 'Masukkan jumlah bahan yang diterima lebih dari 0.');
+      Alert.alert('Jumlah belum valid', 'Masukkan jumlah bahan lebih dari 0.');
       return;
     }
 
@@ -69,33 +88,75 @@ export default function RestockModal({
       return;
     }
 
+    if (typeof onSubmitRestock !== 'function') {
+      Alert.alert(
+        'Fungsi belum tersedia',
+        'Proses pembelian belum terhubung ke halaman Pengeluaran.'
+      );
+      return;
+    }
+
     const now = new Date();
+    const tanggalISO = getTanggalISO(now);
 
     const record = {
-      id: `RESTOK-${Date.now()}`,
+      id: `PEMBELIAN-${now.getTime()}`,
       tanggal: now.toLocaleDateString('id-ID', {
         day: '2-digit',
         month: 'short',
         year: 'numeric',
       }),
+      tanggalISO,
+      timestamp: now.toISOString(),
       waktu: now.toLocaleTimeString('id-ID', {
         hour: '2-digit',
         minute: '2-digit',
       }),
+
+      itemId: item.id,
+      nama: item.nama,
+      namaBahan: item.nama,
+      kategori: item.kategori || 'Bahan',
+      jenisStok: item.jenisStok || (
+        String(item.id).startsWith('STK-BAHAN-') ? 'bumbu' : 'topping'
+      ),
+
       jumlah: qty,
-      satuan: item.satuan || 'unit',
-      supplier: supplier.trim(),
+      satuan: item.satuan || 'pcs',
       hargaBeli: price,
       totalBiaya,
+      nominal: totalBiaya,
+      total: totalBiaya,
+
+      supplier: supplier.trim(),
       catatan: catatan.trim(),
-      jenis: 'Stok Masuk',
-      status: 'Diterima',
-      sumber: 'Penerimaan Stok',
+      keterangan: `Pembelian ${item.nama} (${qty} ${item.satuan || 'pcs'})`,
+
+      jenis: 'Pembelian Persediaan',
+      status: 'Selesai',
+      sumber: 'Pengeluaran',
       pic: 'Owner',
+      metode: 'Tunai',
     };
 
-    onSubmitRestock?.(item.id, qty, record);
-    onClose?.();
+    try {
+      setSaving(true);
+
+      // Hanya satu callback. Parent yang mengurus penambahan stok
+      // sekaligus pencatatan pengeluaran.
+      await onSubmitRestock(item.id, qty, record);
+
+      setSaving(false);
+      onClose?.();
+    } catch (error) {
+      console.error('Gagal menyimpan pembelian:', error);
+      setSaving(false);
+
+      Alert.alert(
+        'Gagal menyimpan',
+        error?.message || 'Pembelian belum berhasil disimpan. Silakan coba kembali.'
+      );
+    }
   };
 
   return (
@@ -103,7 +164,7 @@ export default function RestockModal({
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={saving ? () => {} : onClose}
     >
       <KeyboardAvoidingView
         style={styles.backdrop}
@@ -112,13 +173,13 @@ export default function RestockModal({
         <View style={styles.modalCard}>
           <View style={styles.header}>
             <View style={styles.headerIcon}>
-              <Ionicons name="cube-outline" size={22} color="#C62828" />
+              <Ionicons name="cart-outline" size={22} color="#C62828" />
             </View>
 
             <View style={styles.headerText}>
-              <Text style={styles.title}>Penerimaan Stok</Text>
+              <Text style={styles.title}>Pembelian Bahan</Text>
               <Text style={styles.subtitle}>
-                Catat bahan yang sudah dibeli dan diterima
+                Catat pembelian dan penerimaan bahan satu kali
               </Text>
             </View>
 
@@ -126,6 +187,7 @@ export default function RestockModal({
               onPress={onClose}
               style={styles.closeButton}
               activeOpacity={0.7}
+              disabled={saving}
             >
               <Ionicons name="close" size={21} color="#78665E" />
             </TouchableOpacity>
@@ -136,7 +198,6 @@ export default function RestockModal({
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Informasi bahan */}
             <View style={styles.itemInfo}>
               <View style={styles.itemIcon}>
                 <Ionicons name="archive-outline" size={20} color="#8D3D2E" />
@@ -150,7 +211,6 @@ export default function RestockModal({
               </View>
             </View>
 
-            {/* Kondisi stok */}
             <View style={styles.stockSummary}>
               <View style={styles.stockSummaryItem}>
                 <Text style={styles.summaryLabel}>Stok saat ini</Text>
@@ -162,9 +222,9 @@ export default function RestockModal({
               <View style={styles.summaryDivider} />
 
               <View style={styles.stockSummaryItem}>
-                <Text style={styles.summaryLabel}>Stok setelah diterima</Text>
+                <Text style={styles.summaryLabel}>Setelah pembelian</Text>
                 <Text style={[styles.summaryValue, { color: '#168653' }]}>
-                  {stokSetelahRestok} {item?.satuan || ''}
+                  {stokSetelahPembelian} {item?.satuan || ''}
                 </Text>
               </View>
             </View>
@@ -186,6 +246,7 @@ export default function RestockModal({
                 placeholder="Contoh: 5"
                 placeholderTextColor="#A89A92"
                 style={styles.input}
+                editable={!saving}
               />
               <Text style={styles.unitText}>{item?.satuan || ''}</Text>
             </View>
@@ -202,6 +263,7 @@ export default function RestockModal({
                 placeholder="Contoh: 25000"
                 placeholderTextColor="#A89A92"
                 style={styles.input}
+                editable={!saving}
               />
             </View>
 
@@ -214,6 +276,7 @@ export default function RestockModal({
                 placeholder="Nama supplier atau pasar"
                 placeholderTextColor="#A89A92"
                 style={styles.input}
+                editable={!saving}
               />
             </View>
 
@@ -221,14 +284,14 @@ export default function RestockModal({
             <TextInput
               value={catatan}
               onChangeText={setCatatan}
-              placeholder="Contoh: pembelian bahan untuk persediaan"
+              placeholder="Catatan tambahan (opsional)"
               placeholderTextColor="#A89A92"
               style={[styles.input, styles.noteInput]}
               multiline
               textAlignVertical="top"
+              editable={!saving}
             />
 
-            {/* Total biaya */}
             <View style={styles.totalCard}>
               <View style={styles.totalInfo}>
                 <Text style={styles.totalLabel}>Total nilai pembelian</Text>
@@ -242,8 +305,9 @@ export default function RestockModal({
             <View style={styles.notice}>
               <Ionicons name="information-circle-outline" size={18} color="#95651B" />
               <Text style={styles.noticeText}>
-                Pastikan bahan sudah diterima dan jumlahnya sudah diperiksa
-                sebelum menyimpan. Penerimaan ini akan menambah stok bahan.
+                Pembelian hanya dicatat melalui halaman Pengeluaran.
+                Setelah berhasil disimpan, stok akan bertambah otomatis.
+                Jangan masukkan pembelian yang sama lagi dari halaman Stok.
               </Text>
             </View>
           </ScrollView>
@@ -253,17 +317,21 @@ export default function RestockModal({
               style={styles.cancelButton}
               onPress={onClose}
               activeOpacity={0.7}
+              disabled={saving}
             >
               <Text style={styles.cancelText}>Batal</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.saveButton}
+              style={[styles.saveButton, saving && styles.saveButtonDisabled]}
               onPress={handleSave}
               activeOpacity={0.8}
+              disabled={saving}
             >
               <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.saveText}>Konfirmasi Penerimaan</Text>
+              <Text style={styles.saveText}>
+                {saving ? 'Menyimpan...' : 'Simpan Pembelian'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -448,5 +516,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 12,
   },
+  saveButtonDisabled: { opacity: 0.6 },
   saveText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
 });

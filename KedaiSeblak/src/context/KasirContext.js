@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import {
   INITIAL_ORDERS,
   INITIAL_TRANSACTIONS,
@@ -9,12 +9,13 @@ const KasirContext = createContext(null);
 
 const DEFAULT_KUAH = 'Original';
 const DEFAULT_LEVEL = 3;
-const DEFAULT_ORDER_TYPE = 'Dine In'; // Ganti default meja menjadi tipe pesanan
+const DEFAULT_ORDER_TYPE = 'Dine In';
 
 export function KasirProvider({ children }) {
   // =========================
   // USER, NAVIGASI, & MANAJEMEN KASIR
   // =========================
+  // Nilai awal user diatur ke null agar setiap refresh/buka aplikasi selalu wajib login
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('Kasir');
 
@@ -24,20 +25,8 @@ export function KasirProvider({ children }) {
     { id: '2', name: 'Rini Wulandari', email: 'rini@kedaiseblak.com', phone: '089876543210', password: '123', status: 'Aktif' },
   ]);
 
-  // Sinkronisasi sesi login kasir lintas tab menggunakan localStorage (khusus web)
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const savedUser = localStorage.getItem('kedaiSeblakUser');
-      if (savedUser) {
-        try {
-          const parsedUser = JSON.parse(savedUser);
-          setUser(parsedUser);
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    }
-  }, []);
+  // ❌ BLOK useEffect PENGECEKAN localStorage SAAT REFRESH TELAH DIHAPUS
+  // Ini memastikan setiap kali Anda menjalankan npm run web / refresh, user kembali null (wajib login).
 
   const addCashier = (newCashierData) => {
     const newCashier = {
@@ -50,6 +39,25 @@ export function KasirProvider({ children }) {
     };
     setCashiers((prev) => [...prev, newCashier]);
     return newCashier;
+  };
+
+  // Fungsi Edit Kasir (Nama, Email, Telepon, Password)
+  const updateCashier = (id, updatedData) => {
+    setCashiers((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          return {
+            ...item,
+            ...updatedData,
+            name: updatedData.name !== undefined ? updatedData.name.trim() : item.name,
+            email: updatedData.email !== undefined ? updatedData.email.trim() : item.email,
+            phone: updatedData.phone !== undefined ? updatedData.phone.trim() : item.phone,
+            password: updatedData.password !== undefined && updatedData.password !== '' ? updatedData.password : item.password,
+          };
+        }
+        return item;
+      })
+    );
   };
 
   const deleteCashier = (id) => {
@@ -65,7 +73,7 @@ export function KasirProvider({ children }) {
   const [cart, setCart] = useState([]);
   const [selectedKuah, setSelectedKuah] = useState(DEFAULT_KUAH);
   const [selectedLevel, setSelectedLevel] = useState(DEFAULT_LEVEL);
-  const [selectedOrderType, setSelectedOrderType] = useState(DEFAULT_ORDER_TYPE); // Dine In atau Takeaway
+  const [selectedOrderType, setSelectedOrderType] = useState(DEFAULT_ORDER_TYPE);
   const [catatan, setCatatan] = useState('');
   const [activeCategory, setActiveCategory] = useState('Semua');
 
@@ -119,7 +127,6 @@ export function KasirProvider({ children }) {
     }
 
     if (typeof window !== 'undefined' && window.localStorage) {
-      localStorage.setItem('kedaiSeblakUser', JSON.stringify(loggedInUser));
       if (normalizedRole === 'Kasir') {
         localStorage.setItem('activeCashierLogin', loggedInUser.name);
       } else {
@@ -134,7 +141,6 @@ export function KasirProvider({ children }) {
     resetCart();
 
     if (typeof window !== 'undefined' && window.localStorage) {
-      localStorage.removeItem('kedaiSeblakUser');
       localStorage.removeItem('activeCashierLogin');
     }
   };
@@ -319,7 +325,7 @@ export function KasirProvider({ children }) {
       orderNo,
       time: customData?.time || time,
       date: customData?.date || date,
-      table: orderTypeVal, // Menyimpan Dine In / Takeaway sebagai pengganti meja
+      table: orderTypeVal,
       tableNo: orderTypeVal,
       orderType: orderTypeVal,
       items: itemsSummary,
@@ -441,6 +447,7 @@ export function KasirProvider({ children }) {
         setActiveTab,
         cashiers,
         addCashier,
+        updateCashier,
         deleteCashier,
         menuItems,
         setMenuItems,
@@ -460,8 +467,8 @@ export function KasirProvider({ children }) {
         setSelectedKuah,
         selectedLevel,
         setSelectedLevel,
-        selectedOrderType,    // Mengekspor state tipe pesanan
-        setSelectedOrderType, // Mengekspor fungsi pengubah tipe pesanan
+        selectedOrderType,
+        setSelectedOrderType,
         catatan,
         setCatatan,
         activeCategory,

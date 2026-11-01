@@ -55,7 +55,7 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
   const [harianDate, setHarianDate] = useState(() => new Date().toLocaleDateString('id-ID', {
     day: 'numeric', month: 'long', year: 'numeric',
   }));
-  const [mingguanDate, setMingguanDate] = useState('13 Oktober 2026 ΓÇô 19 Oktober 2026');
+  const [mingguanDate, setMingguanDate] = useState('13 Oktober 2026 – 19 Oktober 2026');
   const [bulananDate, setBulananDate] = useState('1 Oktober 2026 ΓÇô 31 Oktober 2026');
 
   // State Date Picker Modal
@@ -755,7 +755,7 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
         <TopHeader
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
           isSidebarOpen={sidebarOpen}
-          title="Owner Portal ┬╖ Pengeluaran"
+          title="Owner Portal · Pengeluaran"
           role="Owner"
         />
         <View style={styles.standaloneContent}>{content}</View>
