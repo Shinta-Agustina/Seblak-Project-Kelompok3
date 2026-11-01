@@ -101,11 +101,6 @@ export default function Sidebar({
       icon: 'inventory-2',
     },
     {
-      id: 'menu_harga',
-      label: 'Menu & Harga',
-      icon: 'restaurant-menu',
-    },
-    {
       id: 'pengeluaran',
       label: 'Pengeluaran',
       icon: 'receipt-long',
@@ -114,6 +109,11 @@ export default function Sidebar({
       id: 'laporan_keuangan',
       label: 'Laporan Keuangan',
       icon: 'assessment',
+    },
+    {
+      id: 'manajemen_kasir',
+      label: 'Manajemen Kasir',
+      icon: 'people',
     },
   ];
 

@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   View,
@@ -6,11 +7,18 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  Alert,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import StatusBadge from './StatusBadge';
+
+const formatRupiah = (value) =>
+  `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
+
+const parseNumber = (value) =>
+  Number(String(value || '').replace(',', '.'));
 
 export default function RestockModal({
   visible,
@@ -19,170 +27,243 @@ export default function RestockModal({
   onSubmitRestock,
 }) {
   const [jumlah, setJumlah] = useState('');
-  const [supplier, setSupplier] = useState('');
   const [hargaBeli, setHargaBeli] = useState('');
-  const [error, setError] = useState('');
+  const [supplier, setSupplier] = useState('');
+  const [catatan, setCatatan] = useState('');
 
   useEffect(() => {
-    if (visible && item) {
-      setJumlah('10');
-      setSupplier(item.supplier || 'Pasar Induk Kramat Jati');
-      setHargaBeli(String(item.hargaBeli || ''));
-      setError('');
+    if (visible) {
+      setJumlah('');
+      setHargaBeli(String(item?.hargaBeli || ''));
+      setSupplier(item?.supplier || '');
+      setCatatan('');
     }
   }, [visible, item]);
 
-  if (!item) return null;
+  const qty = parseNumber(jumlah);
+  const price = Number(String(hargaBeli).replace(/[^0-9]/g, ''));
 
-  const currentSisa = item.sisa || 0;
-  const jumlahNum = parseFloat(jumlah) || 0;
-  const newSisa = currentSisa + jumlahNum;
-  const hargaBeliNum = parseFloat(hargaBeli) || 0;
-  const totalBiaya = jumlahNum * hargaBeliNum;
+  const totalBiaya = useMemo(
+    () => (qty > 0 && price > 0 ? qty * price : 0),
+    [qty, price]
+  );
 
-  let newStatus = 'Aman';
-  if (newSisa <= 0) newStatus = 'Habis';
-  else if (newSisa <= item.minimum) newStatus = 'Menipis';
+  const stokSekarang = Number(item?.sisa || 0);
+  const stokSetelahRestok = stokSekarang + (qty > 0 ? qty : 0);
 
-  const handleConfirm = () => {
-    if (!jumlah.trim() || isNaN(jumlahNum) || jumlahNum <= 0) {
-      setError('Masukkan jumlah restok yang valid (angka > 0)!');
+  const handleSave = () => {
+    if (!item) return;
+
+    if (!Number.isFinite(qty) || qty <= 0) {
+      Alert.alert('Jumlah belum valid', 'Masukkan jumlah bahan yang diterima lebih dari 0.');
       return;
     }
 
-    const restockRecord = {
-      tanggal: '24 Okt 2026',
-      jumlah: jumlahNum,
-      supplier: supplier.trim() || item.supplier || 'Supplier Langganan',
-      hargaBeli: hargaBeliNum,
-      pic: 'Dewi (Owner)',
+    if (!Number.isFinite(price) || price <= 0) {
+      Alert.alert('Harga belum valid', 'Masukkan harga beli per satuan.');
+      return;
+    }
+
+    if (!supplier.trim()) {
+      Alert.alert('Supplier belum diisi', 'Masukkan nama supplier atau tempat pembelian.');
+      return;
+    }
+
+    const now = new Date();
+
+    const record = {
+      id: `RESTOK-${Date.now()}`,
+      tanggal: now.toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      }),
+      waktu: now.toLocaleTimeString('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      jumlah: qty,
+      satuan: item.satuan || 'unit',
+      supplier: supplier.trim(),
+      hargaBeli: price,
+      totalBiaya,
+      catatan: catatan.trim(),
+      jenis: 'Stok Masuk',
+      status: 'Diterima',
+      sumber: 'Penerimaan Stok',
+      pic: 'Owner',
     };
 
-    onSubmitRestock(item.id, jumlahNum, restockRecord);
-    onClose();
+    onSubmitRestock?.(item.id, qty, record);
+    onClose?.();
   };
 
   return (
     <Modal
       visible={visible}
+      transparent
       animationType="fade"
-      transparent={true}
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.backdrop}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.card}>
-          {/* Header */}
+        <View style={styles.modalCard}>
           <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <View style={styles.iconCircle}>
-                <Ionicons name="add-circle" size={24} color="#C62828" />
-              </View>
-              <View>
-                <Text style={styles.title}>Aksi Restok Bahan</Text>
-                <Text style={styles.subtitle}>{item.nama}</Text>
-              </View>
+            <View style={styles.headerIcon}>
+              <Ionicons name="cube-outline" size={22} color="#C62828" />
             </View>
 
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={20} color="#78665E" />
+            <View style={styles.headerText}>
+              <Text style={styles.title}>Penerimaan Stok</Text>
+              <Text style={styles.subtitle}>
+                Catat bahan yang sudah dibeli dan diterima
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeButton}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={21} color="#78665E" />
             </TouchableOpacity>
           </View>
 
-          {/* Current vs After Restock Banner */}
-          <View style={styles.compareBanner}>
-            <View style={styles.compareCol}>
-              <Text style={styles.compareLabel}>Stok Saat Ini</Text>
-              <Text style={styles.compareVal}>
-                {currentSisa} {item.satuan}
-              </Text>
-              <StatusBadge status={item.sisa <= 0 ? 'Habis' : item.sisa <= item.minimum ? 'Menipis' : 'Aman'} size="sm" />
+          <ScrollView
+            style={styles.scroll}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Informasi bahan */}
+            <View style={styles.itemInfo}>
+              <View style={styles.itemIcon}>
+                <Ionicons name="archive-outline" size={20} color="#8D3D2E" />
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemName}>{item?.nama || 'Pilih bahan'}</Text>
+                <Text style={styles.itemCategory}>
+                  {item?.jenisStok || 'Bahan'} · {item?.kategori || 'Tanpa kategori'}
+                </Text>
+              </View>
             </View>
 
-            <Ionicons name="arrow-forward" size={20} color="#A89A92" style={{ marginTop: 12 }} />
+            {/* Kondisi stok */}
+            <View style={styles.stockSummary}>
+              <View style={styles.stockSummaryItem}>
+                <Text style={styles.summaryLabel}>Stok saat ini</Text>
+                <Text style={styles.summaryValue}>
+                  {stokSekarang} {item?.satuan || ''}
+                </Text>
+              </View>
 
-            <View style={styles.compareCol}>
-              <Text style={styles.compareLabel}>Setelah Restok</Text>
-              <Text style={[styles.compareVal, { color: '#168653' }]}>
-                {newSisa} {item.satuan}
-              </Text>
-              <StatusBadge status={newStatus} size="sm" />
+              <View style={styles.summaryDivider} />
+
+              <View style={styles.stockSummaryItem}>
+                <Text style={styles.summaryLabel}>Stok setelah diterima</Text>
+                <Text style={[styles.summaryValue, { color: '#168653' }]}>
+                  {stokSetelahRestok} {item?.satuan || ''}
+                </Text>
+              </View>
             </View>
-          </View>
 
-          {/* Input Form */}
-          <View style={styles.formGroup}>
+            <View style={styles.sectionHeading}>
+              <Text style={styles.sectionTitle}>Detail Pembelian</Text>
+              <Text style={styles.requiredText}>* Wajib diisi</Text>
+            </View>
+
             <Text style={styles.label}>
-              Jumlah Restok Masuk ({item.satuan}) <Text style={{ color: '#C62828' }}>*</Text>
+              Jumlah bahan diterima ({item?.satuan || '-'}) *
             </Text>
             <View style={styles.inputWrap}>
-              <Ionicons name="cube-outline" size={18} color="#8D7B70" style={{ marginRight: 8 }} />
+              <Ionicons name="scale-outline" size={18} color="#8D7B70" />
               <TextInput
-                style={styles.input}
-                placeholder="Contoh: 10"
-                placeholderTextColor="#A89A92"
-                keyboardType="numeric"
                 value={jumlah}
-                onChangeText={(val) => {
-                  setJumlah(val);
-                  setError('');
-                }}
-              />
-              <Text style={styles.unitSuffix}>{item.satuan}</Text>
-            </View>
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Supplier Pengirim</Text>
-            <View style={styles.inputWrap}>
-              <Ionicons name="storefront-outline" size={18} color="#8D7B70" style={{ marginRight: 8 }} />
-              <TextInput
-                style={styles.input}
-                placeholder="Nama Toko/Supplier"
+                onChangeText={setJumlah}
+                keyboardType="decimal-pad"
+                placeholder="Contoh: 5"
                 placeholderTextColor="#A89A92"
-                value={supplier}
-                onChangeText={setSupplier}
-              />
-            </View>
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Harga Beli / Satuan (Rp)</Text>
-            <View style={styles.inputWrap}>
-              <Ionicons name="cash-outline" size={18} color="#8D7B70" style={{ marginRight: 8 }} />
-              <TextInput
                 style={styles.input}
-                placeholder="0"
-                placeholderTextColor="#A89A92"
-                keyboardType="numeric"
+              />
+              <Text style={styles.unitText}>{item?.satuan || ''}</Text>
+            </View>
+
+            <Text style={styles.label}>
+              Harga beli per {item?.satuan || 'satuan'} *
+            </Text>
+            <View style={styles.inputWrap}>
+              <Text style={styles.currencyPrefix}>Rp</Text>
+              <TextInput
                 value={hargaBeli}
                 onChangeText={setHargaBeli}
+                keyboardType="numeric"
+                placeholder="Contoh: 25000"
+                placeholderTextColor="#A89A92"
+                style={styles.input}
               />
             </View>
-          </View>
 
-          {/* Total Cost Summary */}
-          {totalBiaya > 0 && (
-            <View style={styles.totalBox}>
-              <Text style={styles.totalLabel}>Estimasi Total Belanja Bahan:</Text>
-              <Text style={styles.totalValue}>
-                Rp {totalBiaya.toLocaleString('id-ID')}
+            <Text style={styles.label}>Supplier / Tempat Pembelian *</Text>
+            <View style={styles.inputWrap}>
+              <Ionicons name="storefront-outline" size={18} color="#8D7B70" />
+              <TextInput
+                value={supplier}
+                onChangeText={setSupplier}
+                placeholder="Nama supplier atau pasar"
+                placeholderTextColor="#A89A92"
+                style={styles.input}
+              />
+            </View>
+
+            <Text style={styles.label}>Catatan Pembelian</Text>
+            <TextInput
+              value={catatan}
+              onChangeText={setCatatan}
+              placeholder="Contoh: pembelian bahan untuk persediaan"
+              placeholderTextColor="#A89A92"
+              style={[styles.input, styles.noteInput]}
+              multiline
+              textAlignVertical="top"
+            />
+
+            {/* Total biaya */}
+            <View style={styles.totalCard}>
+              <View style={styles.totalInfo}>
+                <Text style={styles.totalLabel}>Total nilai pembelian</Text>
+                <Text style={styles.totalHint}>
+                  Jumlah diterima × harga beli per satuan
+                </Text>
+              </View>
+              <Text style={styles.totalValue}>{formatRupiah(totalBiaya)}</Text>
+            </View>
+
+            <View style={styles.notice}>
+              <Ionicons name="information-circle-outline" size={18} color="#95651B" />
+              <Text style={styles.noticeText}>
+                Pastikan bahan sudah diterima dan jumlahnya sudah diperiksa
+                sebelum menyimpan. Penerimaan ini akan menambah stok bahan.
               </Text>
             </View>
-          )}
+          </ScrollView>
 
-          {/* Buttons */}
           <View style={styles.footer}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={onClose}
+              activeOpacity={0.7}
+            >
               <Text style={styles.cancelText}>Batal</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.submitBtn} onPress={handleConfirm} activeOpacity={0.8}>
-              <Ionicons name="bag-check" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.submitText}>Simpan Stok Masuk</Text>
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={handleSave}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.saveText}>Konfirmasi Penerimaan</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -194,179 +275,178 @@ export default function RestockModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(44, 24, 16, 0.65)',
+    backgroundColor: 'rgba(35, 15, 18, 0.52)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 18,
+    padding: 14,
   },
-  card: {
+  modalCard: {
     width: '100%',
-    maxWidth: 460,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 22,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
+    maxWidth: 500,
+    maxHeight: '92%',
+    backgroundColor: '#FFFDFC',
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#EEDDD8',
     elevation: 8,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EFE7E2',
-  },
-  headerLeft: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    paddingBottom: 15,
+    marginBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0E7E1',
+    gap: 10,
   },
-  iconCircle: {
+  headerIcon: {
     width: 42,
     height: 42,
     borderRadius: 12,
     backgroundColor: '#FBEAEC',
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  title: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#2C1810',
-  },
-  subtitle: {
-    fontSize: 12,
-    color: '#78665E',
-    marginTop: 2,
-  },
-  closeBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#F8F5F2',
-  },
-  compareBanner: {
+  headerText: { flex: 1 },
+  title: { fontSize: 17, fontWeight: '800', color: '#52141D' },
+  subtitle: { fontSize: 11, color: '#8D7B70', marginTop: 3 },
+  closeButton: { padding: 6 },
+  scroll: { flexGrow: 0 },
+  itemInfo: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-start',
-    backgroundColor: '#FFF8F5',
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#FCE7DF',
-    marginBottom: 16,
-  },
-  compareCol: {
     alignItems: 'center',
-    gap: 4,
-  },
-  compareLabel: {
-    fontSize: 11,
-    color: '#78665E',
-    fontWeight: '600',
-  },
-  compareVal: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#2C1810',
-  },
-  formGroup: {
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#FAF6F2',
     marginBottom: 12,
   },
-  label: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#2C1810',
-    marginBottom: 5,
-  },
-  inputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FAFAF9',
-    borderWidth: 1.5,
-    borderColor: '#EFE7E2',
+  itemIcon: {
+    width: 38,
+    height: 38,
     borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 44,
+    backgroundColor: '#FBEAEC',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  input: {
-    flex: 1,
-    fontSize: 13,
-    color: '#2C1810',
+  itemName: { fontSize: 14, fontWeight: '800', color: '#2C1810' },
+  itemCategory: { fontSize: 10, color: '#8D7B70', marginTop: 3 },
+  stockSummary: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EFE7E2',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 18,
   },
-  unitSuffix: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#8D7B70',
-    marginLeft: 6,
+  stockSummaryItem: { flex: 1, gap: 5 },
+  summaryDivider: {
+    width: 1,
+    backgroundColor: '#EFE7E2',
+    marginHorizontal: 12,
   },
-  errorText: {
-    fontSize: 11,
-    color: '#DC2626',
-    marginTop: 4,
-    fontWeight: '600',
-  },
-  totalBox: {
+  summaryLabel: { fontSize: 10, color: '#8D7B70' },
+  summaryValue: { fontSize: 15, fontWeight: '800', color: '#2C1810' },
+  sectionHeading: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F0FDF4',
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  totalLabel: {
+  sectionTitle: { fontSize: 13, fontWeight: '800', color: '#52141D' },
+  requiredText: { fontSize: 10, color: '#A89A92' },
+  label: {
     fontSize: 11,
-    color: '#166534',
-    fontWeight: '600',
-  },
-  totalValue: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#166534',
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#EFE7E2',
-  },
-  cancelBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    backgroundColor: '#F4EFEB',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cancelText: {
-    fontSize: 13,
     fontWeight: '700',
     color: '#78665E',
+    marginBottom: 6,
+    marginTop: 3,
   },
-  submitBtn: {
+  inputWrap: {
+    minHeight: 43,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 9,
+    borderWidth: 1,
+    borderColor: '#E7DAD2',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 9,
+    paddingHorizontal: 11,
+    marginBottom: 12,
+  },
+  input: {
+    flex: 1,
+    color: '#2C1810',
+    fontSize: 12,
     paddingVertical: 10,
-    paddingHorizontal: 18,
+  },
+  unitText: { fontSize: 11, color: '#8D7B70', fontWeight: '700' },
+  currencyPrefix: { fontSize: 12, color: '#8D7B70', fontWeight: '700' },
+  noteInput: {
+    minHeight: 68,
+    borderWidth: 1,
+    borderColor: '#E7DAD2',
+    borderRadius: 9,
+    paddingHorizontal: 11,
+    backgroundColor: '#FFFFFF',
+    marginBottom: 13,
+  },
+  totalCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    padding: 13,
+    backgroundColor: '#F4F8F4',
+    borderWidth: 1,
+    borderColor: '#DCEBDD',
+    borderRadius: 12,
+    marginTop: 2,
+  },
+  totalInfo: { flex: 1 },
+  totalLabel: { fontSize: 11, fontWeight: '800', color: '#315B3D' },
+  totalHint: { fontSize: 9, color: '#6F8875', marginTop: 4 },
+  totalValue: { fontSize: 16, fontWeight: '900', color: '#168653' },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: 11,
     borderRadius: 10,
+    backgroundColor: '#FFF8E8',
+    marginTop: 12,
+    marginBottom: 5,
+  },
+  noticeText: { flex: 1, fontSize: 10, lineHeight: 16, color: '#79591F' },
+  footer: {
+    flexDirection: 'row',
+    gap: 9,
+    paddingTop: 14,
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F0E7E1',
+  },
+  cancelButton: {
+    flex: 0.8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E7DAD2',
+    borderRadius: 10,
+    paddingVertical: 12,
+  },
+  cancelText: { color: '#78665E', fontSize: 12, fontWeight: '700' },
+  saveButton: {
+    flex: 1.7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
     backgroundColor: '#C62828',
-    shadowColor: '#C62828',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 3,
+    borderRadius: 10,
+    paddingVertical: 12,
   },
-  submitText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
+  saveText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
 });
