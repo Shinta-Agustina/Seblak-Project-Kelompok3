@@ -86,6 +86,11 @@ export default function Sidebar({
       icon: 'dashboard',
     },
     {
+      id: 'Kelola Kasir',
+      label: 'Kelola Kasir',
+      icon: 'people', // Ditambahkan di sini agar muncul di sidebar owner
+    },
+    {
       id: 'penjualan',
       label: 'Penjualan',
       icon: 'trending-up',
@@ -345,7 +350,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   menuLabel: {
-    text: 'none',
     color: '#DFB8BC',
     fontSize: 13,
     fontWeight: '600',
