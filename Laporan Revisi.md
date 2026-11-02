@@ -10,6 +10,8 @@
 
 ### 3. Menambahkan Manajemen Kasir
 
+![alt text](iPhone-14-PRO-localhost-mfkb7r7ojrhxn5.gif)
+
 ### 4. Inputan stok nominal harga manual (diganti dengan sistem pengeluaran yang langsung terhubung ke stok)
 
 
