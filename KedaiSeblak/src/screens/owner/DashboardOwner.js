@@ -241,7 +241,6 @@ export default function DashboardOwnerScreen() {
   };
 
   // Sinkronisasi stok berdasarkan pembelian yang dicatat pada Pengeluaran.
-  // Hanya bahan dengan nama dan satuan yang cocok yang diubah.
   const adjustStockFromExpense = (expense, multiplier = 1) => {
     const jumlah = Number(expense?.jumlah || 0);
     const namaBahan = String(expense?.keterangan || '').trim().toLowerCase();
@@ -328,77 +327,27 @@ export default function DashboardOwnerScreen() {
     ));
   };
 
-
   const handleDeleteExpense = (expenseId) => {
     const target = expenses.find(
       (expense) => expense.id === expenseId
     );
 
-    // Kurangi kembali stok jika pengeluaran merupakan pembelian stok.
     if (target) {
       adjustStockFromExpense(target, -1);
     }
 
-    // Hapus data pengeluaran.
     setExpenses((prev) =>
       prev.filter((expense) => expense.id !== expenseId)
     );
   };
-
-  // Sinkronisasi otomatis stok dari modul Pengeluaran.
-  const handleUpdateStockFromExpense = (
-    itemId,
-    newSisa,
-    newModal,
-    newHargaRata
-  ) => {
-    setStockItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== itemId) return item;
-
-        const addedQty = Math.max(
-          0,
-          Number(newSisa) - Number(item.sisa || 0)
-        );
-
-        const record = {
-          tanggal: new Date().toLocaleDateString('id-ID', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-          }),
-          jumlah: addedQty,
-          satuan: item.satuan,
-          supplier: 'Pembelian melalui Pengeluaran',
-          hargaBeli: Number(newHargaRata || 0),
-          pic: 'Owner',
-        };
-
-        return {
-          ...item,
-          sisa: Number(newSisa),
-          modalTertanam: Number(newModal),
-          hargaBeli: Number(newHargaRata),
-          riwayatRestok:
-            addedQty > 0
-              ? [record, ...(item.riwayatRestok || [])]
-              : item.riwayatRestok || [],
-        };
-      })
-    );
-  };
-
 
   // Judul header
   const getHeaderTitle = () => {
     switch (activeTab) {
       case 'dashboard':
         return 'Owner Portal · Ringkasan Kesehatan Kedai';
-
       case 'kelola_kasir':
         return 'Owner Portal · Kelola Akun Kasir';
-
-
       case 'penjualan':
         return 'Owner Portal · Laporan Penjualan Seblak';
       case 'stok':
@@ -452,6 +401,7 @@ export default function DashboardOwnerScreen() {
           role="Owner"
         />
 
+        {activeTab === 'pengeluaran' ? (
           <View style={styles.embeddedTabContainer}>
             <PengeluaranScreen
               isEmbedded={true}
@@ -462,9 +412,7 @@ export default function DashboardOwnerScreen() {
               onDeleteExpense={handleDeleteExpense}
             />
           </View>
-
         ) : activeTab === 'kelola_kasir' ? (
-
           <View style={styles.embeddedTabContainer}>
             <KelolaKasirScreen isEmbedded={true} />
           </View>

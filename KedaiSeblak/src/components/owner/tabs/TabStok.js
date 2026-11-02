@@ -764,8 +764,9 @@ const styles = StyleSheet.create({
   stockTypeTabTextActive: {
     color: WARNA.putih,
   },
-  summaryGrid: {
+summaryGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap', // Memungkinkan card turun ke baris berikutnya jika layar sempit
     gap: 12,
     marginBottom: 16,
   },
