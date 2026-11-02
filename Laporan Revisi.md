@@ -11,3 +11,5 @@
 ![alt text](iPhone-14-PRO-MAX-localhost-shsmm53pj24vfp.gif)
 
 ### 5. Stok hanya melihat apa yang perlu di stok
+
+![alt text](<WhatsApp Video 2026-11-02 at 10.11.54.gif>)
