@@ -950,3 +950,4 @@ export const INITIAL_MENU_ITEMS = [
     image: 'https://images.unsplash.com/photo-1781332147547-1f0edb2a78a4?w=300&auto=format&fit=crop&q=80',
   },
 ];
+
