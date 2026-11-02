@@ -12,6 +12,9 @@
 
 ### 4. Inputan stok nominal harga manual (diganti dengan sistem pengeluaran yang langsung terhubung ke stok)
 
-![alt text](<iPhone-14-PRO-localhost-ahlw4vvjhp9bct (1).gif>)
+
+![alt text](iPhone-14-PRO-MAX-localhost-shsmm53pj24vfp.gif)
 
 ### 5. Stok hanya melihat apa yang perlu di stok
+
+![alt text](<WhatsApp Video 2026-11-02 at 10.11.54.gif>)
