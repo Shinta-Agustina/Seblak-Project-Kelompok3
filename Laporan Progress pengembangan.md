@@ -109,7 +109,6 @@ Fitur Laporan Penjualan
 ![alt text](<WhatsApp Video 2026-10-26 at 10.30.30.gif>)
 
 3. Faija : Screen Menu dan Harga, Pengeluaran dan Laporan Keuangan
-
 Fitur Menu dan Harga
 ![alt text](<fitur menu dan harga (1).gif>)
 
