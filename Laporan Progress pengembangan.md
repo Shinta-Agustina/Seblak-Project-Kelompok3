@@ -92,9 +92,21 @@ Berdasarkan hasil analisis dan rancangan kebutuhan, sistem **Seblak Prasmanan PO
 ## Pembagian Tugas
 1. Shinta PM : Screen Login Kasir, Dashboard POS Kasir (Pilih Topping, Level Pedas, Ringkasan Pesanan), Screen & Modal Pembayaran (Support Tunai, QRIS, E-Wallet + Keypad Numpad), Modal Struk Transaksi (*ReceiptModal*)
 
+![alt text](Recording-2026-10-19-095956-1.gif)
 
 2. Maya : Screen Pesanan Aktif (Filter Status & No. Meja),Screen Riwayat Transaksi & Laporan Penjualan
-![alt text](iPhone-14-PRO-MAX-localhost-j6uszu3xki-e3d.gif)
+
+Fitur Pesanan Aktif
+
+![alt text](<WhatsApp Video 2026-10-26 at 10.30.22.gif>)
+
+Fitur Riwayat Transaksi
+
+![alt text](<WhatsApp Video 2026-10-26 at 10.30.26.gif>)
+
+Fitur Laporan Penjualan
+
+![alt text](<WhatsApp Video 2026-10-26 at 10.30.30.gif>)
 
 3. Faija : Screen Menu dan Harga, Pengeluaran dan Laporan Keuangan
 Fitur Menu dan Harga
@@ -106,7 +118,16 @@ Fitur Pengeluaran
 Fitur Laporan Keuangan
 ![alt text](<fitur laporan keuangan.gif>)
 
-4. Dewi : Dashboard Owner
+4. Dewi : Dashboard Owner, Penjualan dan Stok
+
+Fitur Dashboard Owner
+![alt text](dashboard.gif)
+
+Fitur Penjualan
+![alt text](penjualan.gif)
+
+Fitur Stok Bahan
+![alt text](stok.gif)
 
 ## Bukti Membangun Layer 
 Bukti Wawancara:

@@ -1,5 +1,4 @@
-﻿
-import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,8 +6,8 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  FlatList,
-  Modal,
+  ScrollView,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -16,43 +15,47 @@ import StatCard from '../StatCard';
 import StatusBadge from '../StatusBadge';
 import FilterChips from '../FilterChips';
 import StockProgressBar from '../StockProgressBar';
-import StockFormModal from '../StockFormModal';
-import RestockModal from '../RestockModal';
 import StockDetailModal from '../StockDetailModal';
 
-export default function TabStok({
-  stockItems = [],
-  onAddItem,
-  onUpdateItem,
-  onDeleteItem,
-  onRestockItem,
-  initialFilterStatus = 'Semua',
-}) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState(initialFilterStatus);
-  const [jenisFilter, setJenisFilter] = useState('Topping');
+const WARNA = {
+  merah: '#C62828',
+  merahTua: '#52141D',
+  merahMuda: '#FBEAEC',
+  latar: '#F8F5F2',
+  putih: '#FFFFFF',
+  teks: '#2C1810',
+  sekunder: '#78665E',
+  garis: '#EFE7E2',
+  hijau: '#168653',
+  oranye: '#D97706',
+  merahTerang: '#DC2626',
+};
 
-  // State modal
-  const [isFormModalVisible, setIsFormModalVisible] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [isRestockModalVisible, setIsRestockModalVisible] = useState(false);
-  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [itemToDelete, setItemToDelete] = useState(null);
+const parseAngka = (value) => {
+  if (
+    value === null ||
+    value === undefined ||
+    String(value).trim() === ''
+  ) {
+    return NaN;
+  }
+  return Number(String(value).trim().replace(',', '.'));
+};
 
-// Menentukan jenis stok
 const getJenisStok = (item) => {
-  if (item.jenisStok) {
-    return item.jenisStok;
+  if (
+    String(item?.jenisStok || '').toLowerCase() === 'bumbu'
+  ) {
+    return 'Bumbu';
   }
 
-  const kategori = String(item.kategori ?? '')
+  const kategori = String(item?.kategori || '')
     .trim()
     .toLowerCase();
 
   if (
     ['bumbu', 'bumbu & kuah', 'bahan dasar'].includes(kategori) ||
-    String(item.id ?? '').startsWith('STK-BAHAN-')
+    String(item?.id || '').startsWith('STK-BAHAN-')
   ) {
     return 'Bumbu';
   }
@@ -60,48 +63,81 @@ const getJenisStok = (item) => {
   return 'Topping';
 };
 
-  // Menentukan status stok
-  const getItemStatus = (item) => {
-    const sisa = Number(item.sisa ?? 0);
-    const minimum = Number(item.minimum ?? 1);
+const getItemStatus = (item) => {
+  const sisa = Number(item?.sisa ?? 0);
+  const minimum = Number(item?.minimum ?? 1);
 
-    if (sisa <= 0) return 'Habis';
-    if (sisa <= minimum) return 'Menipis';
+  if (sisa <= 0) return 'Habis';
+  if (sisa <= minimum) return 'Menipis';
 
-    return 'Aman';
-  };
+  return 'Aman';
+};
 
-  // Mengambil sumber foto lokal atau URL.
-  // require() menghasilkan angka pada React Native,
-  // sedangkan foto URL menggunakan objek { uri }.
-  const getImageSource = (item) => {
-    const foto = item?.foto ?? item?.image;
+const getImageSource = (item) => {
+  const foto = item?.foto ?? item?.image;
 
-    if (foto == null || foto === '') {
-      return null;
+  if (!foto) return null;
+  if (typeof foto === 'number') return foto;
+  if (typeof foto === 'string') return { uri: foto };
+  if (typeof foto === 'object' && foto.uri) return foto;
+
+  return null;
+};
+
+const formatTanggal = (value) => {
+  if (!value) return '-';
+  if (value instanceof Date) {
+    return value.toLocaleString('id-ID');
+  }
+  return String(value);
+};
+
+const getHistoryTimestamp = (record) => {
+  const raw =
+    record.timestamp ||
+    record.createdAt ||
+    record.tanggalISO ||
+    record.date;
+
+  if (raw) {
+    const parsed = new Date(raw).getTime();
+    if (Number.isFinite(parsed)) {
+      return parsed;
     }
+  }
 
-    if (typeof foto === 'number') {
-      return foto;
-    }
+  return 0;
+};
 
-    if (typeof foto === 'string') {
-      return { uri: foto };
-    }
-
-    // Mendukung sumber gambar yang sudah berbentuk objek.
-    if (typeof foto === 'object' && foto.uri) {
-      return foto;
-    }
-
-    return null;
-  };
-
-  // Ringkasan stok sesuai jenis yang dipilih
-  const stokJenisAktif = useMemo(
-    () => stockItems.filter((item) => getJenisStok(item) === jenisFilter),
-    [stockItems, jenisFilter]
+export default function TabStok({
+  stockItems = [],
+  onUpdateItem,
+  initialFilterStatus = 'Semua',
+}) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState(
+    initialFilterStatus || 'Semua'
   );
+
+  const [jenisFilter, setJenisFilter] = useState('Topping');
+  const [activeSection, setActiveSection] = useState('Daftar Stok');
+
+  const [opnameDraft, setOpnameDraft] = useState({});
+  const [opnameNote, setOpnameNote] = useState('');
+
+  const [expandedCategories, setExpandedCategories] = useState({});
+  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+
+  useEffect(() => {
+    setStatusFilter(initialFilterStatus || 'Semua');
+  }, [initialFilterStatus]);
+
+  const stokJenisAktif = useMemo(() => {
+    return stockItems.filter(
+      (item) => getJenisStok(item) === jenisFilter
+    );
+  }, [stockItems, jenisFilter]);
 
   const totalBahan = stokJenisAktif.length;
 
@@ -117,17 +153,14 @@ const getJenisStok = (item) => {
     (item) => getItemStatus(item) === 'Aman'
   ).length;
 
-  // Pencarian dan filter
   const filteredData = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    return stockItems.filter((item) => {
+    return stokJenisAktif.filter((item) => {
       const status = getItemStatus(item);
-      const nama = String(item.nama ?? '').toLowerCase();
-      const kategori = String(item.kategori ?? '').toLowerCase();
-      const supplier = String(item.supplier ?? '').toLowerCase();
-
-      const matchesJenis = getJenisStok(item) === jenisFilter;
+      const nama = String(item.nama || '').toLowerCase();
+      const kategori = String(item.kategori || '').toLowerCase();
+      const supplier = String(item.supplier || '').toLowerCase();
 
       const matchesStatus =
         statusFilter === 'Semua' ||
@@ -139,9 +172,20 @@ const getJenisStok = (item) => {
         kategori.includes(query) ||
         supplier.includes(query);
 
-      return matchesJenis && matchesStatus && matchesSearch;
+      return matchesStatus && matchesSearch;
     });
-  }, [stockItems, statusFilter, searchQuery, jenisFilter]);
+  }, [stokJenisAktif, statusFilter, searchQuery]);
+
+  const groupedByCategory = useMemo(() => {
+    return filteredData.reduce((acc, item) => {
+      const kategori = item.kategori || 'Lainnya';
+      if (!acc[kategori]) {
+        acc[kategori] = [];
+      }
+      acc[kategori].push(item);
+      return acc;
+    }, {});
+  }, [filteredData]);
 
   const filterOptions = [
     { id: 'Semua', label: 'Semua', count: totalBahan },
@@ -150,66 +194,107 @@ const getJenisStok = (item) => {
     { id: 'Habis', label: 'Habis', count: countHabis },
   ];
 
-  // Handler modal tambah
-  const handleOpenAdd = () => {
-    setSelectedItem(null);
-    setIsEditMode(false);
-    setIsFormModalVisible(true);
-  };
-
-  // Handler modal edit
-  const handleOpenEdit = (item) => {
-    setSelectedItem(item);
-    setIsEditMode(true);
-    setIsDetailModalVisible(false);
-    setIsFormModalVisible(true);
-  };
-
-  // Handler modal restok
-  const handleOpenRestock = (item) => {
-    setSelectedItem(item);
-    setIsDetailModalVisible(false);
-    setIsRestockModalVisible(true);
-  };
-
-  // Handler modal detail
   const handleOpenDetail = (item) => {
     setSelectedItem(item);
     setIsDetailModalVisible(true);
   };
 
-  // Konfirmasi hapus
-  const handleConfirmDelete = () => {
-    if (!itemToDelete) return;
+  const handleSaveOpname = () => {
+    const itemsDiisi = stokJenisAktif.filter((item) => {
+      const value = opnameDraft[item.id];
+      return value !== undefined && String(value).trim() !== '';
+    });
 
-    onDeleteItem?.(itemToDelete.id);
-    setItemToDelete(null);
-    setIsDetailModalVisible(false);
+    if (itemsDiisi.length === 0) {
+      Alert.alert(
+        'Belum ada data',
+        'Isi minimal satu jumlah stok fisik sebelum menyimpan.'
+      );
+      return;
+    }
+
+    const dataValid = [];
+    const dataTidakValid = [];
+
+    itemsDiisi.forEach((item) => {
+      const fisik = parseAngka(opnameDraft[item.id]);
+      if (!Number.isFinite(fisik) || fisik < 0) {
+        dataTidakValid.push(item.nama);
+        return;
+      }
+
+      const sistem = Number(item.sisa ?? 0);
+      const selisih = Number((fisik - sistem).toFixed(3));
+
+      dataValid.push({ item, fisik, sistem, selisih });
+    });
+
+    if (dataTidakValid.length > 0) {
+      Alert.alert(
+        'Jumlah stok tidak valid',
+        `Periksa kembali jumlah fisik:\n${dataTidakValid.join(', ')}`
+      );
+      return;
+    }
+
+    const sekarang = new Date();
+    const tanggal = sekarang.toLocaleString('id-ID');
+
+    dataValid.forEach(({ item, fisik, sistem, selisih }, index) => {
+      const record = {
+        id: `OPNAME-${sekarang.getTime()}-${index}`,
+        nama: item.nama,
+        satuan: item.satuan || 'pcs',
+        sistem,
+        fisik,
+        selisih,
+        tanggal,
+        timestamp: sekarang.toISOString(),
+        jenis: 'Stock Opname',
+        catatan: opnameNote.trim(),
+      };
+
+      onUpdateItem?.({
+        ...item,
+        sisa: fisik,
+        riwayatOpname: [record, ...(item.riwayatOpname || [])],
+      });
+    });
+
+    setOpnameDraft({});
+    setOpnameNote('');
+    Alert.alert('Stock Opname Berhasil', `${dataValid.length} data stok berhasil diperbarui.`);
+    setActiveSection('Riwayat');
   };
 
-  // Render setiap kartu stok
-  const renderStockItem = ({ item }) => {
+  const toggleCategoryExpand = (categoryName) => {
+    const key = `${jenisFilter}-${categoryName}`;
+    setExpandedCategories((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const resetFilter = () => {
+    setSearchQuery('');
+    setStatusFilter('Semua');
+  };
+
+  const renderStockCard = (item) => {
     const status = getItemStatus(item);
     const sisa = Number(item.sisa ?? 0);
     const minimum = Number(item.minimum ?? 1);
     const stokAwal = Number(item.stokAwal ?? 0);
-
-    const maxReference = Math.max(
-      stokAwal,
-      minimum * 2,
-      sisa,
-      1
-    );
-
+    const maxReference = Math.max(stokAwal, minimum * 2, sisa, 1);
     const imageSource = getImageSource(item);
 
     return (
       <TouchableOpacity
+        key={item.id}
         style={styles.stockCard}
         onPress={() => handleOpenDetail(item)}
         activeOpacity={0.75}
       >
-        {/* Foto dan informasi bahan */}
         <View style={styles.cardTopRow}>
           {imageSource ? (
             <Image
@@ -219,11 +304,7 @@ const getJenisStok = (item) => {
             />
           ) : (
             <View style={styles.stockPhotoPlaceholder}>
-              <Ionicons
-                name="image-outline"
-                size={22}
-                color="#A89A92"
-              />
+              <Ionicons name="image-outline" size={22} color="#A89A92" />
             </View>
           )}
 
@@ -232,18 +313,14 @@ const getJenisStok = (item) => {
               <Text style={styles.stockName} numberOfLines={1}>
                 {item.nama}
               </Text>
-
               <StatusBadge status={status} size="sm" />
             </View>
-
             <Text style={styles.stockCategory}>
-              {item.kategori || 'Tanpa kategori'} · Supplier:{' '}
-              {item.supplier || '-'}
+              Supplier: {item.supplier || '-'}
             </Text>
           </View>
         </View>
 
-        {/* Progress stok */}
         <View style={styles.progressSection}>
           <View style={styles.progressLabelRow}>
             <Text style={styles.stockRatioText}>
@@ -253,20 +330,21 @@ const getJenisStok = (item) => {
                   fontWeight: '900',
                   color:
                     status === 'Habis'
-                      ? '#DC2626'
+                      ? WARNA.merahTerang
                       : status === 'Menipis'
-                      ? '#B45309'
-                      : '#168653',
+                      ? WARNA.oranye
+                      : WARNA.hijau,
                 }}
               >
                 {sisa} {item.satuan}
-              </Text>{' '}
-              / Min. {minimum} {item.satuan}
+              </Text>
+              {' / Min. '}
+              {minimum} {item.satuan}
             </Text>
 
             <Text style={styles.estimateDaysText}>
               {status === 'Habis'
-                ? 'Segera Restok!'
+                ? 'Segera Belanja!'
                 : `~${item.estimasiHabisHari ?? 1.5} hari lagi`}
             </Text>
           </View>
@@ -279,127 +357,51 @@ const getJenisStok = (item) => {
           />
         </View>
 
-        {/* Harga dan aksi */}
         <View style={styles.cardActionsRow}>
           <Text style={styles.priceTag}>
-            Rp {Number(item.hargaBeli || 0).toLocaleString('id-ID')} /{' '}
-            {item.satuan}
+            Rp {Number(item.hargaBeli || 0).toLocaleString('id-ID')} / {item.satuan}
           </Text>
-
-          <View style={styles.actionButtonsGroup}>
-            <TouchableOpacity
-              style={styles.actionIconBtn}
-              onPress={() => handleOpenEdit(item)}
-              activeOpacity={0.7}
-              accessibilityLabel="Edit bahan"
-            >
-              <Ionicons
-                name="create-outline"
-                size={16}
-                color="#78665E"
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionIconBtn}
-              onPress={() => setItemToDelete(item)}
-              activeOpacity={0.7}
-              accessibilityLabel="Hapus bahan"
-            >
-              <Ionicons
-                name="trash-outline"
-                size={16}
-                color="#DC2626"
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickRestockBtn}
-              onPress={() => handleOpenRestock(item)}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="add" size={14} color="#FFFFFF" />
-              <Text style={styles.quickRestockText}>Restok</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.infoHintText}>Ketuk untuk lihat detail</Text>
         </View>
       </TouchableOpacity>
     );
   };
 
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.headerRow}>
-        <View style={styles.headerTitles}>
-          <Text style={styles.pageTitle}>Manajemen Stok</Text>
-          <Text style={styles.pageSubtitle}>
-            Kelola stok topping dan bumbu secara terpisah
-          </Text>
-        </View>
+  const historyData = useMemo(() => {
+    return stokJenisAktif
+      .flatMap((item) => [
+        ...(item.riwayatOpname || []).map((record, index) => ({
+          ...record,
+          id: record.id || `${item.id}-opname-${index}`,
+          nama: record.nama || item.nama,
+          satuan: record.satuan || item.satuan,
+          jenis: 'Stock Opname',
+          itemId: item.id,
+        })),
+        ...(item.riwayatRestok || []).map((record, index) => ({
+          ...record,
+          id: record.id || `${item.id}-restok-${index}`,
+          nama: item.nama,
+          satuan: record.satuan || item.satuan,
+          jenis: 'Restok (Pengeluaran)',
+          itemId: item.id,
+        })),
+      ])
+      .sort((a, b) => getHistoryTimestamp(b) - getHistoryTimestamp(a));
+  }, [stokJenisAktif]);
 
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={handleOpenAdd}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add" size={20} color="#FFFFFF" />
-          <Text style={styles.addBtnText}>
-            Tambah {jenisFilter}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Tab jenis stok */}
-      <View style={styles.stockTypeTabs}>
-        {['Topping', 'Bumbu'].map((jenis) => (
-          <TouchableOpacity
-            key={jenis}
-            style={[
-              styles.stockTypeTab,
-              jenisFilter === jenis && styles.stockTypeTabActive,
-            ]}
-            onPress={() => {
-              setJenisFilter(jenis);
-              setStatusFilter('Semua');
-              setSearchQuery('');
-            }}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={
-                jenis === 'Topping'
-                  ? 'fast-food-outline'
-                  : 'leaf-outline'
-              }
-              size={17}
-              color={jenisFilter === jenis ? '#FFFFFF' : '#78665E'}
-            />
-
-            <Text
-              style={[
-                styles.stockTypeTabText,
-                jenisFilter === jenis && styles.stockTypeTabTextActive,
-              ]}
-            >
-              Stok {jenis}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Ringkasan stok */}
+  const renderDaftarStok = () => (
+    <>
       <View style={styles.summaryGrid}>
         <StatCard
           title="Total Jenis Bahan"
           value={`${totalBahan} Bahan`}
           subtitle="Tercatat dalam sistem"
           iconName="cube-outline"
-          iconColor="#52141D"
+          iconColor="#C62828"
           iconBg="#F4EFEB"
           onPress={() => setStatusFilter('Semua')}
         />
-
         <StatCard
           title="Bahan Menipis"
           value={`${countMenipis} Bahan`}
@@ -410,11 +412,10 @@ const getJenisStok = (item) => {
           badgeText="Perhatian"
           onPress={() => setStatusFilter('Menipis')}
         />
-
         <StatCard
           title="Bahan Habis"
           value={`${countHabis} Bahan`}
-          subtitle="Segera lakukan restok"
+          subtitle="Segera catat belanja"
           iconName="flame-outline"
           iconColor="#DC2626"
           iconBg="#FEE2E2"
@@ -423,16 +424,9 @@ const getJenisStok = (item) => {
         />
       </View>
 
-      {/* Pencarian dan filter */}
       <View style={styles.filterSection}>
         <View style={styles.searchBarWrap}>
-          <Ionicons
-            name="search-outline"
-            size={18}
-            color="#8D7B70"
-            style={styles.searchIcon}
-          />
-
+          <Ionicons name="search-outline" size={18} color="#8D7B70" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder={`Cari ${jenisFilter.toLowerCase()}, kategori, atau supplier...`}
@@ -440,17 +434,9 @@ const getJenisStok = (item) => {
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
-
           {searchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearchQuery('')}
-              style={styles.clearSearchBtn}
-            >
-              <Ionicons
-                name="close-circle"
-                size={18}
-                color="#A89A92"
-              />
+            <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
+              <Ionicons name="close-circle" size={18} color="#A89A92" />
             </TouchableOpacity>
           )}
         </View>
@@ -459,160 +445,296 @@ const getJenisStok = (item) => {
           options={filterOptions}
           selectedId={statusFilter}
           onSelect={setStatusFilter}
-          accentColor="#C62828"
+          accentColor={WARNA.merah}
         />
       </View>
 
-      {/* Daftar stok */}
       <View style={styles.listContainer}>
         <View style={styles.listMetaRow}>
           <Text style={styles.listCountText}>
-            Menampilkan{' '}
-            <Text style={{ fontWeight: '800' }}>
-              {filteredData.length}
-            </Text>{' '}
-            item {jenisFilter.toLowerCase()}
-            {statusFilter !== 'Semua' ? ` status ${statusFilter}` : ''}
+            Menampilkan <Text style={{ fontWeight: '800' }}>{filteredData.length}</Text> item {jenisFilter.toLowerCase()}
           </Text>
-
-          <Text style={styles.listHintText}>
-            Ketuk kartu untuk detail & riwayat restok
-          </Text>
+          <Text style={styles.listHintText}>Stok diperbarui otomatis dari Pengeluaran</Text>
         </View>
 
-        <FlatList
-          data={filteredData}
-          keyExtractor={(item, index) =>
-            String(item.id ?? `${item.nama}-${index}`)
-          }
-          renderItem={renderStockItem}
-          scrollEnabled={false}
-          ItemSeparatorComponent={() => (
-            <View style={{ height: 10 }} />
-          )}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons
-                name="file-tray-outline"
-                size={42}
-                color="#D1C7BD"
-              />
+        {Object.keys(groupedByCategory).length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="file-tray-outline" size={42} color="#D1C7BD" />
+            <Text style={styles.emptyTitle}>Tidak ada item stok yang cocok</Text>
+            <Text style={styles.emptySubtitle}>Coba ubah kata kunci pencarian atau filter status.</Text>
+            <TouchableOpacity style={styles.resetButton} onPress={resetFilter}>
+              <Text style={styles.resetButtonText}>Reset Filter</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          Object.keys(groupedByCategory).map((categoryName) => {
+            const items = groupedByCategory[categoryName];
+            const key = `${jenisFilter}-${categoryName}`;
+            const isExpanded = !!expandedCategories[key];
+            const displayedItems = isExpanded ? items : items.slice(0, 5);
+            const hasMore = items.length > 5;
 
-              <Text style={styles.emptyTitle}>
-                Tidak ada item stok yang cocok
-              </Text>
+            return (
+              <View key={key} style={styles.categoryGroup}>
+                <View style={styles.categoryHeader}>
+                  <Text style={styles.categoryTitle}>{categoryName}</Text>
+                  <Text style={styles.categoryCountBadge}>{items.length} item</Text>
+                </View>
 
-              <Text style={styles.emptySubtitle}>
-                Coba ubah kata kunci pencarian atau ganti filter status.
+                <View style={styles.categoryItemsList}>
+                  {displayedItems.map(renderStockCard)}
+                </View>
+
+                {hasMore && (
+                  <TouchableOpacity
+                    style={styles.seeMoreBtn}
+                    onPress={() => toggleCategoryExpand(categoryName)}
+                  >
+                    <Text style={styles.seeMoreText}>
+                      {isExpanded ? 'Tutup Sebagian' : `Lihat ${items.length - 5} item lainnya`}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })
+        )}
+      </View>
+    </>
+  );
+
+  const renderStockOpname = () => (
+    <View style={styles.listContainer}>
+      <Text style={styles.sectionHeading}>Pemeriksaan Stok Fisik (Stock Opname)</Text>
+      <Text style={styles.sectionDescription}>
+        Masukkan jumlah bahan yang benar-benar tersedia di dapur. Setelah disimpan, stok sistem akan disesuaikan.
+      </Text>
+
+      {stokJenisAktif.length === 0 ? (
+        <Text style={styles.emptySubtitle}>Tidak ada bahan yang bisa diperiksa.</Text>
+      ) : (
+        stokJenisAktif.map((item) => (
+          <View key={item.id} style={styles.opnameRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.stockName}>{item.nama}</Text>
+              <Text style={styles.opnameMeta}>Stok sistem: {item.sisa} {item.satuan}</Text>
+            </View>
+            <TextInput
+              keyboardType="decimal-pad"
+              value={opnameDraft[item.id] ?? ''}
+              onChangeText={(value) =>
+                setOpnameDraft((prev) => ({ ...prev, [item.id]: value }))
+              }
+              placeholder={`Fisik (${item.satuan})`}
+              placeholderTextColor="#A89A92"
+              style={styles.opnameInput}
+            />
+          </View>
+        ))
+      )}
+
+      <TextInput
+        value={opnameNote}
+        onChangeText={setOpnameNote}
+        placeholder="Catatan (opsional), misalnya bahan rusak atau terbuang"
+        placeholderTextColor="#A89A92"
+        style={styles.opnameNoteInput}
+        multiline
+      />
+
+      <TouchableOpacity
+        style={styles.saveOpnameBtn}
+        onPress={handleSaveOpname}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="checkmark-circle-outline" size={17} color={WARNA.putih} />
+        <Text style={styles.saveOpnameText}>Simpan Hasil Stock Opname</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderRiwayat = () => (
+    <View style={styles.listContainer}>
+      <Text style={styles.sectionHeading}>Riwayat Perubahan Stok</Text>
+      <Text style={styles.sectionDescription}>Riwayat otomatis dari belanja pengeluaran dan penyesuaian fisik.</Text>
+
+      {historyData.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="time-outline" size={40} color="#D1C7BD" />
+          <Text style={styles.emptyTitle}>Belum Ada Riwayat</Text>
+          <Text style={styles.emptySubtitle}>
+            Riwayat belanja pengeluaran dan stock opname {jenisFilter.toLowerCase()} akan muncul di sini.
+          </Text>
+        </View>
+      ) : (
+        historyData.map((record) => {
+          const isRestok = record.jenis.includes('Restok');
+          const nilai = isRestok
+            ? `+${record.jumlah ?? 0} ${record.satuan || ''}`
+            : `${Number(record.selisih) > 0 ? '+' : ''}${record.selisih ?? 0} ${record.satuan || ''}`;
+
+          return (
+            <View key={record.id} style={styles.historyRow}>
+              <View style={[styles.historyIcon, !isRestok && styles.historyOpnameIcon]}>
+                <Ionicons
+                  name={isRestok ? 'cart-outline' : 'clipboard-outline'}
+                  size={18}
+                  color={isRestok ? WARNA.hijau : WARNA.oranye}
+                />
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.stockName}>{record.nama}</Text>
+                <Text style={styles.opnameMeta}>{formatTanggal(record.tanggal)}</Text>
+                <Text style={styles.historyType}>{record.jenis}</Text>
+                {record.catatan ? <Text style={styles.historyNote}>Catatan: {record.catatan}</Text> : null}
+              </View>
+
+              <Text style={[styles.historyValue, !isRestok && styles.historyOpnameValue]}>
+                {nilai}
               </Text>
             </View>
-          }
-        />
+          );
+        })
+      )}
+    </View>
+  );
+
+  return (
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <View style={styles.headerRow}>
+        <View style={styles.headerTitles}>
+          <Text style={styles.pageTitle}>
+            {activeSection === 'Stock Opname'
+              ? 'Stock Opname'
+              : activeSection === 'Riwayat'
+              ? 'Riwayat Stok'
+              : 'Pemantauan Inventaris Stok'}
+          </Text>
+          <Text style={styles.pageSubtitle}>
+            Stok diperbarui otomatis dari pencatatan Pengeluaran belanja owner.
+          </Text>
+        </View>
       </View>
 
-      {/* Modal tambah dan edit */}
-      <StockFormModal
-        visible={isFormModalVisible}
-        isEdit={isEditMode}
-        initialData={selectedItem}
-        onClose={() => setIsFormModalVisible(false)}
-        onSubmit={(itemData) => {
-          if (isEditMode) {
-            onUpdateItem?.(itemData);
-          } else {
-            onAddItem?.(itemData);
-          }
+      <View style={styles.sectionTabs}>
+        {[
+          { id: 'Daftar Stok', icon: 'list-outline' },
+          { id: 'Stock Opname', icon: 'clipboard-outline' },
+          { id: 'Riwayat', icon: 'time-outline' },
+        ].map((tab) => (
+          <TouchableOpacity
+            key={tab.id}
+            style={[styles.sectionTab, activeSection === tab.id && styles.sectionTabActive]}
+            onPress={() => setActiveSection(tab.id)}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name={tab.icon}
+              size={15}
+              color={activeSection === tab.id ? WARNA.putih : WARNA.sekunder}
+            />
+            <Text style={[styles.sectionTabText, activeSection === tab.id && styles.sectionTabTextActive]}>
+              {tab.id}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-          setIsFormModalVisible(false);
-        }}
-      />
+      <View style={styles.stockTypeTabs}>
+        {['Topping', 'Bumbu'].map((jenis) => (
+          <TouchableOpacity
+            key={jenis}
+            style={[styles.stockTypeTab, jenisFilter === jenis && styles.stockTypeTabActive]}
+            onPress={() => {
+              setJenisFilter(jenis);
+              setStatusFilter('Semua');
+              setSearchQuery('');
+              setExpandedCategories({});
+              setOpnameDraft({});
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name={jenis === 'Topping' ? 'fast-food-outline' : 'leaf-outline'}
+              size={17}
+              color={jenisFilter === jenis ? WARNA.putih : WARNA.sekunder}
+            />
+            <Text style={[styles.stockTypeTabText, jenisFilter === jenis && styles.stockTypeTabTextActive]}>
+              Stok {jenis}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-      {/* Modal restok */}
-      <RestockModal
-        visible={isRestockModalVisible}
-        item={selectedItem}
-        onClose={() => setIsRestockModalVisible(false)}
-        onSubmitRestock={(itemId, addedQty, restockRecord) => {
-          onRestockItem?.(itemId, addedQty, restockRecord);
-          setIsRestockModalVisible(false);
-        }}
-      />
+      {activeSection === 'Daftar Stok' && renderDaftarStok()}
+      {activeSection === 'Stock Opname' && renderStockOpname()}
+      {activeSection === 'Riwayat' && renderRiwayat()}
 
-      {/* Modal detail */}
       <StockDetailModal
         visible={isDetailModalVisible}
         item={selectedItem}
         onClose={() => setIsDetailModalVisible(false)}
-        onOpenRestock={handleOpenRestock}
-        onEdit={handleOpenEdit}
-        onDelete={(item) => {
-          setIsDetailModalVisible(false);
-          setItemToDelete(item);
-        }}
       />
-
-      {/* Modal konfirmasi hapus */}
-      <Modal
-        visible={!!itemToDelete}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setItemToDelete(null)}
-      >
-        <View style={styles.confirmBackdrop}>
-          <View style={styles.confirmCard}>
-            <View style={styles.confirmIconBox}>
-              <Ionicons
-                name="trash"
-                size={24}
-                color="#DC2626"
-              />
-            </View>
-
-            <Text style={styles.confirmTitle}>
-              Hapus Bahan Baku?
-            </Text>
-
-            <Text style={styles.confirmDesc}>
-              Item{' '}
-              <Text style={{ fontWeight: '800' }}>
-                {itemToDelete?.nama}
-              </Text>{' '}
-              akan dihapus dari sistem inventaris kedai seblak.
-            </Text>
-
-            <View style={styles.confirmBtnRow}>
-              <TouchableOpacity
-                style={styles.confirmCancelBtn}
-                onPress={() => setItemToDelete(null)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.confirmCancelText}>
-                  Batal
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.confirmDeleteBtn}
-                onPress={handleConfirmDelete}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.confirmDeleteText}>
-                  Ya, Hapus
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
+    flex: 1,
+    backgroundColor: WARNA.latar,
+    padding: 20,
   },
-
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  headerTitles: {
+    flex: 1,
+  },
+  pageTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: WARNA.merahTua,
+  },
+  pageSubtitle: {
+    fontSize: 13,
+    color: WARNA.sekunder,
+    marginTop: 4,
+  },
+  sectionTabs: {
+    flexDirection: 'row',
+    backgroundColor: WARNA.putih,
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: WARNA.garis,
+    gap: 4,
+  },
+  sectionTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  sectionTabActive: {
+    backgroundColor: WARNA.merah,
+  },
+  sectionTabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: WARNA.sekunder,
+  },
+  sectionTabTextActive: {
+    color: WARNA.putih,
+  },
   stockTypeTabs: {
     flexDirection: 'row',
     gap: 10,
@@ -621,351 +743,307 @@ const styles = StyleSheet.create({
   stockTypeTab: {
     flex: 1,
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: WARNA.putih,
     borderWidth: 1,
-    borderColor: '#E7DAD2',
-    backgroundColor: '#FFFFFF',
+    borderColor: WARNA.garis,
+    gap: 6,
   },
   stockTypeTabActive: {
-    backgroundColor: '#C62828',
-    borderColor: '#C62828',
+    backgroundColor: WARNA.merahTua,
+    borderColor: WARNA.merahTua,
   },
   stockTypeTabText: {
-    color: '#78665E',
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '600',
+    color: WARNA.sekunder,
   },
   stockTypeTabTextActive: {
-    color: '#FFFFFF',
+    color: WARNA.putih,
   },
-
-  headerRow: {
+summaryGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    flexWrap: 'wrap',
-    marginBottom: 20,
+    flexWrap: 'wrap', // Memungkinkan card turun ke baris berikutnya jika layar sempit
     gap: 12,
+    marginBottom: 16,
   },
-  headerTitles: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 200,
-    minWidth: 0,
-  },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#2C1810',
-    letterSpacing: -0.3,
-  },
-  pageSubtitle: {
-    fontSize: 13,
-    color: '#78665E',
-    marginTop: 4,
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#C62828',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    shadowColor: '#C62828',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  addBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-
-  summaryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 10,
-  },
-
   filterSection: {
-    gap: 12,
     marginBottom: 16,
   },
   searchBarWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#EFE7E2',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    height: 46,
-    shadowColor: '#3D2922',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    backgroundColor: WARNA.putih,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: WARNA.garis,
+    paddingHorizontal: 12,
+    marginBottom: 12,
   },
   searchIcon: {
-    marginRight: 10,
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
-    color: '#2C1810',
+    height: 40,
+    fontSize: 14,
+    color: WARNA.teks,
   },
   clearSearchBtn: {
     padding: 4,
   },
-
   listContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 18,
+    backgroundColor: WARNA.putih,
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#EFE7E2',
-    shadowColor: '#3D2922',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: WARNA.garis,
+    marginBottom: 40,
   },
   listMetaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginBottom: 14,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F4EFEB',
+    marginBottom: 12,
   },
   listCountText: {
-    fontSize: 12,
-    color: '#78665E',
+    fontSize: 13,
+    color: WARNA.sekunder,
   },
   listHintText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#A89A92',
-    fontStyle: 'italic',
   },
-
-  stockPhoto: {
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-    backgroundColor: '#F8F5F2',
-    marginRight: 12,
-  },
-  stockPhotoPlaceholder: {
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-    backgroundColor: '#F8F5F2',
-    marginRight: 12,
+  emptyContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#EFE7E2',
+    paddingVertical: 32,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: WARNA.teks,
+    marginTop: 10,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: WARNA.sekunder,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  resetButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: WARNA.merahMuda,
+    borderRadius: 6,
+  },
+  resetButtonText: {
+    color: WARNA.merah,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  categoryGroup: {
+    marginBottom: 16,
+  },
+  categoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: WARNA.latar,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginBottom: 10,
+  },
+  categoryTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: WARNA.merahTua,
+  },
+  categoryCountBadge: {
+    fontSize: 11,
+    color: WARNA.sekunder,
+    fontWeight: '600',
+  },
+  categoryItemsList: {
+    gap: 10,
+  },
+  seeMoreBtn: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginTop: 6,
+  },
+  seeMoreText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: WARNA.merah,
   },
   stockCard: {
-    backgroundColor: '#FAFAF9',
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: WARNA.putih,
     borderWidth: 1,
-    borderColor: '#EFE7E2',
+    borderColor: WARNA.garis,
+    borderRadius: 10,
+    padding: 12,
   },
   cardTopRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    gap: 12,
+    alignItems: 'center',
     marginBottom: 10,
+  },
+  stockPhoto: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+  },
+  stockPhotoPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: WARNA.latar,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   cardTitleCol: {
     flex: 1,
-    marginRight: 10,
   },
   nameRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
     marginBottom: 4,
   },
   stockName: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#2C1810',
-    flexShrink: 1,
+    fontWeight: 'bold',
+    color: WARNA.teks,
+    flex: 1,
   },
   stockCategory: {
-    fontSize: 11,
-    color: '#78665E',
+    fontSize: 12,
+    color: WARNA.sekunder,
   },
-
   progressSection: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   progressLabelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   stockRatioText: {
     fontSize: 12,
-    color: '#523C34',
+    color: WARNA.teks,
   },
   estimateDaysText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#78665E',
+    fontSize: 12,
+    color: WARNA.sekunder,
   },
-
   cardActionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#EFE7E2',
+    borderTopColor: WARNA.garis,
+    paddingTop: 8,
   },
   priceTag: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#78665E',
+    fontWeight: '600',
+    color: WARNA.teks,
   },
-  actionButtonsGroup: {
+  infoHintText: {
+    fontSize: 11,
+    color: WARNA.sekunder,
+    fontStyle: 'italic',
+  },
+  opnameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  actionIconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#EFE7E2',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  quickRestockBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#C62828',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  quickRestockText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 36,
-    gap: 8,
-  },
-  emptyTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#523C34',
-  },
-  emptySubtitle: {
-    fontSize: 12,
-    color: '#8D7B70',
-    textAlign: 'center',
-    maxWidth: 280,
-  },
-
-  confirmBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(44, 24, 16, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  confirmCard: {
-    width: '100%',
-    maxWidth: 400,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 22,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  confirmIconBox: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#FEE2E2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  confirmTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#2C1810',
-    marginBottom: 6,
-  },
-  confirmDesc: {
-    fontSize: 13,
-    color: '#78665E',
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 20,
-  },
-  confirmBtnRow: {
-    flexDirection: 'row',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: WARNA.garis,
     gap: 12,
-    width: '100%',
   },
-  confirmCancelBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#F4EFEB',
+  opnameMeta: {
+    fontSize: 12,
+    color: WARNA.sekunder,
+    marginTop: 2,
+  },
+  opnameInput: {
+    width: 100,
+    height: 38,
+    borderWidth: 1,
+    borderColor: WARNA.garis,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    fontSize: 13,
+    backgroundColor: WARNA.putih,
+    textAlign: 'right',
+  },
+  opnameNoteInput: {
+    borderWidth: 1,
+    borderColor: WARNA.garis,
+    borderRadius: 6,
+    padding: 10,
+    fontSize: 13,
+    backgroundColor: WARNA.putih,
+    height: 70,
+    textAlignVertical: 'top',
+    marginVertical: 14,
+  },
+  saveOpnameBtn: {
+    backgroundColor: WARNA.hijau,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 6,
   },
-  confirmCancelText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#78665E',
+  saveOpnameText: {
+    color: WARNA.putih,
+    fontWeight: 'bold',
+    fontSize: 14,
   },
-  confirmDeleteBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#DC2626',
+  historyRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: WARNA.garis,
+    gap: 12,
   },
-  confirmDeleteText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  historyIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#DCFCE7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  historyOpnameIcon: {
+    backgroundColor: '#FEF3C7',
+  },
+  historyType: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: WARNA.sekunder,
+    marginTop: 2,
+  },
+  historyNote: {
+    fontSize: 12,
+    color: WARNA.teks,
+    marginTop: 2,
+  },
+  historyValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: WARNA.hijau,
+  },
+  historyOpnameValue: {
+    color: WARNA.oranye,
   },
 });

@@ -505,7 +505,7 @@ export default function LaporanKeuanganScreen({ isEmbedded = false, navigation }
         <TopHeader
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
           isSidebarOpen={sidebarOpen}
-          title="Owner Portal • Laporan Keuangan"
+          title="Owner Portal ΓÇó Laporan Keuangan"
           role="Owner"
         />
         {content}

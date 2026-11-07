@@ -57,12 +57,12 @@ export const WEEKLY_SALES_DATA = [
 ];
 
 export const HOURLY_SALES_DATA = [
-  { jam: '10.00–12.00', jumlah: 24, porsi: 48, peak: false, label: 'Siang Awal' },
-  { jam: '12.00–14.00', jumlah: 58, porsi: 120, peak: true, label: 'Makan Siang' },
-  { jam: '14.00–16.00', jumlah: 32, porsi: 65, peak: false, label: 'Sore Santai' },
-  { jam: '16.00–18.00', jumlah: 45, porsi: 92, peak: false, label: 'Pulang Kerja' },
-  { jam: '18.00–20.00', jumlah: 64, porsi: 135, peak: true, label: 'Makan Malam' },
-  { jam: '20.00–22.00', jumlah: 28, porsi: 56, peak: false, label: 'Nongkrong' },
+  { jam: '10.00ΓÇô12.00', jumlah: 24, porsi: 48, peak: false, label: 'Siang Awal' },
+  { jam: '12.00ΓÇô14.00', jumlah: 58, porsi: 120, peak: true, label: 'Makan Siang' },
+  { jam: '14.00ΓÇô16.00', jumlah: 32, porsi: 65, peak: false, label: 'Sore Santai' },
+  { jam: '16.00ΓÇô18.00', jumlah: 45, porsi: 92, peak: false, label: 'Pulang Kerja' },
+  { jam: '18.00ΓÇô20.00', jumlah: 64, porsi: 135, peak: true, label: 'Makan Malam' },
+  { jam: '20.00ΓÇô22.00', jumlah: 28, porsi: 56, peak: false, label: 'Nongkrong' },
 ];
 
 export const PERIOD_SUMMARY = {
@@ -78,14 +78,14 @@ export const PERIOD_SUMMARY = {
     porsi: 1240,
     transaksi: 540,
     rataRata: 24435,
-    labelPeriode: '18 – 24 Oktober 2026',
+    labelPeriode: '18 ΓÇô 24 Oktober 2026',
   },
   'Bulan ini': {
     omzet: 64800000,
     porsi: 5120,
     transaksi: 2280,
     rataRata: 28421,
-    labelPeriode: '1 – 24 Oktober 2026',
+    labelPeriode: '1 ΓÇô 24 Oktober 2026',
   },
 };
 
