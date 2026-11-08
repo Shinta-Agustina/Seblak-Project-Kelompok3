@@ -1,5 +1,4 @@
-﻿
-import React from 'react';
+﻿import React from 'react';
 import {
   Modal,
   View,
@@ -80,9 +79,6 @@ export default function StockDetailModal({
   visible,
   item,
   onClose,
-  onOpenRestock,
-  onEdit,
-  onDelete,
 }) {
   if (!item) return null;
 
@@ -127,9 +123,7 @@ export default function StockDetailModal({
       jumlahPerubahan: toNumber(record.selisih),
       timestampUrut: getTimestamp(record),
     })),
-  ].sort((a, b) => {
-    return b.timestampUrut - a.timestampUrut;
-  });
+  ].sort((a, b) => b.timestampUrut - a.timestampUrut);
 
   const renderHistoryIcon = (jenis, jumlah) => {
     if (jenis === 'Stok Masuk') {
@@ -496,51 +490,6 @@ export default function StockDetailModal({
               )}
             </View>
           </ScrollView>
-
-          {/* Footer actions */}
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={() => onDelete?.(item)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="trash-outline"
-                size={18}
-                color="#DC2626"
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={() => onEdit?.(item)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="create-outline"
-                size={17}
-                color="#523C34"
-              />
-
-              <Text style={styles.editText}>Ubah</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.restockButton}
-              onPress={() => onOpenRestock?.(item)}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name="add-circle-outline"
-                size={18}
-                color="#FFFFFF"
-              />
-
-              <Text style={styles.restockText}>
-                Terima Stok
-              </Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </View>
     </Modal>
@@ -555,6 +504,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 14,
   },
+
   modalCard: {
     width: '100%',
     maxWidth: 540,
@@ -566,6 +516,7 @@ const styles = StyleSheet.create({
     borderColor: '#EEDDD8',
     elevation: 8,
   },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -574,31 +525,39 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F0E7E1',
   },
+
   headerText: { flex: 1 },
+
   headerTitle: {
     fontSize: 17,
     fontWeight: '800',
     color: '#52141D',
   },
+
   headerSubtitle: {
     fontSize: 11,
     color: '#8D7B70',
     marginTop: 3,
   },
+
   closeButton: { padding: 6 },
+
   content: { flexGrow: 0 },
+
   identityCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 13,
     marginBottom: 17,
   },
+
   itemPhoto: {
     width: 92,
     height: 92,
     borderRadius: 13,
     backgroundColor: '#F4EFEB',
   },
+
   photoPlaceholder: {
     width: 92,
     height: 92,
@@ -607,37 +566,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   photoPlaceholderText: {
     fontSize: 9,
     color: '#A89A92',
     marginTop: 5,
   },
+
   identityInfo: {
     flex: 1,
     alignItems: 'flex-start',
   },
+
   itemName: {
     fontSize: 17,
     fontWeight: '900',
     color: '#2C1810',
   },
+
   itemCategory: {
     fontSize: 11,
     color: '#78665E',
     marginTop: 4,
   },
+
   itemId: {
     fontSize: 9,
     color: '#A89A92',
     marginTop: 4,
   },
+
   badgeWrap: { marginTop: 7 },
+
   section: { marginBottom: 17 },
+
   sectionTitle: {
     fontSize: 13,
     fontWeight: '800',
     color: '#52141D',
   },
+
   stockMainCard: {
     marginTop: 10,
     padding: 14,
@@ -646,31 +614,37 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EFE7E2',
   },
+
   stockMainTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 13,
   },
+
   stockMainLabel: {
     fontSize: 10,
     color: '#78665E',
   },
+
   stockNumberRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: 5,
   },
+
   stockNumber: {
     fontSize: 27,
     fontWeight: '900',
     color: '#168653',
   },
+
   stockUnit: {
     fontSize: 12,
     fontWeight: '700',
     color: '#78665E',
   },
+
   minimumBox: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -678,27 +652,32 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 10,
   },
+
   minimumLabel: {
     fontSize: 9,
     color: '#8D7B70',
   },
+
   minimumValue: {
     fontSize: 13,
     fontWeight: '800',
     color: '#2C1810',
     marginTop: 4,
   },
+
   stockHint: {
     fontSize: 10,
     lineHeight: 15,
     color: '#78665E',
     marginTop: 9,
   },
+
   metricsRow: {
     flexDirection: 'row',
     gap: 9,
     marginTop: 10,
   },
+
   metricCard: {
     flex: 1,
     padding: 11,
@@ -707,22 +686,26 @@ const styles = StyleSheet.create({
     borderColor: '#EFE7E2',
     backgroundColor: '#FFFFFF',
   },
+
   metricLabel: {
     fontSize: 9,
     color: '#8D7B70',
     marginTop: 7,
   },
+
   metricValue: {
     fontSize: 13,
     fontWeight: '900',
     color: '#2C1810',
     marginTop: 4,
   },
+
   metricUnit: {
     fontSize: 9,
     color: '#A89A92',
     marginTop: 3,
   },
+
   infoCard: {
     borderWidth: 1,
     borderColor: '#EFE7E2',
@@ -731,12 +714,14 @@ const styles = StyleSheet.create({
     marginTop: 9,
     backgroundColor: '#FFFFFF',
   },
+
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 11,
     gap: 10,
   },
+
   infoIcon: {
     width: 34,
     height: 34,
@@ -745,32 +730,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   infoText: { flex: 1 },
+
   infoLabel: {
     fontSize: 9,
     color: '#8D7B70',
   },
+
   infoValue: {
     fontSize: 11,
     fontWeight: '700',
     color: '#2C1810',
     marginTop: 3,
   },
+
   infoDivider: {
     height: 1,
     backgroundColor: '#F0E7E1',
   },
+
   historyHeading: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 10,
   },
+
   historySubtitle: {
     fontSize: 9,
     color: '#A89A92',
     marginTop: 3,
   },
+
   historyCount: {
     minWidth: 27,
     height: 27,
@@ -780,11 +772,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   historyCountText: {
     fontSize: 11,
     fontWeight: '800',
     color: '#C62828',
   },
+
   historyCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -793,6 +787,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F1E9E4',
   },
+
   historyIcon: {
     width: 34,
     height: 34,
@@ -800,26 +795,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   historyContent: { flex: 1 },
+
   historyName: {
     fontSize: 11,
     fontWeight: '800',
     color: '#2C1810',
   },
+
   historyDate: {
     fontSize: 9,
     color: '#8D7B70',
     marginTop: 3,
   },
+
   historyDescription: {
     fontSize: 9,
     color: '#A89A92',
     marginTop: 3,
   },
+
   historyAmount: {
     fontSize: 11,
     fontWeight: '900',
   },
+
   emptyHistory: {
     alignItems: 'center',
     paddingVertical: 22,
@@ -827,64 +828,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAF8F6',
     borderRadius: 12,
   },
+
   emptyTitle: {
     fontSize: 11,
     fontWeight: '800',
     color: '#78665E',
     marginTop: 7,
   },
+
   emptyDescription: {
     fontSize: 9,
     lineHeight: 14,
     color: '#A89A92',
     textAlign: 'center',
     marginTop: 4,
-  },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    paddingTop: 13,
-    marginTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F0E7E1',
-  },
-  deleteButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 10,
-    backgroundColor: '#FEE2E2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  editButton: {
-    height: 42,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: '#F4EFEB',
-  },
-  editText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#523C34',
-  },
-  restockButton: {
-    flex: 1,
-    height: 42,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderRadius: 10,
-    backgroundColor: '#C62828',
-  },
-  restockText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#FFFFFF',
   },
 });
