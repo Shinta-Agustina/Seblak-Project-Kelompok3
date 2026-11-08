@@ -18,9 +18,8 @@ export const getCategoryBadge = (kategori = '', nama = '') => {
     text.includes('serai') ||
     text.includes('jeruk')
   ) {
-    return { label: 'Bumbu', color: '#168653', bg: '#DCFCE7' };
+    return { label: 'Bumbu', color: '#B45309', bg: '#FEF3C7' };
   }
   // Sesuai instruksi: SEMUA Topping labelnya CUKUP 'Topping' saja
   return { label: 'Topping', color: '#52141D', bg: '#FBEAEC' };
 };
-

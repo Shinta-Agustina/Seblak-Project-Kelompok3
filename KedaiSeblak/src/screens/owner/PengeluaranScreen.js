@@ -18,6 +18,7 @@ import SwipeableExpenseRow from '../../components/SwipeableExpenseRow';
 import ExpenseFormModal from '../../components/ExpenseFormModal';
 import DeleteExpenseModal from '../../components/DeleteExpenseModal';
 import RincianPengeluaranModal from '../../components/RincianPengeluaranModal';
+import DetailPengeluaranModal from '../../components/DetailPengeluaranModal';
 import { MASTER_EXPENSES } from '../../data/mockExpenses';
 
 // Palet Warna Elegan Khas Proyek Kedai Seblak
@@ -52,9 +53,14 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
   const [activeTab, setActiveTab] = useState('harian');
 
   // 3. Filter Tanggal per Periode (Default)
-  const [harianDate, setHarianDate] = useState(() => new Date().toLocaleDateString('id-ID', {
-    day: 'numeric', month: 'long', year: 'numeric',
-  }));
+  const [harianDate, setHarianDate] = useState('17 Oktober 2026');
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [selectedDetailItem, setSelectedDetailItem] = useState(null);
+
+  const handleOpenDetailModal = (item) => {
+    setSelectedDetailItem(item);
+    setDetailModalVisible(true);
+  };
   const [mingguanDate, setMingguanDate] = useState('13 Oktober 2026 – 19 Oktober 2026');
   const [bulananDate, setBulananDate] = useState('1 Oktober 2026 ΓÇô 31 Oktober 2026');
 
@@ -126,13 +132,14 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
   // DATA FILTERING DINAMIS
   // ==========================================================================
 
-  // A. Data Harian
+  // A. Data Harian (Menampilkan riwayat catatan pengeluaran harian)
   const currentHarianItems = useMemo(() => {
     const targetIso = tanggalKeISO(harianDate);
-    if (!targetIso) return [];
-    return expenses.filter(
+    if (!targetIso) return expenses;
+    const filtered = expenses.filter(
       (item) => item.tanggal === targetIso || item.tanggalStr === harianDate
     );
+    return filtered.length > 0 ? filtered : expenses;
   }, [expenses, harianDate]);
 
   // B. Data Mingguan
@@ -400,19 +407,21 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
         </View>
       </View>
 
-      {/* 2. FILTER TANGGAL */}
-      <TouchableOpacity
-        style={styles.dateFilterCard}
-        onPress={() => setDatePickerVisible(true)}
-        activeOpacity={0.7}
-        accessibilityLabel="Pilih tanggal atau periode"
-      >
-        <View style={styles.dateFilterLeft}>
-          <Ionicons name="calendar-outline" size={18} color={WARNA.merahTua} />
-          <Text style={styles.dateFilterText}>{currentDateText}</Text>
-        </View>
-        <Ionicons name="chevron-down" size={16} color={WARNA.abu} />
-      </TouchableOpacity>
+      {/* 2. FILTER TANGGAL (Full Lebar Sampai Ujung) */}
+      <View style={styles.dateFilterContainerRow}>
+        <TouchableOpacity
+          style={styles.dateFilterCard}
+          onPress={() => setDatePickerVisible(true)}
+          activeOpacity={0.7}
+          accessibilityLabel="Pilih tanggal atau periode"
+        >
+          <View style={styles.dateFilterLeft}>
+            <Ionicons name="calendar-outline" size={18} color={WARNA.merahTua} />
+            <Text style={styles.dateFilterText}>{currentDateText}</Text>
+          </View>
+          <Ionicons name="chevron-down" size={16} color={WARNA.abu} />
+        </TouchableOpacity>
+      </View>
 
       {/* 3. CARD TOTAL PENGELUARAN & PENGELUARAN TERBESAR (DUAL CARD BERSIH) */}
       <View style={styles.dualCardRow}>
@@ -479,18 +488,16 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
               contentContainerStyle={styles.tableHorizontalScroll}
             >
               <View style={styles.tableInnerWrapper}>
-                {/* Header Kolom Tetap / Sticky */}
+                {/* Header Kolom Tetap / Sticky (Waktu Jam, Foto & Aksi Lengkap) */}
                 <View style={styles.tableHeaderRow}>
-                  <Text style={[styles.headerColText, styles.colNo]}>No</Text>
                   <Text style={[styles.headerColText, styles.colWaktu]}>Waktu</Text>
-                  <Text style={[styles.headerColText, styles.colKet]}>
-                    Nama Bahan / Keterangan
-                  </Text>
-                  <Text style={[styles.headerColText, styles.colJumlah]}>
-                    Jumlah
-                  </Text>
+                  <Text style={[styles.headerColText, styles.colKet]}>Keterangan</Text>
+                  <Text style={[styles.headerColText, styles.colKategori]}>Kategori</Text>
+                  <Text style={[styles.headerColText, styles.colJumlah]}>Jumlah</Text>
                   <Text style={[styles.headerColText, styles.colTotal]}>Total</Text>
-                  <View style={styles.headerSwipeSpacer} />
+                  <Text style={[styles.headerColText, styles.colFotoItem]}>Foto Item</Text>
+                  <Text style={[styles.headerColText, styles.colFotoStruk]}>Foto Struk</Text>
+                  <Text style={[styles.headerColText, styles.colAksi]}>Aksi</Text>
                 </View>
 
                 {/* Daftar Baris Pengeluaran (FlatList dengan Swipe Action) */}
@@ -507,6 +514,7 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
                       isLast={index === currentHarianItems.length - 1}
                       onEdit={handleOpenEditModal}
                       onDelete={handleOpenDeleteModal}
+                      onViewDetail={handleOpenDetailModal}
                     />
                   )}
                   ListEmptyComponent={
@@ -714,6 +722,16 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
         onConfirm={handleConfirmDelete}
       />
 
+      {/* Modal Detail Pengeluaran (Foto Item, Foto Struk, & Data Lengkap) */}
+      <DetailPengeluaranModal
+        visible={detailModalVisible}
+        item={selectedDetailItem}
+        onClose={() => {
+          setDetailModalVisible(false);
+          setSelectedDetailItem(null);
+        }}
+      />
+
       {/* Modal Rincian Pengeluaran */}
       <RincianPengeluaranModal
         visible={rincianModalVisible}
@@ -838,8 +856,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  // 2. Filter Tanggal
+  // 2. Filter Tanggal (Full Lebar Sampai Ujung)
   dateFilterCard: {
+    width: '100%',
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -848,8 +868,12 @@ const styles = StyleSheet.create({
     borderColor: '#E8DCD4',
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 12,
+    paddingVertical: 11,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   dateFilterLeft: {
     flexDirection: 'row',
@@ -1002,53 +1026,70 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   tableHorizontalScroll: {
-    minWidth: 540,
+    minWidth: 796,
     flexGrow: 1,
   },
   tableInnerWrapper: {
-    minWidth: 540,
+    minWidth: 796,
     flex: 1,
   },
+  dateFilterContainerRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  
   tableHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EDE5E0',
+    backgroundColor: '#F8ECE6',
     borderBottomWidth: 1.5,
-    borderBottomColor: '#D8CBC3',
-    paddingVertical: 10,
+    borderBottomColor: '#E2D5CD',
+    paddingVertical: 11,
     paddingHorizontal: 8,
-    minWidth: 540,
+    minWidth: 796,
   },
   headerColText: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '800',
     color: WARNA.teks,
   },
-  headerSwipeSpacer: {
-    width: 18,
-  },
-  colNo: {
-    width: 28,
-    textAlign: 'center',
-  },
   colWaktu: {
-    width: 50,
+    width: 75,
     textAlign: 'center',
   },
   colKet: {
-    flex: 1,
-    minWidth: 240,
+    width: 140,
+    paddingHorizontal: 6,
+    textAlign: 'left',
+  },
+  colKategori: {
+    width: 95,
     paddingHorizontal: 6,
     textAlign: 'left',
   },
   colJumlah: {
     width: 75,
+    paddingHorizontal: 6,
     textAlign: 'center',
   },
   colTotal: {
-    width: 90,
-    textAlign: 'right',
-    paddingRight: 4,
+    width: 110,
+    paddingHorizontal: 6,
+    textAlign: 'left',
+  },
+  colFotoItem: {
+    width: 85,
+    textAlign: 'center',
+  },
+  colFotoStruk: {
+    width: 85,
+    textAlign: 'center',
+  },
+  colAksi: {
+    width: 115,
+    textAlign: 'center',
   },
   tableBodyScroll: {
     flex: 1,
