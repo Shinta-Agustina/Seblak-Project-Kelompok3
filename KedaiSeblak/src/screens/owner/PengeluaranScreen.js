@@ -19,18 +19,19 @@ import SwipeableExpenseRow from '../../components/SwipeableExpenseRow';
 import ExpenseFormModal from '../../components/ExpenseFormModal';
 import DeleteExpenseModal from '../../components/DeleteExpenseModal';
 import RincianPengeluaranModal from '../../components/RincianPengeluaranModal';
+import DetailPengeluaranModal from '../../components/DetailPengeluaranModal';
 import { getExpenses, createExpense, updateExpense, deleteExpense } from '../../services/pengeluaranService';
 import { useKasir } from '../../context/KasirContext';
 
 // Palet Warna Elegan Khas Proyek Kedai Seblak
 const WARNA = {
-  merahTua: '#52141D',     // Brand Deep Maroon
-  merahCabe: '#C62828',    // Crimson Accent (Warna Tombol Login)
-  orangeProject: '#C62828',// Diselaraskan dengan tombol login #C62828
-  merahJreng: '#DC2626',   // Merah jreng cerah untuk harga & total
-  kuningGold: '#F59E0B',   // Kuning Gold
-  goldTua: '#B45309',      // Gold Tua Elegan
-  biruCatat: '#0284C7',    // Biru Catat Pengeluaran
+  merahTua: '#52141D',      // Brand Deep Maroon
+  merahCabe: '#C62828',     // Crimson Accent
+  orangeProject: '#C62828', 
+  merahJreng: '#DC2626',    // Merah cerah untuk harga & total
+  kuningGold: '#F59E0B',    // Kuning Gold
+  goldTua: '#B45309',       // Gold Tua Elegan
+  biruCatat: '#0284C7',     // Biru Catat Pengeluaran
   latar: '#F8F5F2',
   kartu: '#FFFFFF',
   teks: '#2C1810',
@@ -42,57 +43,63 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
 
-  // 1. Single Source of Truth untuk seluruh data Pengeluaran Topping
+  // 1. Single Source of Truth untuk seluruh data Pengeluaran
   const [localExpenses, setLocalExpenses] = useState([]);
   const { user } = useKasir();
   const [expenseLoading, setExpenseLoading] = useState(false);
+
   const loadExpenses = useCallback(async () => {
     if (Array.isArray(expensesProp)) return;
     setExpenseLoading(true);
     try {
       const rows = await getExpenses();
-      setLocalExpenses(rows.map((r) => ({ ...r, keterangan: r.nama, total: r.nominal, nominal: r.nominal, tanggalStr: new Date(`${r.tanggal}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }), waktu: new Date(r.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }), satuan: 'unit', supplier: r.catatan || '-' })));
-    } catch (e) { console.error('Gagal memuat pengeluaran:', e.message); }
-    finally { setExpenseLoading(false); }
+      setLocalExpenses(
+        rows.map((r) => ({
+          ...r,
+          keterangan: r.nama,
+          total: r.nominal,
+          nominal: r.nominal,
+          tanggalStr: new Date(`${r.tanggal}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
+          waktu: new Date(r.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+          satuan: 'unit',
+          supplier: r.catatan || '-',
+        }))
+      );
+    } catch (e) {
+      console.error('Gagal memuat pengeluaran:', e.message);
+    } finally {
+      setExpenseLoading(false);
+    }
   }, [expensesProp]);
+
   useFocusEffect(useCallback(() => { loadExpenses(); }, [loadExpenses]));
   const expenses = Array.isArray(expensesProp) ? expensesProp : localExpenses;
-  const saveExpenses = (updater) => {
-    if (Array.isArray(expensesProp)) return;
-    setLocalExpenses(updater);
-  };
 
   // 2. Tab Periode: 'harian' | 'mingguan' | 'bulanan'
   const [activeTab, setActiveTab] = useState('harian');
 
-  // 3. Filter Tanggal per Periode (Default)
-  const [harianDate, setHarianDate] = useState(() => new Date().toLocaleDateString('id-ID', {
-    day: 'numeric', month: 'long', year: 'numeric',
-  }));
+  // 3. Filter Tanggal per Periode
+  const [harianDate, setHarianDate] = useState('17 Oktober 2026');
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [selectedDetailItem, setSelectedDetailItem] = useState(null);
+
+  const handleOpenDetailModal = (item) => {
+    setSelectedDetailItem(item);
+    setDetailModalVisible(true);
+  };
+
   const [mingguanDate, setMingguanDate] = useState('13 Oktober 2026 – 19 Oktober 2026');
-  const [bulananDate, setBulananDate] = useState('1 Oktober 2026 ΓÇô 31 Oktober 2026');
+  const [bulananDate, setBulananDate] = useState('1 Oktober 2026 – 31 Oktober 2026');
 
-  // State Date Picker Modal
+  // State Modals
   const [datePickerVisible, setDatePickerVisible] = useState(false);
-
-  // State Standalone Sidebar
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
-
-  // State Modal Form (Catat / Edit)
   const [formModalVisible, setFormModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-
-  // State Modal Konfirmasi Hapus
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
-
-  // State Modal Rincian Pengeluaran
   const [rincianModalVisible, setRincianModalVisible] = useState(false);
-  const [rincianData, setRincianData] = useState({
-    dateTitle: '',
-    items: [],
-    totalNominal: 0,
-  });
+  const [rincianData, setRincianData] = useState({ dateTitle: '', items: [], totalNominal: 0 });
 
   // Helper parsing tanggal
   const parseDayNumber = (dateStr) => {
@@ -123,10 +130,8 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
 
   const parseWeekRange = (rangeStr) => {
     if (!rangeStr) return [13, 19];
-    const match = rangeStr.match(/(\d{1,2}).*?ΓÇô.*?(\d{1,2})/);
-    if (match) {
-      return [parseInt(match[1], 10), parseInt(match[2], 10)];
-    }
+    const match = rangeStr.match(/(\d{1,2}).*?–.*?(\d{1,2})/);
+    if (match) return [parseInt(match[1], 10), parseInt(match[2], 10)];
     return [13, 19];
   };
 
@@ -136,37 +141,25 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
     return bulananDate;
   }, [activeTab, harianDate, mingguanDate, bulananDate]);
 
-  // ==========================================================================
-  // DATA FILTERING DINAMIS
-  // ==========================================================================
-
-  // A. Data Harian
+  // Data Filtering
   const currentHarianItems = useMemo(() => {
     const targetIso = tanggalKeISO(harianDate);
-    if (!targetIso) return [];
-    return expenses.filter(
+    if (!targetIso) return expenses;
+    const filtered = expenses.filter(
       (item) => item.tanggal === targetIso || item.tanggalStr === harianDate
     );
+    return filtered.length > 0 ? filtered : expenses;
   }, [expenses, harianDate]);
 
-  // B. Data Mingguan
   const currentMingguanGroups = useMemo(() => {
     const isOktober2026 = mingguanDate.includes('Oktober 2026');
     if (!isOktober2026) return [];
-
     const [startDay, endDay] = parseWeekRange(mingguanDate);
     const groupsMap = {};
 
     for (let d = startDay; d <= endDay; d++) {
       const iso = `2026-10-${String(d).padStart(2, '0')}`;
-      groupsMap[iso] = {
-        isoDate: iso,
-        dayNumber: d,
-        items: [],
-        total: 0,
-        labelHari: '',
-        labelTanggal: '',
-      };
+      groupsMap[iso] = { isoDate: iso, dayNumber: d, items: [], total: 0, labelHari: '', labelTanggal: '' };
     }
 
     expenses.forEach((item) => {
@@ -174,30 +167,19 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
       if (dNum && dNum >= startDay && dNum <= endDay) {
         const iso = item.tanggal;
         if (!groupsMap[iso]) {
-          groupsMap[iso] = {
-            isoDate: iso,
-            dayNumber: dNum,
-            items: [],
-            total: 0,
-            labelHari: item.hari || '',
-            labelTanggal: item.tanggalStr || '',
-          };
+          groupsMap[iso] = { isoDate: iso, dayNumber: dNum, items: [], total: 0, labelHari: item.hari || '', labelTanggal: item.tanggalStr || '' };
         }
         groupsMap[iso].items.push(item);
         groupsMap[iso].total += item.total || 0;
-        if (item.hari) groupsMap[iso].labelHari = item.hari;
-        if (item.tanggalStr) groupsMap[iso].labelTanggal = item.tanggalStr;
       }
     });
 
     return Object.values(groupsMap).sort((a, b) => a.dayNumber - b.dayNumber);
   }, [expenses, mingguanDate]);
 
-  // C. Data Bulanan
   const currentBulananGroups = useMemo(() => {
     const isOktober2026 = bulananDate.includes('Oktober 2026');
     if (!isOktober2026) return [];
-
     const groupsMap = {};
 
     expenses.forEach((item) => {
@@ -205,14 +187,7 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
         const iso = item.tanggal;
         if (!groupsMap[iso]) {
           const dNum = parseDayNumber(item.tanggalStr);
-          groupsMap[iso] = {
-            isoDate: iso,
-            dayNumber: dNum || 1,
-            items: [],
-            total: 0,
-            labelHari: item.hari || '',
-            labelTanggal: item.tanggalStr || `${dNum} Oktober 2026`,
-          };
+          groupsMap[iso] = { isoDate: iso, dayNumber: dNum || 1, items: [], total: 0, labelHari: item.hari || '', labelTanggal: item.tanggalStr || `${dNum} Oktober 2026` };
         }
         groupsMap[iso].items.push(item);
         groupsMap[iso].total += item.total || 0;
@@ -222,39 +197,23 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
     return Object.values(groupsMap).sort((a, b) => a.dayNumber - b.dayNumber);
   }, [expenses, bulananDate]);
 
-  // ==========================================================================
-  // PERHITUNGAN TOTAL PENGELUARAN & TOTAL VOLUME BAHAN (KG)
-  // ==========================================================================
   const totalNominal = useMemo(() => {
-    if (activeTab === 'harian') {
-      return currentHarianItems.reduce((acc, curr) => acc + (curr.total || 0), 0);
-    }
-    if (activeTab === 'mingguan') {
-      return currentMingguanGroups.reduce((acc, curr) => acc + (curr.total || 0), 0);
-    }
+    if (activeTab === 'harian') return currentHarianItems.reduce((acc, curr) => acc + (curr.total || 0), 0);
+    if (activeTab === 'mingguan') return currentMingguanGroups.reduce((acc, curr) => acc + (curr.total || 0), 0);
     return currentBulananGroups.reduce((acc, curr) => acc + (curr.total || 0), 0);
   }, [activeTab, currentHarianItems, currentMingguanGroups, currentBulananGroups]);
 
-  // Subtitle Deskriptif Sesuai Periode
   const expenseSubLabel = useMemo(() => {
     if (activeTab === 'harian') return 'Biaya belanja hari ini';
     if (activeTab === 'mingguan') return 'Biaya belanja minggu ini';
     return 'Biaya belanja bulan ini';
   }, [activeTab]);
 
-  // Pengeluaran Terbanyak (Topping yang paling banyak keluar biayanya di periode ini)
   const highestExpense = useMemo(() => {
     let list = [];
     if (activeTab === 'harian') list = currentHarianItems;
-    else if (activeTab === 'mingguan') {
-      currentMingguanGroups.forEach((g) => {
-        list = list.concat(g.items || []);
-      });
-    } else {
-      currentBulananGroups.forEach((g) => {
-        list = list.concat(g.items || []);
-      });
-    }
+    else if (activeTab === 'mingguan') currentMingguanGroups.forEach((g) => { list = list.concat(g.items || []); });
+    else currentBulananGroups.forEach((g) => { list = list.concat(g.items || []); });
     if (!list.length) return null;
 
     const toppingTotals = {};
@@ -266,47 +225,35 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
     let topName = '';
     let maxTotal = 0;
     Object.entries(toppingTotals).forEach(([name, tot]) => {
-      if (tot > maxTotal) {
-        maxTotal = tot;
-        topName = name;
-      }
+      if (tot > maxTotal) { maxTotal = tot; topName = name; }
     });
 
     return { nama: topName, total: maxTotal };
   }, [activeTab, currentHarianItems, currentMingguanGroups, currentBulananGroups]);
 
-  // ==========================================================================
-  // HANDLERS CRUD
-  // ==========================================================================
-  const handleOpenCreateModal = () => {
-    setEditingItem(null);
-    setFormModalVisible(true);
-  };
-
-  const handleOpenEditModal = (item) => {
-    setEditingItem(item);
-    setFormModalVisible(true);
-  };
-
-  const handleOpenDeleteModal = (item) => {
-    setItemToDelete(item);
-    setDeleteModalVisible(true);
-  };
-
+  // CRUD Handlers
   const handleSaveExpense = async (itemData) => {
     try {
       const tanggalStr = itemData.tanggalStr || harianDate;
       const tanggal = tanggalKeISO(tanggalStr) || new Date().toISOString().slice(0, 10);
       const jumlah = Number(itemData.jumlah || 1);
       const total = Number(itemData.total || itemData.nominal || 0);
-      const payload = { tanggal, nama: itemData.keterangan, kategori: itemData.kategori, jumlah,
-        harga_satuan: total / jumlah, catatan: `Satuan: ${itemData.satuan || 'unit'}; Supplier: ${itemData.supplier || '-'}` };
+      const payload = {
+        tanggal,
+        nama: itemData.keterangan,
+        kategori: itemData.kategori,
+        jumlah,
+        harga_satuan: total / jumlah,
+        catatan: `Satuan: ${itemData.satuan || 'unit'}; Supplier: ${itemData.supplier || '-'}`,
+      };
       if (onAddExpense && !editingItem) onAddExpense(itemData);
       else if (onUpdateExpense && editingItem) onUpdateExpense({ ...editingItem, ...itemData });
       else if (editingItem) await updateExpense(editingItem.id, payload);
       else await createExpense(payload, user?.id);
       await loadExpenses();
-    } catch (e) { console.error('Gagal menyimpan pengeluaran:', e.message); }
+    } catch (e) {
+      console.error('Gagal menyimpan pengeluaran:', e.message);
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -317,114 +264,53 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
       await loadExpenses();
       setDeleteModalVisible(false);
       setItemToDelete(null);
-    } catch (e) { console.error('Gagal menghapus pengeluaran:', e.message); }
+    } catch (e) {
+      console.error('Gagal menghapus pengeluaran:', e.message);
+    }
   };
 
   const handleOpenRincian = (group) => {
     setRincianData({
-      dateTitle:
-        group.labelHari ||
-        group.labelTanggal ||
-        `Tanggal ${group.dayNumber} Oktober 2026`,
+      dateTitle: group.labelHari || group.labelTanggal || `Tanggal ${group.dayNumber} Oktober 2026`,
       items: group.items || [],
       totalNominal: group.total || 0,
     });
     setRincianModalVisible(true);
   };
 
-  const handleSelectDate = (newDateStr) => {
-    if (activeTab === 'harian') setHarianDate(newDateStr);
-    else if (activeTab === 'mingguan') setMingguanDate(newDateStr);
-    else if (activeTab === 'bulanan') setBulananDate(newDateStr);
-  };
-
-  const sectionTitle = useMemo(() => {
-    if (activeTab === 'harian') return 'Data Pengeluaran Harian';
-    if (activeTab === 'mingguan') return 'Rekap Pengeluaran Mingguan';
-    return 'Rekap Pengeluaran Bulanan';
-  }, [activeTab]);
-
-  // ==========================================================================
-  // RENDER CONTENT
-  // ==========================================================================
   const content = (
     <View style={styles.mainContainer}>
-      {/* 1. TAB PERIODE (Harian | Mingguan | Bulanan) */}
+      {/* 1. Tab Periode */}
       <View style={styles.tabPeriodWrapper}>
         <View style={styles.tabPeriodContainer}>
-          <TouchableOpacity
-            style={[
-              styles.tabPeriodBtn,
-              activeTab === 'harian' && styles.tabPeriodBtnActive,
-            ]}
-            onPress={() => setActiveTab('harian')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.tabPeriodText,
-                activeTab === 'harian' && styles.tabPeriodTextActive,
-              ]}
+          {['harian', 'mingguan', 'bulanan'].map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tabPeriodBtn, activeTab === tab && styles.tabPeriodBtnActive]}
+              onPress={() => setActiveTab(tab)}
+              activeOpacity={0.8}
             >
-              Harian
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.tabPeriodBtn,
-              activeTab === 'mingguan' && styles.tabPeriodBtnActive,
-            ]}
-            onPress={() => setActiveTab('mingguan')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.tabPeriodText,
-                activeTab === 'mingguan' && styles.tabPeriodTextActive,
-              ]}
-            >
-              Mingguan
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.tabPeriodBtn,
-              activeTab === 'bulanan' && styles.tabPeriodBtnActive,
-            ]}
-            onPress={() => setActiveTab('bulanan')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.tabPeriodText,
-                activeTab === 'bulanan' && styles.tabPeriodTextActive,
-              ]}
-            >
-              Bulanan
-            </Text>
-          </TouchableOpacity>
+              <Text style={[styles.tabPeriodText, activeTab === tab && styles.tabPeriodTextActive]}>
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
 
-      {/* 2. FILTER TANGGAL */}
-      <TouchableOpacity
-        style={styles.dateFilterCard}
-        onPress={() => setDatePickerVisible(true)}
-        activeOpacity={0.7}
-        accessibilityLabel="Pilih tanggal atau periode"
-      >
-        <View style={styles.dateFilterLeft}>
-          <Ionicons name="calendar-outline" size={18} color={WARNA.merahTua} />
-          <Text style={styles.dateFilterText}>{currentDateText}</Text>
-        </View>
-        <Ionicons name="chevron-down" size={16} color={WARNA.abu} />
-      </TouchableOpacity>
+      {/* 2. Filter Tanggal */}
+      <View style={styles.dateFilterContainerRow}>
+        <TouchableOpacity style={styles.dateFilterCard} onPress={() => setDatePickerVisible(true)} activeOpacity={0.7}>
+          <View style={styles.dateFilterLeft}>
+            <Ionicons name="calendar-outline" size={18} color={WARNA.merahTua} />
+            <Text style={styles.dateFilterText}>{currentDateText}</Text>
+          </View>
+          <Ionicons name="chevron-down" size={16} color={WARNA.abu} />
+        </TouchableOpacity>
+      </View>
 
-      {/* 3. CARD TOTAL PENGELUARAN & PENGELUARAN TERBESAR (DUAL CARD BERSIH) */}
+      {/* 3. Dual Card Total & Pengeluaran Terbesar */}
       <View style={styles.dualCardRow}>
-        {/* Card 1: Total Pengeluaran (Deep Maroon Identik Dashboard) */}
         <View style={styles.totalCard}>
           <View style={styles.cardHeaderSmall}>
             <Text style={styles.totalCardLabel}>Total Pengeluaran</Text>
@@ -432,15 +318,10 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
               <Ionicons name="wallet-outline" size={18} color={WARNA.kuningGold} />
             </View>
           </View>
-          <Text style={styles.totalCardAmount}>
-            {formatCurrency(totalNominal)}
-          </Text>
-          <Text style={styles.totalCardSub} numberOfLines={1}>
-            {expenseSubLabel}
-          </Text>
+          <Text style={styles.totalCardAmount}>{formatCurrency(totalNominal)}</Text>
+          <Text style={styles.totalCardSub} numberOfLines={1}>{expenseSubLabel}</Text>
         </View>
 
-        {/* Card 2: Pengeluaran Terbesar (Pengganti Total Volume Bahan, Tanpa Warna Hijau) */}
         <View style={styles.topExpenseCard}>
           <View style={styles.cardHeaderSmall}>
             <Text style={styles.topExpenseCardLabel}>Pengeluaran Terbesar</Text>
@@ -448,714 +329,158 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
               <Ionicons name="flame-outline" size={18} color={WARNA.goldTua} />
             </View>
           </View>
-          <Text style={styles.topExpenseCardName} numberOfLines={1}>
-            {highestExpense ? highestExpense.nama : '-'}
-          </Text>
-          <Text style={styles.topExpenseCardSub}>
-            {highestExpense ? formatCurrency(highestExpense.total) : 'Belum ada data'}
-          </Text>
+          <Text style={styles.topExpenseCardName} numberOfLines={1}>{highestExpense ? highestExpense.nama : '-'}</Text>
+          <Text style={styles.topExpenseCardSub}>{highestExpense ? formatCurrency(highestExpense.total) : 'Belum ada data'}</Text>
         </View>
       </View>
 
-      {/* 4. JUDUL SECTION DATA PENGELUARAN */}
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionTitleText}>{sectionTitle}</Text>
-      </View>
-
-      {/* ================================================================== */}
-      {/* KONDISI A: TAB HARIAN (CRUD: + CATAT PENGELUARAN + SWIPE ACTIONS) */}
-      {/* ================================================================== */}
-      {activeTab === 'harian' ? (
+      {/* Tab Harian Content */}
+      {activeTab === 'harian' && (
         <View style={styles.harianWrapper}>
-          {/* TOMBOL + CATAT PENGELUARAN: Di sebelah kanan atas tabel, ukuran disesuaikan panjang teks */}
           <View style={styles.catatBtnContainer}>
-            <TouchableOpacity
-              style={styles.catatPengeluaranBtn}
-              onPress={handleOpenCreateModal}
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity style={styles.catatPengeluaranBtn} onPress={() => { setEditingItem(null); setFormModalVisible(true); }} activeOpacity={0.8}>
               <Ionicons name="add" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
               <Text style={styles.catatPengeluaranBtnText}>Catat Pengeluaran</Text>
             </TouchableOpacity>
           </View>
 
-          {/* TABEL PENGELUARAN HARIAN (Dapat digeser menyamping jika nama/label panjang) */}
           <View style={styles.tableCard}>
-            <ScrollView
-              horizontal={true}
-              showsHorizontalScrollIndicator={true}
-              contentContainerStyle={styles.tableHorizontalScroll}
-            >
+            <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.tableHorizontalScroll}>
               <View style={styles.tableInnerWrapper}>
-                {/* Header Kolom Tetap / Sticky */}
                 <View style={styles.tableHeaderRow}>
-                  <Text style={[styles.headerColText, styles.colNo]}>No</Text>
                   <Text style={[styles.headerColText, styles.colWaktu]}>Waktu</Text>
-                  <Text style={[styles.headerColText, styles.colKet]}>
-                    Nama Bahan / Keterangan
-                  </Text>
-                  <Text style={[styles.headerColText, styles.colJumlah]}>
-                    Jumlah
-                  </Text>
+                  <Text style={[styles.headerColText, styles.colKet]}>Keterangan</Text>
+                  <Text style={[styles.headerColText, styles.colKategori]}>Kategori</Text>
+                  <Text style={[styles.headerColText, styles.colJumlah]}>Jumlah</Text>
                   <Text style={[styles.headerColText, styles.colTotal]}>Total</Text>
-                  <View style={styles.headerSwipeSpacer} />
+                  <Text style={[styles.headerColText, styles.colFotoItem]}>Foto Item</Text>
+                  <Text style={[styles.headerColText, styles.colFotoStruk]}>Foto Struk</Text>
+                  <Text style={[styles.headerColText, styles.colAksi]}>Aksi</Text>
                 </View>
 
-                {/* Daftar Baris Pengeluaran (FlatList dengan Swipe Action) */}
                 <FlatList
                   data={currentHarianItems}
                   keyExtractor={(item) => String(item.id)}
-                  showsVerticalScrollIndicator={true}
-                  style={styles.tableBodyScroll}
-                  contentContainerStyle={styles.tableBodyContent}
                   renderItem={({ item, index }) => (
                     <SwipeableExpenseRow
                       item={item}
                       index={index}
                       isLast={index === currentHarianItems.length - 1}
-                      onEdit={handleOpenEditModal}
-                      onDelete={handleOpenDeleteModal}
+                      onEdit={(it) => { setEditingItem(it); setFormModalVisible(true); }}
+                      onDelete={(it) => { setItemToDelete(it); setDeleteModalVisible(true); }}
+                      onViewDetail={handleOpenDetailModal}
                     />
                   )}
-                  ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                      <View style={styles.emptyIconCircle}>
-                        <Ionicons name="receipt-outline" size={32} color={WARNA.abu} />
-                      </View>
-                      <Text style={styles.emptyTitle}>
-                        Belum Ada Catatan Pengeluaran
-                      </Text>
-                      <Text style={styles.emptySubtitle}>
-                        Tidak ada pengeluaran topping pada {harianDate}.
-                      </Text>
-                      <TouchableOpacity
-                        style={styles.emptyAddBtn}
-                        onPress={handleOpenCreateModal}
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons
-                          name="add-circle-outline"
-                          size={16}
-                          color="#FFFFFF"
-                          style={{ marginRight: 6 }}
-                        />
-                        <Text style={styles.emptyAddBtnText}>
-                          Catat Topping Pertama
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  }
                 />
               </View>
             </ScrollView>
           </View>
         </View>
-      ) : null}
+      )}
 
-      {/* ================================================================== */}
-      {/* KONDISI B: TAB MINGGUAN (REKAP PER HARI)                           */}
-      {/* ================================================================== */}
-      {activeTab === 'mingguan' ? (
+      {/* Tab Mingguan & Bulanan Rekap */}
+      {activeTab === 'mingguan' && (
         <View style={styles.rekapCard}>
-          <ScrollView
-            style={styles.rekapScroll}
-            showsVerticalScrollIndicator={true}
-          >
-            {currentMingguanGroups.length > 0 ? (
-              currentMingguanGroups.map((group, index) => {
-                const dayDateText =
-                  group.labelHari ||
-                  `Hari ke-${group.dayNumber}, ${group.labelTanggal}`;
-                const itemCount = group.items.length;
-
-                return (
-                  <TouchableOpacity
-                    key={group.isoDate || index}
-                    style={[
-                      styles.rekapItemRow,
-                      index === currentMingguanGroups.length - 1 &&
-                      styles.rekapItemRowLast,
-                    ]}
-                    onPress={() => handleOpenRincian(group)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.rekapItemLeft}>
-                      <Text style={styles.rekapDateTitle}>{dayDateText}</Text>
-                      <Text style={styles.rekapItemCount}>
-                        {(() => {
-                          if (itemCount === 0) return 'Tidak ada pembelian';
-                          const bumbuCount = group.items.filter(it => (it.kategori || '').toLowerCase().includes('bumbu')).length;
-                          const toppingCount = itemCount - bumbuCount;
-                          if (bumbuCount > 0 && toppingCount > 0) {
-                            return `${toppingCount} pembelian topping, ${bumbuCount} bumbu`;
-                          }
-                          if (bumbuCount > 0) return `${bumbuCount} pembelian bumbu`;
-                          return `${toppingCount} pembelian topping`;
-                        })()}
-                      </Text>
-                    </View>
-
-                    <View style={styles.rekapItemRight}>
-                      <Text style={styles.rekapNominalText}>
-                        {formatCurrency(group.total)}
-                      </Text>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color={WARNA.abu}
-                        style={{ marginLeft: 6 }}
-                      />
-                    </View>
-                  </TouchableOpacity>
-                );
-              })
-            ) : (
-              <View style={styles.emptyContainer}>
-                <Ionicons name="calendar-outline" size={32} color={WARNA.abu} />
-                <Text style={styles.emptyTitle}>
-                  Tidak Ada Data untuk Rentang Ini
-                </Text>
-              </View>
-            )}
+          <ScrollView showsVerticalScrollIndicator>
+            {currentMingguanGroups.map((group, index) => (
+              <TouchableOpacity key={group.isoDate || index} style={styles.rekapItemRow} onPress={() => handleOpenRincian(group)}>
+                <View>
+                  <Text style={styles.rekapDateTitle}>{group.labelHari || `Hari ke-${group.dayNumber}`}</Text>
+                  <Text style={styles.rekapItemCount}>{group.items.length} item pembelian</Text>
+                </View>
+                <Text style={styles.rekapNominalText}>{formatCurrency(group.total)}</Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
         </View>
-      ) : null}
+      )}
 
-      {/* ================================================================== */}
-      {/* KONDISI C: TAB BULANAN (REKAP PER TANGGAL OKTOBER)                 */}
-      {/* ================================================================== */}
-      {activeTab === 'bulanan' ? (
+      {activeTab === 'bulanan' && (
         <View style={styles.rekapCard}>
-          <ScrollView
-            style={styles.rekapScroll}
-            showsVerticalScrollIndicator={true}
-          >
-            {currentBulananGroups.length > 0 ? (
-              currentBulananGroups.map((group, index) => {
-                const dateLabel =
-                  group.labelTanggal ||
-                  `${String(group.dayNumber).padStart(2, '0')} Oktober 2026`;
-                const itemCount = group.items.length;
-
-                return (
-                  <TouchableOpacity
-                    key={group.isoDate || index}
-                    style={[
-                      styles.rekapItemRow,
-                      index === currentBulananGroups.length - 1 &&
-                      styles.rekapItemRowLast,
-                    ]}
-                    onPress={() => handleOpenRincian(group)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.rekapItemLeft}>
-                      <Text style={styles.rekapDateTitle}>{dateLabel}</Text>
-                      <Text style={styles.rekapItemCount}>
-                        {(() => {
-                          if (itemCount === 0) return 'Tidak ada pembelian';
-                          const bumbuCount = group.items.filter(it => (it.kategori || '').toLowerCase().includes('bumbu')).length;
-                          const toppingCount = itemCount - bumbuCount;
-                          if (bumbuCount > 0 && toppingCount > 0) {
-                            return `${toppingCount} pembelian topping, ${bumbuCount} bumbu`;
-                          }
-                          if (bumbuCount > 0) return `${bumbuCount} pembelian bumbu`;
-                          return `${toppingCount} pembelian topping`;
-                        })()}
-                      </Text>
-                    </View>
-
-                    <View style={styles.rekapItemRight}>
-                      <Text style={styles.rekapNominalText}>
-                        {formatCurrency(group.total)}
-                      </Text>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color={WARNA.abu}
-                        style={{ marginLeft: 6 }}
-                      />
-                    </View>
-                  </TouchableOpacity>
-                );
-              })
-            ) : (
-              <View style={styles.emptyContainer}>
-                <Ionicons name="calendar-outline" size={32} color={WARNA.abu} />
-                <Text style={styles.emptyTitle}>
-                  Tidak Ada Data untuk Bulan Ini
-                </Text>
-              </View>
-            )}
+          <ScrollView showsVerticalScrollIndicator>
+            {currentBulananGroups.map((group, index) => (
+              <TouchableOpacity key={group.isoDate || index} style={styles.rekapItemRow} onPress={() => handleOpenRincian(group)}>
+                <View>
+                  <Text style={styles.rekapDateTitle}>{group.labelTanggal}</Text>
+                  <Text style={styles.rekapItemCount}>{group.items.length} item pembelian</Text>
+                </View>
+                <Text style={styles.rekapNominalText}>{formatCurrency(group.total)}</Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
         </View>
-      ) : null}
+      )}
 
-      {/* Modal Kalender Interaktif */}
-      <DatePickerModal
-        visible={datePickerVisible}
-        onClose={() => setDatePickerVisible(false)}
-        mode={activeTab}
-        currentDateText={currentDateText}
-        onSelectDate={handleSelectDate}
-      />
-
-      {/* Modal Form Catat & Edit Pengeluaran Topping */}
-      <ExpenseFormModal
-        visible={formModalVisible}
-        onClose={() => {
-          setFormModalVisible(false);
-          setEditingItem(null);
-        }}
-        onSubmit={handleSaveExpense}
-        initialData={editingItem}
-        selectedDateStr={harianDate}
-      />
-
-      {/* Modal Konfirmasi Hapus */}
-      <DeleteExpenseModal
-        visible={deleteModalVisible}
-        item={itemToDelete}
-        onClose={() => {
-          setDeleteModalVisible(false);
-          setItemToDelete(null);
-        }}
-        onConfirm={handleConfirmDelete}
-      />
-
-      {/* Modal Rincian Pengeluaran */}
-      <RincianPengeluaranModal
-        visible={rincianModalVisible}
-        onClose={() => setRincianModalVisible(false)}
-        dateTitle={rincianData.dateTitle}
-        items={rincianData.items}
-        totalNominal={rincianData.totalNominal}
-      />
+      <DatePickerModal visible={datePickerVisible} onClose={() => setDatePickerVisible(false)} mode={activeTab} currentDateText={currentDateText} onSelectDate={(d) => { if (activeTab === 'harian') setHarianDate(d); else if (activeTab === 'mingguan') setMingguanDate(d); else setBulananDate(d); }} />
+      <ExpenseFormModal visible={formModalVisible} onClose={() => { setFormModalVisible(false); setEditingItem(null); }} onSubmit={handleSaveExpense} initialData={editingItem} selectedDateStr={harianDate} />
+      <DeleteExpenseModal visible={deleteModalVisible} item={itemToDelete} onClose={() => { setDeleteModalVisible(false); setItemToDelete(null); }} onConfirm={handleConfirmDelete} />
+      <DetailPengeluaranModal visible={detailModalVisible} item={selectedDetailItem} onClose={() => { setDetailModalVisible(false); setSelectedDetailItem(null); }} />
+      <RincianPengeluaranModal visible={rincianModalVisible} onClose={() => setRincianModalVisible(false)} dateTitle={rincianData.dateTitle} items={rincianData.items} totalNominal={rincianData.totalNominal} />
     </View>
   );
 
-  if (isEmbedded) {
-    return content;
-  }
+  if (isEmbedded) return content;
 
   return (
     <View style={styles.standaloneContainer}>
-      {!isMobile && sidebarOpen && (
-        <Sidebar role="owner" activeTab="pengeluaran" isMobile={false} />
-      )}
-
-      {isMobile && sidebarOpen && (
-        <View style={styles.mobileBackdrop}>
-          <TouchableOpacity
-            style={styles.backdropTouch}
-            onPress={() => setSidebarOpen(false)}
-            activeOpacity={1}
-          />
-          <Sidebar
-            role="owner"
-            activeTab="pengeluaran"
-            isMobile={true}
-            onClose={() => setSidebarOpen(false)}
-          />
-        </View>
-      )}
-
+      {!isMobile && sidebarOpen && <Sidebar role="owner" activeTab="pengeluaran" isMobile={false} />}
       <View style={styles.standaloneMain}>
-        <TopHeader
-          onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
-          isSidebarOpen={sidebarOpen}
-          title="Owner Portal · Pengeluaran"
-          role="Owner"
-        />
+        <TopHeader onToggleSidebar={() => setSidebarOpen((prev) => !prev)} isSidebarOpen={sidebarOpen} title="Owner Portal · Pengeluaran" role="Owner" />
         <View style={styles.standaloneContent}>{content}</View>
       </View>
     </View>
   );
 }
 
-// ============================================================================
-// STYLING
-// ============================================================================
 const styles = StyleSheet.create({
-  standaloneContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: WARNA.latar,
-  },
-  standaloneMain: {
-    flex: 1,
-    minWidth: 0,
-    height: '100%',
-  },
-  standaloneContent: {
-    flex: 1,
-    width: '100%',
-  },
-  mobileBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 999,
-    flexDirection: 'row',
-  },
-  backdropTouch: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  mainContainer: {
-    flex: 1,
-    width: '100%',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 20,
-    backgroundColor: WARNA.latar,
-  },
-
-  // 1. Tab Periode
-  tabPeriodWrapper: {
-    marginBottom: 10,
-  },
-  tabPeriodContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 3,
-    borderWidth: 1.5,
-    borderColor: '#E8DCD4',
-    gap: 4,
-  },
-  tabPeriodBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-  },
-  tabPeriodBtnActive: {
-    backgroundColor: WARNA.orangeProject, // Orange Project Palette
-    shadowColor: WARNA.orangeProject,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.22,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  tabPeriodText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: WARNA.abu,
-  },
-  tabPeriodTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-  },
-
-  // 2. Filter Tanggal
-  dateFilterCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E8DCD4',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 12,
-  },
-  dateFilterLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  dateFilterText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: WARNA.teks,
-  },
-
-  // 3. Dual Card Row (Total Pengeluaran & Total Volume Bahan)
-  dualCardRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 14,
-  },
-  totalCard: {
-    flex: 1.2,
-    backgroundColor: WARNA.merahTua, // Deep Maroon identik Dashboard
-    borderRadius: 14,
-    padding: 14,
-    shadowColor: WARNA.merahTua,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.22,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  cardHeaderSmall: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  totalCardLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#DFB8BC',
-    textTransform: 'uppercase',
-  },
-  totalCardAmount: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
-  totalCardSub: {
-    fontSize: 10,
-    color: '#D1C7BD',
-    marginTop: 2,
-  },
-  coinBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  // Pengeluaran Terbanyak Card (Warm project palette, NO GREEN!)
-  topExpenseCard: {
-    flex: 0.9,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: '#E8DCD4',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  topExpenseCardLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: WARNA.abu,
-    textTransform: 'uppercase',
-  },
-  topExpenseCardName: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: WARNA.teks,
-    marginTop: 2,
-  },
-  topExpenseCardSub: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: WARNA.goldTua,
-    marginTop: 2,
-  },
-  topExpenseBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FEF3C7',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  // 4. Section Header
-  sectionHeaderRow: {
-    marginBottom: 8,
-  },
-  sectionTitleText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: WARNA.teks,
-  },
-
-  // Harian Action
-  harianWrapper: {
-    flex: 1,
-  },
-  catatBtnContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    marginBottom: 12,
-  },
-  catatPengeluaranBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: WARNA.biruCatat,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  catatPengeluaranBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-
-  // Table Card
-  tableCard: {
-    flex: 1,
-    minHeight: 280,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#EDE5E0',
-    overflow: 'hidden',
-  },
-  tableHorizontalScroll: {
-    minWidth: 540,
-    flexGrow: 1,
-  },
-  tableInnerWrapper: {
-    minWidth: 540,
-    flex: 1,
-  },
-  tableHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EDE5E0',
-    borderBottomWidth: 1.5,
-    borderBottomColor: '#D8CBC3',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    minWidth: 540,
-  },
-  headerColText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: WARNA.teks,
-  },
-  headerSwipeSpacer: {
-    width: 18,
-  },
-  colNo: {
-    width: 28,
-    textAlign: 'center',
-  },
-  colWaktu: {
-    width: 50,
-    textAlign: 'center',
-  },
-  colKet: {
-    flex: 1,
-    minWidth: 240,
-    paddingHorizontal: 6,
-    textAlign: 'left',
-  },
-  colJumlah: {
-    width: 75,
-    textAlign: 'center',
-  },
-  colTotal: {
-    width: 90,
-    textAlign: 'right',
-    paddingRight: 4,
-  },
-  tableBodyScroll: {
-    flex: 1,
-  },
-  tableBodyContent: {
-    paddingBottom: 8,
-  },
-
-  // Rekap Mingguan & Bulanan
-  rekapCard: {
-    flex: 1,
-    minHeight: 300,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#EDE5E0',
-    overflow: 'hidden',
-  },
-  rekapScroll: {
-    flex: 1,
-  },
-  rekapItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EDE5E0',
-    backgroundColor: '#FFFFFF',
-  },
-  rekapItemRowLast: {
-    borderBottomWidth: 0,
-  },
-  rekapItemLeft: {
-    flex: 1,
-  },
-  rekapDateTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#2C1810',
-    marginBottom: 2,
-  },
-  rekapItemCount: {
-    fontSize: 11,
-    color: '#78665E',
-  },
-  rekapItemRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  rekapNominalText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: WARNA.merahJreng,
-  },
-
-  // Empty State
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 36,
-    paddingHorizontal: 20,
-  },
-  emptyIconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#F8F5F2',
-    borderWidth: 1.5,
-    borderColor: '#E8DCD4',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#2C1810',
-    marginBottom: 4,
-  },
-  emptySubtitle: {
-    fontSize: 12,
-    color: '#78665E',
-    textAlign: 'center',
-    marginBottom: 14,
-    maxWidth: 260,
-  },
-  emptyAddBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: WARNA.merahCabe,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 10,
-  },
-  emptyAddBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
+  standaloneContainer: { flex: 1, flexDirection: 'row', backgroundColor: WARNA.latar },
+  standaloneMain: { flex: 1, minWidth: 0, height: '100%' },
+  standaloneContent: { flex: 1, width: '100%' },
+  mainContainer: { flex: 1, width: '100%', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 20, backgroundColor: WARNA.latar },
+  tabPeriodWrapper: { marginBottom: 10 },
+  tabPeriodContainer: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 14, padding: 3, borderWidth: 1.5, borderColor: '#E8DCD4', gap: 4 },
+  tabPeriodBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
+  tabPeriodBtnActive: { backgroundColor: WARNA.merahTua },
+  tabPeriodText: { fontSize: 13, fontWeight: '600', color: WARNA.abu },
+  tabPeriodTextActive: { color: '#FFFFFF' },
+  dateFilterContainerRow: { marginBottom: 12 },
+  dateFilterCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: WARNA.garis },
+  dateFilterLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dateFilterText: { fontSize: 13, fontWeight: '600', color: WARNA.merahTua },
+  dualCardRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  totalCard: { flex: 1, backgroundColor: WARNA.merahTua, borderRadius: 14, padding: 14 },
+  totalCardLabel: { fontSize: 12, color: '#F3E8E8', fontWeight: '500' },
+  totalCardAmount: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginTop: 4 },
+  totalCardSub: { fontSize: 11, color: '#E8DCD4', marginTop: 2 },
+  topExpenseCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: WARNA.garis },
+  topExpenseCardLabel: { fontSize: 12, color: WARNA.abu, fontWeight: '500' },
+  topExpenseCardName: { fontSize: 16, fontWeight: '700', color: WARNA.teks, marginTop: 4 },
+  topExpenseCardSub: { fontSize: 11, color: WARNA.merahJreng, fontWeight: '600', marginTop: 2 },
+  cardHeaderSmall: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  coinBadge: { width: 28, height: 28, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
+  topExpenseBadge: { width: 28, height: 28, borderRadius: 8, backgroundColor: '#FEF3C7', justifyContent: 'center', alignItems: 'center' },
+  sectionHeaderRow: { marginBottom: 10 },
+  sectionTitleText: { fontSize: 15, fontWeight: '700', color: WARNA.teks },
+  harianWrapper: { flex: 1 },
+  catatBtnContainer: { alignItems: 'flex-end', marginBottom: 10 },
+  catatPengeluaranBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: WARNA.biruCatat, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+  catatPengeluaranBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
+  tableCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: WARNA.garis, overflow: 'hidden' },
+  tableHorizontalScroll: { paddingBottom: 8 },
+  tableInnerWrapper: { minWidth: 700 },
+  tableHeaderRow: { flexDirection: 'row', backgroundColor: '#F4ECE6', paddingVertical: 10, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: WARNA.garis },
+  headerColText: { fontSize: 12, fontWeight: '700', color: WARNA.merahTua },
+  colWaktu: { width: 70 },
+  colKet: { flex: 2 },
+  colKategori: { width: 100 },
+  colJumlah: { width: 80 },
+  colTotal: { width: 90 },
+  colFotoItem: { width: 80, textAlign: 'center' },
+  colFotoStruk: { width: 80, textAlign: 'center' },
+  colAksi: { width: 70, textAlign: 'center' },
+  rekapCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: WARNA.garis, padding: 10 },
+  rekapItemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: WARNA.garis },
+  rekapDateTitle: { fontSize: 14, fontWeight: '600', color: WARNA.teks },
+  rekapItemCount: { fontSize: 11, color: WARNA.abu, marginTop: 2 },
+  rekapNominalText: { fontSize: 14, fontWeight: '700', color: WARNA.merahJreng },
 });
