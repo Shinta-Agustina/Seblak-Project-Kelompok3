@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { signIn, signOut, getCurrentSession } from '../services/authService';
+import { signIn, signOut, getCurrentSession } from '../services/Authservice';
 import { getMenus } from '../services/menuService';
 import { getCashiers } from '../services/kasirService';
 import { createTransaction, getTransactions, updateTransactionStatus } from '../services/transaksiService';
@@ -137,13 +137,15 @@ export function KasirProvider({ children }) {
   const updateCashier = async (id, values) => { const { updateCashier: update } = await import('../services/kasirService'); const row = await update(id, values); await refreshData(); return row; };
   const deleteCashier = async (id) => { const { deleteCashier: remove } = await import('../services/kasirService'); await remove(id); await refreshData(); };
 
-  const value = useMemo(() => ({ user, login, logout, initializing, refreshData, activeTab, setActiveTab,
+  const value = useMemo(() => ({
+    user, login, logout, initializing, refreshData, activeTab, setActiveTab,
     cashiers, addCashier, updateCashier, deleteCashier, menuItems, setMenuItems,
     cart, setCart, addToCart, updateCartQty, removeFromCart, resetCart, getTotalPrice, getTotalItemsCount,
     selectedKuah, setSelectedKuah, selectedLevel, setSelectedLevel, selectedOrderType, setSelectedOrderType,
     catatan, setCatatan, activeCategory, setActiveCategory, orders, setOrders, transactions, setTransactions,
-    checkoutOrder, updateOrderStatus }), [user, initializing, activeTab, cashiers, menuItems, cart, selectedKuah, selectedLevel,
-      selectedOrderType, catatan, activeCategory, orders, transactions]);
+    checkoutOrder, updateOrderStatus
+  }), [user, initializing, activeTab, cashiers, menuItems, cart, selectedKuah, selectedLevel,
+    selectedOrderType, catatan, activeCategory, orders, transactions]);
   return <KasirContext.Provider value={value}>{children}</KasirContext.Provider>;
 }
 export function useKasir() { const context = useContext(KasirContext); if (!context) throw new Error('useKasir harus digunakan di dalam KasirProvider'); return context; }
