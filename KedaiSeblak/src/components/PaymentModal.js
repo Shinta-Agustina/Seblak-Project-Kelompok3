@@ -130,7 +130,7 @@ export default function PaymentModal({
     }
   };
 
-  const handleProcessPayment = () => {
+  const handleProcessPayment = async () => {
     if (processingRef.current || isProcessing) return;
 
     // Validasi keranjang.
@@ -199,7 +199,7 @@ export default function PaymentModal({
         throw new Error('Callback pembayaran tidak tersedia.');
       }
 
-      const savedTransaction = checkoutOrder(
+      const savedTransaction = await checkoutOrder(
         finalMethodName,
         finalCashPaid,
         transactionPayload

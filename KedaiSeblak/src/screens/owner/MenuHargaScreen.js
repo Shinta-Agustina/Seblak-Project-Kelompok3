@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,14 +12,15 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useKasir } from '../../context/KasirContext';
+import { useFocusEffect } from '@react-navigation/native';
 import formatCurrency from '../../utils/formatCurrency';
 import CustomButton from '../../components/CustomButton';
 import MenuFormModal from '../../components/MenuFormModal';
 import DeleteConfirmationModal from '../../components/DeleteConfirmationModal';
 import Sidebar from '../../components/Sidebar';
 import TopHeader from '../../components/TopHeader';
-import { TOPPING_ITEMS, TOPPING_CATEGORIES } from '../../data/mockData';
+import { TOPPING_CATEGORIES } from '../../data/mockData';
+import { getMenus, createMenu, updateMenu, deleteMenu, seedInitialMenusIfEmpty } from '../../services/menuService';
 
 const WARNA_CARD_OMZET = '#52141D';
 const WARNA_TOMBOL = '#C62828'; // Warna orange/merah identik button Masuk Login
@@ -98,28 +99,24 @@ export default function MenuHargaScreen({ isEmbedded = false, navigation }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
 
-  // Context & Menu Data
-  const {
-    menuItems = [],
-    addMenuItem,
-    updateMenuItem,
-    deleteMenuItem,
-  } = useKasir();
+  // Sumber data utama sekarang Supabase, bukan state lokal/mockData.
+  const [localMenuItems, setLocalMenuItems] = useState([]);
+  const [initialLoading, setInitialLoading] = useState(true);
 
-  // Inisialisasi daftar menu yang tersinkronisasi 100% dengan data topping kasir (TOPPING_ITEMS)
-  const [localMenuItems, setLocalMenuItems] = useState(() => {
-    return TOPPING_ITEMS.map((item, idx) => ({
-      id: item.id || `menu-${idx + 1}`,
-      nama: item.nama,
-      kategori: item.kategori,
-      harga: item.harga,
-      berat: item.berat || '1 pcs',
-      stok: 20 + ((idx * 7) % 30),
-      status: 'Aktif',
-      emoji: item.emoji || '🍲',
-      image: item.image,
-    }));
-  });
+  const loadMenus = async () => {
+    try {
+      await seedInitialMenusIfEmpty();
+      const rows = await getMenus();
+      setLocalMenuItems(rows);
+    } catch (error) {
+      showFeedback(error.message || 'Gagal mengambil data menu dari Supabase.', 'error');
+    } finally {
+      setInitialLoading(false);
+    }
+  };
+
+  // Muat ulang SETIAP kali layar kembali fokus, bukan hanya sekali saat dibuka.
+  useFocusEffect(useCallback(() => { loadMenus(); }, []));
 
   // Local UI States
   const [searchQuery, setSearchQuery] = useState('');
@@ -178,32 +175,17 @@ export default function MenuHargaScreen({ isEmbedded = false, navigation }) {
     setModalLoading(true);
     try {
       if (editingItem) {
-        // Edit Menu
-        setLocalMenuItems((prev) =>
-          prev.map((item) =>
-            item.id === editingItem.id ? { ...item, ...formData } : item
-          )
-        );
-        if (updateMenuItem) updateMenuItem(editingItem.id, formData);
-        showFeedback(`Menu "${formData.nama}" berhasil diperbarui.`);
+        await updateMenu(editingItem.id, formData, editingItem);
+        showFeedback(`Menu "${formData.nama}" berhasil diperbarui di Supabase.`);
       } else {
-        // Tambah Menu
-        const newItem = {
-          id: `menu-${Date.now()}`,
-          ...formData,
-          stok: formData.stok ? Number(formData.stok) : 25,
-          status: formData.status || 'Aktif',
-          berat: formData.berat || '1 pcs',
-          emoji: formData.emoji || '🍲',
-        };
-        setLocalMenuItems((prev) => [newItem, ...prev]);
-        if (addMenuItem) addMenuItem(newItem);
-        showFeedback(`Menu "${formData.nama}" berhasil ditambahkan.`);
+        await createMenu(formData);
+        showFeedback(`Menu "${formData.nama}" berhasil ditambahkan ke Supabase.`);
       }
+      await loadMenus();
       setFormModalVisible(false);
       setEditingItem(null);
     } catch (err) {
-      showFeedback('Terjadi kesalahan saat menyimpan menu.', 'error');
+      showFeedback(err.message || 'Gagal menyimpan menu ke Supabase.', 'error');
     } finally {
       setModalLoading(false);
     }
@@ -217,19 +199,16 @@ export default function MenuHargaScreen({ isEmbedded = false, navigation }) {
 
   const handleConfirmDelete = async () => {
     if (!itemToDelete) return;
-
     setModalLoading(true);
     try {
       const deletedName = itemToDelete.nama;
-      setLocalMenuItems((prev) =>
-        prev.filter((item) => item.id !== itemToDelete.id)
-      );
-      if (deleteMenuItem) deleteMenuItem(itemToDelete.id);
+      await deleteMenu(itemToDelete.id, itemToDelete);
+      await loadMenus();
       setDeleteModalVisible(false);
       setItemToDelete(null);
-      showFeedback(`Menu "${deletedName}" berhasil dihapus.`);
+      showFeedback(`Menu "${deletedName}" berhasil dihapus dari Supabase.`);
     } catch (err) {
-      showFeedback('Gagal menghapus menu.', 'error');
+      showFeedback(err.message || 'Gagal menghapus menu dari Supabase.', 'error');
     } finally {
       setModalLoading(false);
     }
@@ -350,7 +329,9 @@ export default function MenuHargaScreen({ isEmbedded = false, navigation }) {
 
      
 {/* 2. AREA DAFTAR MENU MENGGUNAKAN FLATLIST */}
-<FlatList
+{initialLoading ? (
+  <View style={styles.emptyContainer}><Text style={styles.emptySubtitle}>Memuat data menu dari Supabase...</Text></View>
+) : <FlatList
   style={styles.cardsScrollArea}
   contentContainerStyle={styles.cardsScrollContent}
   data={filteredMenus}
@@ -399,8 +380,7 @@ export default function MenuHargaScreen({ isEmbedded = false, navigation }) {
       />
     </View>
   }
-/>
-
+/>}
 
       {/* Reusable Form Modal (Tambah & Edit) */}
       <MenuFormModal

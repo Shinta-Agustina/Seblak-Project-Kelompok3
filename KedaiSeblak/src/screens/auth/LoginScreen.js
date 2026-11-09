@@ -22,7 +22,7 @@ import { useKasir } from '../../context/KasirContext';
 export default function LoginScreen({ onLogin }) {
   const { width } = useWindowDimensions();
   const isLargeScreen = width >= 768;
-  const { login, cashiers } = useKasir(); // <-- Mengambil data cashiers dari context global
+  const { login } = useKasir();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -32,70 +32,24 @@ export default function LoginScreen({ onLogin }) {
   const [errors, setErrors] = useState({});
 
   // Validasi & Pencocokan Akun Berdasarkan Global Context & Owner
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (loading) return;
-
     const cleanUsername = username.trim();
     const newErrors = {};
-
-    if (!cleanUsername) {
-      newErrors.username = 'Username wajib diisi.';
-    }
-
-    if (!password) {
-      newErrors.password = 'Password wajib diisi.';
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
+    if (!cleanUsername) newErrors.username = 'Email wajib diisi.';
+    if (!password) newErrors.password = 'Password wajib diisi.';
+    if (Object.keys(newErrors).length) { setErrors(newErrors); return; }
     setErrors({});
     setLoading(true);
-
-    setTimeout(() => {
-      try {
-        let detectedRole = 'Kasir';
-
-        // 1. Cek apakah yang login adalah Owner (Dewi)
-        if (cleanUsername.toLowerCase() === 'dewi') {
-          if (password !== 'owner123') {
-            throw new Error('Password Owner salah.');
-          }
-          detectedRole = 'Owner';
-        } else {
-          // 2. Jika bukan owner, cari di dalam daftar kasir global (cashiers)
-          const foundCashier = cashiers.find(
-            (c) => c.name.toLowerCase() === cleanUsername.toLowerCase() || c.email.toLowerCase() === cleanUsername.toLowerCase()
-          );
-
-          if (!foundCashier) {
-            throw new Error('Username atau akun kasir tidak ditemukan.');
-          }
-
-          // Cek password kasir (jika tersimpan di data kasir)
-          if (foundCashier.password && foundCashier.password !== password) {
-            throw new Error('Password kasir salah.');
-          }
-
-          detectedRole = 'Kasir';
-        }
-
-        // Panggil fungsi login dari KasirContext dengan role yang sesuai
-        login(cleanUsername, password, detectedRole);
-
-        if (onLogin) {
-          onLogin(cleanUsername, detectedRole);
-        }
-      } catch (error) {
-        setErrors({
-          form: error.message || 'Username atau password salah.',
-        });
-      } finally {
-        setLoading(false);
-      }
-    }, 300);
+    try {
+      // Supabase Auth menggunakan email dan password; role dibaca dari tabel profiles.
+      const profile = await login(cleanUsername, password);
+      if (onLogin) onLogin(cleanUsername, profile.role === 'owner' ? 'Owner' : 'Kasir');
+    } catch (error) {
+      setErrors({ form: error.message || 'Email atau password salah.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -181,13 +135,13 @@ export default function LoginScreen({ onLogin }) {
               <View style={styles.cardHeader}>
                 <Text style={styles.title}>Selamat Datang</Text>
                 <Text style={styles.subtitle}>
-                  Masuk menggunakan akun Kasir atau Owner Anda
+                  Masuk menggunakan email dan password akun Kasir atau Owner
                 </Text>
               </View>
 
               <View style={styles.formGroup}>
                 {/* Username */}
-                <Text style={styles.inputLabel}>Username / Nama</Text>
+                <Text style={styles.inputLabel}>Email Akun Supabase</Text>
                 <View
                   style={[
                     styles.inputBox,
@@ -210,7 +164,7 @@ export default function LoginScreen({ onLogin }) {
 
                   <TextInput
                     style={styles.textInput}
-                    placeholder="Masukkan username"
+                    placeholder="contoh: owner@kedaiseblak.com"
                     placeholderTextColor="#B0A097"
                     value={username}
                     onChangeText={(value) => {
@@ -321,38 +275,11 @@ export default function LoginScreen({ onLogin }) {
                   </Text>
                 </View>
 
-                {/* Akun Demo Pengujian Cepat */}
-                <View style={styles.quickAccessSection}>
-                  <Text style={styles.quickAccessTitle}>Coba Akun Demo</Text>
-                  <View style={styles.quickBtnRow}>
-                    <TouchableOpacity
-                      style={styles.quickBtn}
-                      onPress={() => {
-                        setUsername('Siti Aisyah');
-                        setPassword('123');
-                        setErrors({});
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <MaterialCommunityIcons name="storefront-outline" size={17} color="#C62828" />
-                      <Text style={styles.quickBtnText}>Kasir: Siti Aisyah</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.quickBtn, styles.quickBtnOwner]}
-                      onPress={() => {
-                        setUsername('Dewi');
-                        setPassword('owner123');
-                        setErrors({});
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="shield-checkmark-outline" size={17} color="#E65100" />
-                      <Text style={[styles.quickBtnText, styles.quickBtnTextOwner]}>
-                        Owner: Dewi
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                <View style={styles.noticeBox}>
+                  <Ionicons name="information-circle-outline" size={13} color="#8D7B70" />
+                  <Text style={styles.noticeText}>
+                    Akun dibuat melalui Supabase Authentication. Role Owner/Kasir ditentukan dari profil database.
+                  </Text>
                 </View>
 
               </View>

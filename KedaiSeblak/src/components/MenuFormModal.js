@@ -14,7 +14,9 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import CustomButton from './CustomButton';
+import { validasiNama, validasiHarga, validasiStok, validasiFoto } from '../utils/validasiMenu';
 
 // Pilihan preset foto seblak berkualitas tinggi untuk pengujian cepat
 const PRESET_PHOTOS = [
@@ -57,8 +59,28 @@ export default function MenuFormModal({
   const [stok, setStok] = useState('');
   const [status, setStatus] = useState('Aktif');
   const [image, setImage] = useState('');
-  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
   const [showPresetPicker, setShowPresetPicker] = useState(false);
+
+  // VALIDASI REALTIME: error dihitung ulang dari nilai terbaru di setiap render,
+  // jadi setiap ketikan langsung divalidasi dan error hilang seketika saat diperbaiki.
+  const rawErrors = {
+    nama: validasiNama(nama),
+    harga: validasiHarga(harga),
+    stok: validasiStok(stok),
+    image: validasiFoto(image),
+  };
+  // Error baru TAMPIL setelah field disentuh (onBlur) supaya form baru tidak langsung merah.
+  const sentuh = (field) => setTouched((t) => ({ ...t, [field]: true }));
+  const errors = {
+    nama: touched.nama ? rawErrors.nama : '',
+    harga: touched.harga ? rawErrors.harga : '',
+    stok: touched.stok ? rawErrors.stok : '',
+    // Foto bukan ketikan: error tampil setelah foto disentuh atau field lain sudah disentuh.
+    image: touched.image || touched.nama || touched.harga || touched.stok ? rawErrors.image : '',
+  };
+  // Tombol Simpan aktif hanya bila SEMUA field valid.
+  const formValid = !rawErrors.nama && !rawErrors.harga && !rawErrors.stok && !rawErrors.image;
 
   useEffect(() => {
     if (initialData) {
@@ -84,7 +106,7 @@ export default function MenuFormModal({
     } else {
       resetForm();
     }
-    setErrors({});
+    setTouched({});
     setShowPresetPicker(false);
   }, [initialData, visible]);
 
@@ -99,12 +121,13 @@ export default function MenuFormModal({
     setStok('');
     setStatus('Aktif');
     setImage('');
-    setErrors({});
+    setTouched({});
     setShowPresetPicker(false);
   };
 
   // Handler pemilihan foto dari perangkat atau Web File Dialog
   const handlePickPhoto = () => {
+    sentuh('image');
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const input = document.createElement('input');
       input.type = 'file';
@@ -119,59 +142,36 @@ export default function MenuFormModal({
           const reader = new FileReader();
           reader.onload = (event) => {
             setImage(event.target.result);
-            if (errors.image) {
-              setErrors((prev) => ({ ...prev, image: null }));
-            }
           };
           reader.readAsDataURL(file);
         }
       };
       input.click();
     } else {
-      // Pada lingkungan mobile/fallback: buka pemilih preset foto seblak
-      setShowPresetPicker(true);
+      (async () => {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert('Izin diperlukan', 'Izinkan akses galeri untuk memilih foto menu.');
+          return;
+        }
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8,
+        });
+        if (!result.canceled && result.assets?.[0]) {
+          const asset = result.assets[0];
+          if (asset.fileSize && asset.fileSize > 2 * 1024 * 1024) {
+            Alert.alert('Ukuran terlalu besar', 'Maksimal ukuran foto adalah 2 MB.');
+            return;
+          }
+          setImage(asset.uri);
+        }
+      })();
     }
-  };
-
-  const validate = () => {
-    const newErrors = {};
-
-    // 1. Validasi Nama Menu
-    if (!nama || !nama.trim()) {
-      newErrors.nama = 'Nama menu wajib diisi.';
-    }
-
-    // 2. Validasi Harga
-    if (!harga || !String(harga).trim()) {
-      newErrors.harga = 'Harga menu wajib diisi.';
-    } else {
-      const numHarga = Number(harga);
-      if (isNaN(numHarga) || numHarga < 0) {
-        newErrors.harga = 'Harga harus berupa angka dan tidak boleh negatif.';
-      }
-    }
-
-    // 3. Validasi Stok
-    if (stok === '' || stok === null || stok === undefined || !String(stok).trim()) {
-      newErrors.stok = 'Stok menu wajib diisi.';
-    } else {
-      const numStok = Number(stok);
-      if (isNaN(numStok) || numStok < 0) {
-        newErrors.stok = 'Stok harus berupa angka dan tidak boleh negatif.';
-      }
-    }
-
-    // 4. Validasi Foto Menu
-    if (!image || !String(image).trim()) {
-      newErrors.image = 'Foto menu wajib dipilih.';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
   const handleSave = () => {
-    if (!validate()) return;
+    setTouched({ nama: true, harga: true, stok: true, image: true });
+    if (!formValid) return; // pengaman: tombol seharusnya sudah nonaktif
 
     const finalBerat = `${(jumlahSatuan || '1').trim()} ${satuanUnit}`;
 
@@ -250,12 +250,8 @@ export default function MenuFormModal({
                         placeholder="Masukkan nama menu"
                         placeholderTextColor="#A69A90"
                         value={nama}
-                        onChangeText={(text) => {
-                          setNama(text);
-                          if (errors.nama) {
-                            setErrors((prev) => ({ ...prev, nama: null }));
-                          }
-                        }}
+                        onChangeText={setNama}
+                        onBlur={() => sentuh('nama')}
                         autoCapitalize="words"
                       />
                     </View>
@@ -449,13 +445,8 @@ export default function MenuFormModal({
                       placeholder="Masukkan harga"
                       placeholderTextColor="#A69A90"
                       value={harga}
-                      onChangeText={(text) => {
-                        const clean = text.replace(/[^0-9]/g, '');
-                        setHarga(clean);
-                        if (errors.harga) {
-                          setErrors((prev) => ({ ...prev, harga: null }));
-                        }
-                      }}
+                      onChangeText={(text) => setHarga(text.replace(/[^0-9]/g, ''))}
+                      onBlur={() => sentuh('harga')}
                       keyboardType="numeric"
                     />
                     <View style={styles.suffixBox}>
@@ -489,13 +480,8 @@ export default function MenuFormModal({
                       placeholder="Masukkan stok"
                       placeholderTextColor="#A69A90"
                       value={stok}
-                      onChangeText={(text) => {
-                        const clean = text.replace(/[^0-9]/g, '');
-                        setStok(clean);
-                        if (errors.stok) {
-                          setErrors((prev) => ({ ...prev, stok: null }));
-                        }
-                      }}
+                      onChangeText={(text) => setStok(text.replace(/[^0-9]/g, ''))}
+                      onBlur={() => sentuh('stok')}
                       keyboardType="numeric"
                     />
                     <View style={styles.suffixBox}>
@@ -630,6 +616,7 @@ export default function MenuFormModal({
                   title={isEdit ? 'Simpan Perubahan' : 'Simpan Menu'}
                   variant="primary"
                   loading={loading}
+                  disabled={!formValid || loading}
                   onPress={handleSave}
                   style={[styles.footerBtn, styles.saveBtn]}
                 />

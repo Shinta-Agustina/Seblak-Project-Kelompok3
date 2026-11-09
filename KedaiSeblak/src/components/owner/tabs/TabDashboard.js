@@ -1,4 +1,4 @@
-﻿import React, { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import SalesChart from '../SalesChart';
 import {
   normalisasiTransaksiKasir,
   hitungToppingTerjual,
-} from '../../../data/ownerSalesSimulation';
+} from '../../../data/salesDataUtils';
 
 const rupiah = (value) =>
   `Rp ${Number(value || 0).toLocaleString('id-ID')}`;

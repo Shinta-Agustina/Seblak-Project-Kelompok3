@@ -1,495 +1,149 @@
-import React, { createContext, useContext, useState } from 'react';
-import {
-  INITIAL_ORDERS,
-  INITIAL_TRANSACTIONS,
-  INITIAL_MENU_ITEMS,
-} from '../data/mockData';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { supabase } from '../lib/supabase';
+import { signIn, signOut, getCurrentSession } from '../services/authService';
+import { getMenus } from '../services/menuService';
+import { getCashiers } from '../services/kasirService';
+import { createTransaction, getTransactions, updateTransactionStatus } from '../services/transaksiService';
 
 const KasirContext = createContext(null);
-
 const DEFAULT_KUAH = 'Original';
 const DEFAULT_LEVEL = 3;
 const DEFAULT_ORDER_TYPE = 'Dine In';
 
+const mapTransaction = (row) => {
+  const items = (row.detail_transaksi || []).map((d) => ({
+    id: d.menu_id, nama: d.nama_menu, name: d.nama_menu, kategori: d.menu_topping?.kategori || 'Topping',
+    harga: Number(d.harga_satuan), price: Number(d.harga_satuan), qty: Number(d.jumlah),
+    subtotal: Number(d.subtotal),
+  }));
+  return {
+    id: row.id, orderNo: row.nomor_transaksi, no: row.nomor_transaksi,
+    date: row.created_at?.slice(0, 10), waktu: row.created_at,
+    time: row.created_at, table: row.tipe_pesanan, tableNo: row.tipe_pesanan,
+    orderType: row.tipe_pesanan, items, details: items,
+    item: items.map((x) => `${x.qty}x ${x.nama}`).join(', '),
+    total: Number(row.total), metode: row.metode_pembayaran, method: row.metode_pembayaran,
+    cashPaid: Number(row.uang_diterima), change: Number(row.kembalian),
+    kasir: row.nama_kasir, status: row.status, kuah: row.kuah,
+    pedas: row.level_pedas, catatan: row.catatan,
+  };
+};
+
 export function KasirProvider({ children }) {
-  // =========================
-  // USER, NAVIGASI, & MANAJEMEN KASIR
-  // =========================
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('Kasir');
-
-  // State global daftar kasir
-  const [cashiers, setCashiers] = useState([
-    { id: '1', name: 'Siti Aisyah', email: 'siti@kedaiseblak.com', phone: '081234567890', password: '123', status: 'Aktif' },
-    { id: '2', name: 'Rini Wulandari', email: 'rini@kedaiseblak.com', phone: '089876543210', password: '123', status: 'Aktif' },
-  ]);
-
-  const addCashier = (newCashierData) => {
-    const newCashier = {
-      id: Date.now().toString(),
-      name: newCashierData.name,
-      email: newCashierData.email,
-      phone: newCashierData.phone || '-',
-      password: newCashierData.password,
-      status: 'Aktif',
-    };
-    setCashiers((prev) => [...prev, newCashier]);
-    return newCashier;
-  };
-
-  // Fungsi Edit Kasir (Nama, Email, Telepon, Password)
-  const updateCashier = (id, updatedData) => {
-    setCashiers((prev) =>
-      prev.map((item) => {
-        if (item.id === id) {
-          return {
-            ...item,
-            ...updatedData,
-            name: updatedData.name !== undefined ? updatedData.name.trim() : item.name,
-            email: updatedData.email !== undefined ? updatedData.email.trim() : item.email,
-            phone: updatedData.phone !== undefined ? updatedData.phone.trim() : item.phone,
-            password: updatedData.password !== undefined && updatedData.password !== '' ? updatedData.password : item.password,
-          };
-        }
-        return item;
-      })
-    );
-  };
-
-  const deleteCashier = (id) => {
-    setCashiers((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  // Owner Menu & Harga state
-  const [menuItems, setMenuItems] = useState(INITIAL_MENU_ITEMS);
-
-  // =========================
-  // KERANJANG DAN PILIHAN MENU
-  // =========================
+  const [cashiers, setCashiers] = useState([]);
+  const [menuItems, setMenuItems] = useState([]);
   const [cart, setCart] = useState([]);
   const [selectedKuah, setSelectedKuah] = useState(DEFAULT_KUAH);
   const [selectedLevel, setSelectedLevel] = useState(DEFAULT_LEVEL);
   const [selectedOrderType, setSelectedOrderType] = useState(DEFAULT_ORDER_TYPE);
   const [catatan, setCatatan] = useState('');
   const [activeCategory, setActiveCategory] = useState('Semua');
+  const [orders, setOrders] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [initializing, setInitializing] = useState(true);
 
-  // =========================
-  // PESANAN DAN RIWAYAT
-  // =========================
-  const [orders, setOrders] = useState(INITIAL_ORDERS || []);
-  const [transactions, setTransactions] = useState(
-    INITIAL_TRANSACTIONS || []
-  );
-
-  // =========================
-  // LOGIN DAN LOGOUT
-  // =========================
-  const login = (identifier, password = '', role = 'Kasir') => {
-    const normalizedRole =
-      String(role).toLowerCase() === 'owner' ? 'Owner' : 'Kasir';
-
-    let loggedInUser = null;
-
-    if (normalizedRole === 'Kasir') {
-      const foundCashier = cashiers.find(
-        (c) => c.email.toLowerCase() === identifier.toLowerCase() || c.name.toLowerCase() === identifier.toLowerCase()
-      );
-
-      if (!foundCashier) {
-        throw new Error('Akun kasir tidak ditemukan atau belum didaftarkan oleh Owner.');
-      }
-      if (foundCashier.password && foundCashier.password !== password) {
-        throw new Error('Password kasir salah!');
-      }
-
-      loggedInUser = {
-        name: foundCashier.name,
-        role: 'Kasir',
-        avatar: require('../../assets/images/avatar-kasir.png'),
-      };
-      setUser(loggedInUser);
-      setActiveTab('Kasir');
-    } else {
-      loggedInUser = {
-        name: identifier || 'Dewi',
-        role: 'Owner',
-        avatar: {
-          uri: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
-        },
-      };
-
-      setUser(loggedInUser);
-      setActiveTab('dashboard');
-    }
-
-    if (typeof window !== 'undefined' && window.localStorage) {
-      if (normalizedRole === 'Kasir') {
-        localStorage.setItem('activeCashierLogin', loggedInUser.name);
-      } else {
-        localStorage.removeItem('activeCashierLogin');
-      }
-    }
+  const loadReferenceData = async () => {
+    const [menus, staff, sales] = await Promise.all([
+      getMenus(), getCashiers(), getTransactions({ limit: 200 }),
+    ]);
+    setMenuItems(menus);
+    setCashiers(staff.map((x) => ({ id: x.id, name: x.nama, email: x.username, phone: x.no_telepon, status: x.status })));
+    const mapped = sales.map(mapTransaction);
+    setTransactions(mapped);
+    setOrders(mapped.filter((x) => ['Menunggu', 'Diproses'].includes(x.status)));
   };
 
-  const logout = () => {
-    setUser(null);
-    setActiveTab('Kasir');
-    resetCart();
-
-    if (typeof window !== 'undefined' && window.localStorage) {
-      localStorage.removeItem('activeCashierLogin');
-    }
+  const applySession = async (sessionData) => {
+    if (!sessionData) { setUser(null); return; }
+    const { user: authUser, profile } = sessionData;
+    const normalizedRole = profile.role === 'owner' ? 'Owner' : 'Kasir';
+    setUser({ id: authUser.id, email: authUser.email, name: profile.nama, nama: profile.nama, role: normalizedRole });
+    setActiveTab(normalizedRole === 'Owner' ? 'dashboard' : 'Kasir');
+    await loadReferenceData();
   };
 
-  // =========================
-  // KERANJANG
-  // =========================
+  useEffect(() => {
+    let mounted = true;
+    getCurrentSession().then(async (session) => {
+      if (mounted && session) await applySession(session);
+    }).catch((error) => console.warn('Pemulihan sesi Supabase gagal:', error.message))
+      .finally(() => { if (mounted) setInitializing(false); });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session && mounted) { setUser(null); setMenuItems([]); setCashiers([]); setOrders([]); setTransactions([]); }
+    });
+    return () => { mounted = false; listener.subscription.unsubscribe(); };
+  }, []);
+
+  const login = async (email, password) => {
+    const result = await signIn(email, password);
+    await applySession(result);
+    return result.profile;
+  };
+  const logout = async () => {
+    await signOut();
+    setUser(null); setCart([]); setOrders([]); setTransactions([]); setActiveTab('Kasir');
+  };
+
   const addToCart = (item) => {
-    if (!item || item.id == null) {
-      return;
-    }
-
+    if (!item?.id) return;
     const price = Number(item.harga ?? item.price);
-
-    if (!Number.isFinite(price) || price < 0) {
-      return;
-    }
-
-    setCart((previousCart) => {
-      const existingItem = previousCart.find(
-        (cartItem) => cartItem.id === item.id
-      );
-
-      if (existingItem) {
-        return previousCart.map((cartItem) =>
-          cartItem.id === item.id
-            ? {
-                ...cartItem,
-                qty: Number(cartItem.qty || 1) + 1,
-              }
-            : cartItem
-        );
-      }
-
-      return [
-        ...previousCart,
-        {
-          ...item,
-          harga: price,
-          qty: 1,
-        },
-      ];
+    if (!Number.isFinite(price) || price < 0) return;
+    setCart((prev) => {
+      const found = prev.find((x) => x.id === item.id);
+      return found ? prev.map((x) => x.id === item.id ? { ...x, qty: Number(x.qty || 1) + 1 } : x)
+        : [...prev, { ...item, harga: price, qty: 1 }];
     });
   };
+  const updateCartQty = (id, delta) => setCart((prev) => prev.map((x) => x.id === id ? { ...x, qty: Number(x.qty || 1) + Number(delta) } : x).filter((x) => x.qty > 0));
+  const removeFromCart = (id) => setCart((prev) => prev.filter((x) => x.id !== id));
+  const resetCart = () => { setCart([]); setSelectedKuah(DEFAULT_KUAH); setSelectedLevel(DEFAULT_LEVEL); setSelectedOrderType(DEFAULT_ORDER_TYPE); setCatatan(''); };
+  const getTotalPrice = () => cart.reduce((sum, x) => sum + Number(x.harga ?? x.price ?? 0) * Number(x.qty || 1), 0);
+  const getTotalItemsCount = () => cart.reduce((sum, x) => sum + Number(x.qty || 1), 0);
 
-  const updateCartQty = (itemId, delta) => {
-    const change = Number(delta);
-
-    if (!Number.isFinite(change) || change === 0) {
-      return;
-    }
-
-    setCart((previousCart) =>
-      previousCart
-        .map((item) => {
-          if (item.id !== itemId) {
-            return item;
-          }
-
-          const newQty = Number(item.qty || 1) + change;
-
-          if (newQty <= 0) {
-            return null;
-          }
-
-          return {
-            ...item,
-            qty: newQty,
-          };
-        })
-        .filter(Boolean)
-    );
-  };
-
-  const removeFromCart = (itemId) => {
-    setCart((previousCart) =>
-      previousCart.filter((item) => item.id !== itemId)
-    );
-  };
-
-  const resetCart = () => {
-    setCart([]);
-    setSelectedKuah(DEFAULT_KUAH);
-    setSelectedLevel(DEFAULT_LEVEL);
-    setSelectedOrderType(DEFAULT_ORDER_TYPE);
-    setCatatan('');
-  };
-
-  // =========================
-  // PERHITUNGAN TOTAL
-  // =========================
-  const getTotalPrice = () =>
-    cart.reduce((total, item) => {
-      const price = Number(item.harga ?? item.price ?? 0);
-      const qty = Number(item.qty ?? 1);
-
-      return total + price * qty;
-    }, 0);
-
-  const getTotalItemsCount = () =>
-    cart.reduce(
-      (total, item) => total + Number(item.qty ?? 1),
-      0
-    );
-
-  // =========================
-  // CHECKOUT DAN PEMBAYARAN
-  // =========================
-  const checkoutOrder = (
-    paymentMethod,
-    cashAmount = 0,
-    customData = null
-  ) => {
-    if (
-      typeof paymentMethod !== 'string' ||
-      paymentMethod.trim() === ''
-    ) {
-      throw new Error('Metode pembayaran harus dipilih.');
-    }
-
-    const normalizedMethod = paymentMethod.trim();
-    const isCash = ['tunai', 'cash'].includes(
-      normalizedMethod.toLowerCase()
-    );
-
-    const sourceItems =
-      Array.isArray(customData?.items) &&
-      customData.items.length > 0
-        ? customData.items
-        : cart;
-
-    if (!Array.isArray(sourceItems) || sourceItems.length === 0) {
-      throw new Error('Keranjang masih kosong.');
-    }
-
-    const items = sourceItems.map((item) => {
-      const price = Number(item.price ?? item.harga ?? 0);
-      const qty = Number(item.qty ?? 1);
-
-      return {
-        ...item,
-        id: item.id,
-        name: item.name || item.nama || 'Item',
-        nama: item.name || item.nama || 'Item',
-        price,
-        harga: price,
-        qty,
-        subtotal: price * qty,
-      };
-    });
-
-    const total = items.reduce(
-      (sum, item) => sum + item.subtotal,
-      0
-    );
-
-    const paidAmount = Number(cashAmount ?? 0);
-
-    if (isCash && paidAmount < total) {
-      throw new Error('Uang pembayaran masih kurang.');
-    }
-
-    const change = isCash ? paidAmount - total : 0;
-    const now = new Date();
-
-    const time = now.toLocaleTimeString('id-ID', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
-
-    const date = now.toLocaleDateString('id-ID');
-    const orderNo = customData?.orderNo || `TRX-${now.getTime()}`;
-    const itemsSummary = items
-      .map((item) => `${item.qty}x ${item.name}`)
-      .join(', ');
-
-    const orderTypeVal = customData?.orderType || selectedOrderType;
-
-    const newOrder = {
-      id: orderNo,
-      orderNo,
-      time: customData?.time || time,
-      date: customData?.date || date,
-      table: orderTypeVal,
-      tableNo: orderTypeVal,
-      orderType: orderTypeVal,
-      items: itemsSummary,
-      details: items,
-      total,
-      status: 'Selesai',
+  const checkoutOrder = async (paymentMethod, cashAmount = 0, customData = null) => {
+    if (!user?.id) throw new Error('Sesi login tidak ditemukan. Silakan login kembali.');
+    const sourceItems = Array.isArray(customData?.items) && customData.items.length ? customData.items : cart;
+    if (!sourceItems.length) throw new Error('Keranjang masih kosong.');
+    const total = sourceItems.reduce((sum, x) => sum + Number(x.harga ?? x.price ?? 0) * Number(x.qty || 1), 0);
+    const isCash = ['tunai', 'cash'].includes(String(paymentMethod).toLowerCase());
+    if (isCash && Number(cashAmount) < total) throw new Error('Uang pembayaran masih kurang.');
+    const profileIsCashier = user.role === 'Kasir';
+    const saved = await createTransaction({
+      items: sourceItems, nomor_transaksi: customData?.orderNo,
+      tipe_pesanan: customData?.orderType || selectedOrderType,
       kuah: customData?.kuah ?? selectedKuah,
-      pedas: customData?.pedas ?? selectedLevel,
+      level_pedas: customData?.pedas ?? selectedLevel,
       catatan: customData?.catatan ?? catatan,
-      metode: normalizedMethod,
-      method: normalizedMethod,
-      cashAmount: isCash ? paidAmount : 0,
-      cashPaid: isCash ? paidAmount : 0,
-      change,
-      kasir: customData?.kasir || user?.name || 'Kasir',
-    };
-
-    const newTransaction = {
-      id: `TRX-${now.getTime()}`,
-      no: orderNo,
-      orderNo,
-      waktu: newOrder.time,
-      time: newOrder.time,
-      date: newOrder.date,
-      meja: orderTypeVal,
-      tableNo: orderTypeVal,
-      orderType: orderTypeVal,
-      item: itemsSummary,
-      items,
-      total,
-      metode: normalizedMethod,
-      method: normalizedMethod,
-      cashAmount: isCash ? paidAmount : 0,
-      cashPaid: isCash ? paidAmount : 0,
-      change,
-      kasir: newOrder.kasir,
-      status: 'Lunas',
-      kuah: newOrder.kuah,
-      pedas: newOrder.pedas,
-      catatan: newOrder.catatan,
-    };
-
-    setOrders((previousOrders) => [
-      newOrder,
-      ...previousOrders,
-    ]);
-
-    setTransactions((previousTransactions) => [
-      newTransaction,
-      ...previousTransactions,
-    ]);
-
+      metode_pembayaran: paymentMethod,
+      uang_diterima: isCash ? Number(cashAmount) : total,
+    }, profileIsCashier ? user.id : null, user.name);
+    const mapped = mapTransaction(saved);
+    setTransactions((prev) => [mapped, ...prev]);
     resetCart();
-    return newTransaction;
+    return mapped;
+  };
+  const updateOrderStatus = async (id, status) => {
+    const row = await updateTransactionStatus(id, status);
+    const mapped = mapTransaction({ ...row, detail_transaksi: [] });
+    setOrders((prev) => prev.map((x) => x.id === id ? { ...x, status } : x));
+    setTransactions((prev) => prev.map((x) => x.id === id ? { ...x, status } : x));
+    return mapped;
   };
 
-  const updateOrderStatus = (orderId, newStatus) => {
-    setOrders((previousOrders) =>
-      previousOrders.map((order) =>
-        order.id === orderId || order.orderNo === orderId
-          ? { ...order, status: newStatus }
-          : order
-      )
-    );
-  };
+  const refreshData = loadReferenceData;
+  const addCashier = async (values) => { const { createCashierAccount } = await import('../services/kasirService'); const row = await createCashierAccount(values); await refreshData(); return row; };
+  const updateCashier = async (id, values) => { const { updateCashier: update } = await import('../services/kasirService'); const row = await update(id, values); await refreshData(); return row; };
+  const deleteCashier = async (id) => { const { deleteCashier: remove } = await import('../services/kasirService'); await remove(id); await refreshData(); };
 
-  // Menu CRUD actions (Owner)
-  const addMenuItem = (menuData) => {
-    const newItem = {
-      id: `menu-${Date.now()}`,
-      nama: (menuData.nama || '').trim(),
-      harga: Number(menuData.harga) || 0,
-      stok: Number(menuData.stok) || 0,
-      status: menuData.status || 'Aktif',
-      kategori: menuData.kategori || 'Topping',
-      emoji: menuData.emoji || '🥘',
-      image: menuData.image || null,
-      createdAt: new Date().toISOString(),
-    };
-
-    setMenuItems((prev) => [newItem, ...prev]);
-    return newItem;
-  };
-
-  const updateMenuItem = (id, updatedData) => {
-    setMenuItems((prev) =>
-      prev.map((item) => {
-        if (item.id === id) {
-          return {
-            ...item,
-            ...updatedData,
-            nama: updatedData.nama !== undefined ? updatedData.nama.trim() : item.nama,
-            harga: updatedData.harga !== undefined ? Number(updatedData.harga) : item.harga,
-            stok: updatedData.stok !== undefined ? Number(updatedData.stok) : item.stok,
-            status: updatedData.status !== undefined ? updatedData.status : item.status,
-            updatedAt: new Date().toISOString(),
-          };
-        }
-        return item;
-      })
-    );
-  };
-
-  const deleteMenuItem = (id) => {
-    setMenuItems((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  const resetMenuItems = () => {
-    setMenuItems(INITIAL_MENU_ITEMS);
-  };
-
-  return (
-    <KasirContext.Provider
-      value={{
-        user,
-        login,
-        logout,
-        activeTab,
-        setActiveTab,
-        cashiers,
-        addCashier,
-        updateCashier,
-        deleteCashier,
-        menuItems,
-        setMenuItems,
-        addMenuItem,
-        updateMenuItem,
-        deleteMenuItem,
-        resetMenuItems,
-        cart,
-        setCart,
-        addToCart,
-        updateCartQty,
-        removeFromCart,
-        resetCart,
-        getTotalPrice,
-        getTotalItemsCount,
-        selectedKuah,
-        setSelectedKuah,
-        selectedLevel,
-        setSelectedLevel,
-        selectedOrderType,
-        setSelectedOrderType,
-        catatan,
-        setCatatan,
-        activeCategory,
-        setActiveCategory,
-        orders,
-        setOrders,
-        transactions,
-        setTransactions,
-        checkoutOrder,
-        updateOrderStatus,
-      }}
-    >
-      {children}
-    </KasirContext.Provider>
-  );
+  const value = useMemo(() => ({ user, login, logout, initializing, refreshData, activeTab, setActiveTab,
+    cashiers, addCashier, updateCashier, deleteCashier, menuItems, setMenuItems,
+    cart, setCart, addToCart, updateCartQty, removeFromCart, resetCart, getTotalPrice, getTotalItemsCount,
+    selectedKuah, setSelectedKuah, selectedLevel, setSelectedLevel, selectedOrderType, setSelectedOrderType,
+    catatan, setCatatan, activeCategory, setActiveCategory, orders, setOrders, transactions, setTransactions,
+    checkoutOrder, updateOrderStatus }), [user, initializing, activeTab, cashiers, menuItems, cart, selectedKuah, selectedLevel,
+      selectedOrderType, catatan, activeCategory, orders, transactions]);
+  return <KasirContext.Provider value={value}>{children}</KasirContext.Provider>;
 }
-
-export function useKasir() {
-  const context = useContext(KasirContext);
-
-  if (!context) {
-    throw new Error(
-      'useKasir harus digunakan di dalam KasirProvider'
-    );
-  }
-
-  return context;
-}
+export function useKasir() { const context = useContext(KasirContext); if (!context) throw new Error('useKasir harus digunakan di dalam KasirProvider'); return context; }
