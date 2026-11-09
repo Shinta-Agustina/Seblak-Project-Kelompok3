@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import SalesChart from '../SalesChart';
 import {
   normalisasiTransaksiKasir,
   hitungToppingTerjual,
-} from '../../../data/ownerSalesSimulation';
+} from '../../../data/salesDataUtils';
 
 const rupiah = (value) =>
   `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
@@ -93,7 +93,7 @@ export default function TabPenjualan({ transactions = [] }) {
       (sum, trx) =>
         sum +
         trx.items
-          .filter((item) => item.kategori === 'Topping')
+          .filter((item) => item.kategori !== 'Lainnya')
           .reduce(
             (sub, item) => sub + Number(item.qty || 0),
             0

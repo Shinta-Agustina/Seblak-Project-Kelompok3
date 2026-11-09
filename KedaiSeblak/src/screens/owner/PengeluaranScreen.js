@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -18,7 +19,8 @@ import SwipeableExpenseRow from '../../components/SwipeableExpenseRow';
 import ExpenseFormModal from '../../components/ExpenseFormModal';
 import DeleteExpenseModal from '../../components/DeleteExpenseModal';
 import RincianPengeluaranModal from '../../components/RincianPengeluaranModal';
-import { MASTER_EXPENSES } from '../../data/mockExpenses';
+import { getExpenses, createExpense, updateExpense, deleteExpense } from '../../services/pengeluaranService';
+import { useKasir } from '../../context/KasirContext';
 
 // Palet Warna Elegan Khas Proyek Kedai Seblak
 const WARNA = {
@@ -41,7 +43,19 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
   const isMobile = width < 768;
 
   // 1. Single Source of Truth untuk seluruh data Pengeluaran Topping
-  const [localExpenses, setLocalExpenses] = useState(MASTER_EXPENSES);
+  const [localExpenses, setLocalExpenses] = useState([]);
+  const { user } = useKasir();
+  const [expenseLoading, setExpenseLoading] = useState(false);
+  const loadExpenses = useCallback(async () => {
+    if (Array.isArray(expensesProp)) return;
+    setExpenseLoading(true);
+    try {
+      const rows = await getExpenses();
+      setLocalExpenses(rows.map((r) => ({ ...r, keterangan: r.nama, total: r.nominal, nominal: r.nominal, tanggalStr: new Date(`${r.tanggal}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }), waktu: new Date(r.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }), satuan: 'unit', supplier: r.catatan || '-' })));
+    } catch (e) { console.error('Gagal memuat pengeluaran:', e.message); }
+    finally { setExpenseLoading(false); }
+  }, [expensesProp]);
+  useFocusEffect(useCallback(() => { loadExpenses(); }, [loadExpenses]));
   const expenses = Array.isArray(expensesProp) ? expensesProp : localExpenses;
   const saveExpenses = (updater) => {
     if (Array.isArray(expensesProp)) return;
@@ -279,37 +293,31 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
     setDeleteModalVisible(true);
   };
 
-  const handleSaveExpense = (itemData) => {
-    if (editingItem) {
-      const updated = { ...editingItem, ...itemData };
-      if (onUpdateExpense) onUpdateExpense(updated);
-      else saveExpenses((prev) => prev.map((e) => (e.id === editingItem.id ? updated : e)));
-    } else {
+  const handleSaveExpense = async (itemData) => {
+    try {
       const tanggalStr = itemData.tanggalStr || harianDate;
-      const targetIso = tanggalKeISO(tanggalStr);
-      const targetDate = new Date(`${targetIso}T00:00:00`);
-      const newRecord = {
-        ...itemData,
-        id: `EXP-${Date.now()}`,
-        tanggal: targetIso,
-        tanggalStr,
-        hari: Number.isNaN(targetDate.getTime())
-          ? tanggalStr
-          : targetDate.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
-        jumlah: Number(itemData.jumlah || 0),
-      };
-      if (onAddExpense) onAddExpense(newRecord);
-      else saveExpenses((prev) => [newRecord, ...prev]);
-    }
+      const tanggal = tanggalKeISO(tanggalStr) || new Date().toISOString().slice(0, 10);
+      const jumlah = Number(itemData.jumlah || 1);
+      const total = Number(itemData.total || itemData.nominal || 0);
+      const payload = { tanggal, nama: itemData.keterangan, kategori: itemData.kategori, jumlah,
+        harga_satuan: total / jumlah, catatan: `Satuan: ${itemData.satuan || 'unit'}; Supplier: ${itemData.supplier || '-'}` };
+      if (onAddExpense && !editingItem) onAddExpense(itemData);
+      else if (onUpdateExpense && editingItem) onUpdateExpense({ ...editingItem, ...itemData });
+      else if (editingItem) await updateExpense(editingItem.id, payload);
+      else await createExpense(payload, user?.id);
+      await loadExpenses();
+    } catch (e) { console.error('Gagal menyimpan pengeluaran:', e.message); }
   };
 
-  const handleConfirmDelete = () => {
-    if (itemToDelete) {
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+    try {
       if (onDeleteExpense) onDeleteExpense(itemToDelete.id);
-      else saveExpenses((prev) => prev.filter((e) => e.id !== itemToDelete.id));
+      else await deleteExpense(itemToDelete.id);
+      await loadExpenses();
       setDeleteModalVisible(false);
       setItemToDelete(null);
-    }
+    } catch (e) { console.error('Gagal menghapus pengeluaran:', e.message); }
   };
 
   const handleOpenRincian = (group) => {

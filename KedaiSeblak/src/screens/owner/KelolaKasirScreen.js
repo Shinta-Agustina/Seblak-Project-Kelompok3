@@ -31,7 +31,7 @@ const MOCK_SHIFT_MONITORING = [
 const formatRupiah = (angka) => `Rp ${Number(angka || 0).toLocaleString('id-ID')}`;
 
 export default function KelolaKasirScreen() {
-  const { cashiers, addCashier, deleteCashier, user, setCashiers } = useKasir();
+  const { cashiers, addCashier, updateCashier, deleteCashier, user } = useKasir();
 
   const [activeTab, setActiveTab] = useState('akun');
   const [searchQuery, setSearchQuery] = useState('');
@@ -66,24 +66,34 @@ export default function KelolaKasirScreen() {
     }
   };
 
-  useEffect(() => {
+    useEffect(() => {
+    // Jalankan pengecekan sesi pertama kali
     checkActiveSession();
+
+    // Pastikan interval dideklarasikan dengan aman
+    const intervalId = setInterval(() => {
+      checkActiveSession();
+    }, 500);
+
+    // Handler untuk web (jika kamu running di React Native Web)
     const handleStorageChange = (event) => {
       if (event.key === 'activeCashierLogin' || event.key === 'kedaiSeblakUser') {
         checkActiveSession();
       }
     };
 
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
       window.addEventListener('storage', handleStorageChange);
     }
-    const interval = setInterval(checkActiveSession, 500);
 
+    // FUNGSI CLEANUP: Pastikan mengembalikan fungsi bersih tanpa celah undefined
     return () => {
-      if (typeof window !== 'undefined') {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+      if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
         window.removeEventListener('storage', handleStorageChange);
       }
-      clearInterval(interval);
     };
   }, [user]);
 
@@ -124,7 +134,7 @@ export default function KelolaKasirScreen() {
   };
 
   // Simpan data (Tambah atau Edit)
-  const handleSaveCashier = () => {
+  const handleSaveCashier = async () => {
     if (!name || !email) {
       Alert.alert('Peringatan', 'Nama dan Email/Username wajib diisi!');
       return;
@@ -132,23 +142,14 @@ export default function KelolaKasirScreen() {
 
     try {
       if (editingKasir) {
-        if (typeof setCashiers === 'function') {
-          setCashiers((prev) =>
-            prev.map((c) => (c.id === editingKasir.id ? { ...c, name, email, phone, password: password || c.password } : c))
-          );
-        } else {
-          editingKasir.name = name;
-          editingKasir.email = email;
-          editingKasir.phone = phone;
-          if (password) editingKasir.password = password;
-        }
+        await updateCashier(editingKasir.id, { name, email, phone, password: password || undefined });
         Alert.alert('Sukses', 'Data kasir berhasil diperbarui!');
       } else {
         if (!password) {
           Alert.alert('Peringatan', 'Password wajib diisi untuk kasir baru!');
           return;
         }
-        addCashier({ name, email, phone, password });
+        await addCashier({ name, email, phone, password });
         Alert.alert('Sukses', 'Akun kasir baru berhasil ditambahkan!');
       }
 
@@ -164,16 +165,14 @@ export default function KelolaKasirScreen() {
   };
 
   // Toggle Status Aktif / Nonaktif
-  const handleToggleStatus = (item) => {
+  const handleToggleStatus = async (item) => {
     const currentStatus = String(item.status || 'Aktif').toLowerCase();
     const newStatus = currentStatus === 'aktif' ? 'Nonaktif' : 'Aktif';
 
-    if (typeof setCashiers === 'function') {
-      setCashiers((prev) =>
-        prev.map((c) => (c.id === item.id ? { ...c, status: newStatus } : c))
-      );
-    } else {
-      item.status = newStatus;
+    try {
+      await updateCashier(item.id, { status: newStatus });
+    } catch (error) {
+      Alert.alert('Gagal', error.message || 'Status kasir gagal diperbarui.');
     }
   };
 

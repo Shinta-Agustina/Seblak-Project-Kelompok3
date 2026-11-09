@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -18,10 +19,10 @@ import {
 } from '@expo/vector-icons';
 
 import { useKasir } from '../../context/KasirContext';
+import { getMenus } from '../../services/menuService';
 
 import {
   TOPPING_CATEGORIES,
-  TOPPING_ITEMS,
   SPICE_LEVELS,
   BROTH_OPTIONS,
 } from '../../data/mockData';
@@ -79,10 +80,22 @@ export default function DashboardKasirScreen({ navigation }) {
 
   const safeCart = Array.isArray(cart) ? cart : [];
 
-  const filteredToppings = TOPPING_ITEMS.filter((item) => {
-    if (activeCategory === 'Semua') {
-      return true;
-    }
+  const [supabaseToppings, setSupabaseToppings] = useState([]);
+  const [menuLoadError, setMenuLoadError] = useState('');
+
+  // Muat ulang setiap kali layar kasir fokus, supaya perubahan menu dari Owner langsung terlihat.
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      getMenus({ includeInactive: false })
+        .then((rows) => { if (mounted) { setSupabaseToppings(rows); setMenuLoadError(''); } })
+        .catch((error) => { if (mounted) setMenuLoadError(error.message || 'Gagal memuat menu.'); });
+      return () => { mounted = false; };
+    }, [])
+  );
+
+  const filteredToppings = supabaseToppings.filter((item) => {
+    if (activeCategory === 'Semua') return true;
     return item.kategori === activeCategory;
   });
 
@@ -591,6 +604,9 @@ export default function DashboardKasirScreen({ navigation }) {
                   })}
                 </ScrollView>
 
+                {menuLoadError ? (
+                  <Text style={{ color: '#C62828', padding: 12 }}>{menuLoadError}</Text>
+                ) : null}
                 <View style={styles.toppingsGrid}>
                   {filteredToppings.map((item) => {
                     const cartItem = safeCart.find(

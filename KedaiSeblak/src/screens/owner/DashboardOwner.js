@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   StyleSheet,
@@ -18,12 +19,8 @@ import LaporanKeuanganScreen from './LaporanKeuanganScreen';
 import KelolaKasirScreen from './KelolaKasirScreen';
 
 import { useKasir } from '../../context/KasirContext';
-import { TOPPING_ITEMS } from '../../data/mockData';
-
-import {
-  INITIAL_STOCK_ITEMS,
-} from '../../data/ownerData';
-import { MASTER_EXPENSES } from '../../data/mockExpenses';
+import { getStocks, getStockMovements, updateStock, recordStockMutation } from '../../services/stokService';
+import { getExpenses, createExpense, updateExpense, deleteExpense } from '../../services/pengeluaranService';
 
 const WARNA = {
   merah: '#C62828',
@@ -37,112 +34,35 @@ const WARNA = {
 
 export default function DashboardOwnerScreen() {
   const { width } = useWindowDimensions();
-  const { transactions: kasirTransactions = [] } = useKasir();
+  const { transactions: kasirTransactions = [], user, refreshData } = useKasir();
   const isMobile = width < 768;
 
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  const [stockItems, setStockItems] = useState(INITIAL_STOCK_ITEMS);
+  const [stockItems, setStockItems] = useState([]);
   const [stockPresetFilter, setStockPresetFilter] = useState('Semua');
 
-  const [expenses, setExpenses] = useState(MASTER_EXPENSES);
+  const [expenses, setExpenses] = useState([]);
 
-  const processedTransactionIds = useRef(new Set());
+  const refreshOwnerData = async () => {
+    const [stocks, expenseRows, movements] = await Promise.all([getStocks(), getExpenses(), getStockMovements()]);
+    const movementByStock = movements.reduce((acc, m) => { (acc[m.stok_id] ||= []).push({ tanggal: m.created_at, jumlah: Number(m.jumlah), jenis: m.tipe, keterangan: m.keterangan, pic: 'Owner' }); return acc; }, {});
+    setStockItems(stocks.map((r) => ({ id: r.id, nama: r.nama_bahan, kategori: r.kategori, sisa: Number(r.stok), stokAwal: Number(r.stok), minimum: Number(r.stok_minimum), satuan: r.satuan, terpakaiHariIni: 0, estimasiHabisHari: 0, hargaBeli: Number(r.harga_satuan), riwayatRestok: movementByStock[r.id] || [] })));
+    setExpenses(expenseRows.map((r) => ({ ...r, keterangan: r.nama, total: r.nominal, nominal: r.nominal, tanggalStr: r.tanggal, supplier: r.catatan || '-' })));
+  };
+  useFocusEffect(useCallback(() => {
+    refreshOwnerData().catch((e) => console.warn('Gagal memuat data Owner:', e.message));
+    refreshData().catch((e) => console.warn('Gagal memuat transaksi:', e.message));
+  }, [refreshData]));
+
 
   useEffect(() => {
     setSidebarOpen(!isMobile);
   }, [isMobile]);
 
-  // Pengurangan stok otomatis dari transaksi kasir yang lunas
-  useEffect(() => {
-    const transaksiBaru = (kasirTransactions || []).filter((trx) => {
-      const id = trx.id || trx.orderNo || trx.no;
-      const memilikiDetail = Array.isArray(trx.items) && trx.items.length > 0;
-
-      const lunas =
-        !trx.status ||
-        ['lunas', 'selesai'].includes(
-          String(trx.status).toLowerCase()
-        );
-
-      return (
-        id &&
-        !processedTransactionIds.current.has(id) &&
-        memilikiDetail &&
-        lunas
-      );
-    });
-
-    if (!transaksiBaru.length) return;
-
-    transaksiBaru.forEach((trx) => {
-      processedTransactionIds.current.add(
-        trx.id || trx.orderNo || trx.no
-      );
-    });
-
-    setStockItems((prev) =>
-      prev.map((stock) => {
-        if (!stock.toppingId) return stock;
-
-        let pemakaian = 0;
-
-        transaksiBaru.forEach((trx) => {
-          (trx.items || []).forEach((saleItem) => {
-            const topping = TOPPING_ITEMS.find(
-              (item) =>
-                item.id === saleItem.id ||
-                item.nama === (saleItem.nama || saleItem.name)
-            );
-
-            if (
-              !topping ||
-              (saleItem.id && stock.toppingId !== saleItem.id)
-            ) {
-              return;
-            }
-
-            const qty = Number(saleItem.qty || 0);
-            const berat = String(topping.berat || '').toLowerCase();
-
-            if (stock.satuan === 'kg') {
-              const gram = berat.match(/([0-9]+(?:[.,][0-9]+)?)\s*gr/);
-              const kilo = berat.match(/([0-9]+(?:[.,][0-9]+)?)\s*kg/);
-
-              if (gram) {
-                pemakaian +=
-                  qty * Number(gram[1].replace(',', '.')) / 1000;
-              } else if (kilo) {
-                pemakaian +=
-                  qty * Number(kilo[1].replace(',', '.'));
-              }
-            } else if (stock.satuan === 'pcs') {
-              const pcs = berat.match(/([0-9]+)\s*pcs/);
-              pemakaian += qty * (pcs ? Number(pcs[1]) : 1);
-            }
-          });
-        });
-
-        if (pemakaian <= 0) return stock;
-
-        const sisaBaru = Math.max(
-          0,
-          Number(stock.sisa || 0) - pemakaian
-        );
-
-        return {
-          ...stock,
-          sisa: Number(sisaBaru.toFixed(3)),
-          terpakaiHariIni: Number(
-            (
-              Number(stock.terpakaiHariIni || 0) + pemakaian
-            ).toFixed(3)
-          ),
-        };
-      })
-    );
-  }, [kasirTransactions]);
+  // Stok tidak dikurangi otomatis dari transaksi sebelum resep/BOM topping tersedia.
+  // Mutasi stok dicatat secara eksplisit agar saldo dan riwayat tetap konsisten.
 
   // Navigasi
   const handleChangeTab = (tab) => {
@@ -166,180 +86,48 @@ export default function DashboardOwnerScreen() {
     }
   };
 
-  // Update Item Stok (misalnya hasil stock opname)
-  const handleUpdateItem = (updatedItem) => {
-    setStockItems((prev) =>
-      prev.map((item) =>
-        item.id === updatedItem.id ? updatedItem : item
-      )
-    );
-  };
-
-  // Restok stok dari modul stok
-  const handleRestockItem = (itemId, addedQty, restockRecord) => {
-    const targetItem = stockItems.find(
-      (item) => item.id === itemId
-    );
-
-    if (!targetItem) return;
-
-    setStockItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== itemId) return item;
-
-        const newSisa = Number(
-          (
-            (Number(item.sisa) || 0) + Number(addedQty)
-          ).toFixed(1)
-        );
-
-        const minimum = Number(item.minimum) || 1;
-
-        return {
-          ...item,
-          sisa: newSisa,
-          estimasiHabisHari: Number(
-            (newSisa / (minimum * 0.8)).toFixed(1)
-          ),
-          riwayatRestok: [
-            restockRecord,
-            ...(item.riwayatRestok || []),
-          ],
-          supplier: restockRecord.supplier || item.supplier,
-          hargaBeli: restockRecord.hargaBeli || item.hargaBeli,
-        };
-      })
-    );
-
-    const hargaBeli =
-      Number(restockRecord.hargaBeli) ||
-      Number(targetItem.hargaBeli) ||
-      0;
-
-    const totalBiayaModal = Number(addedQty) * hargaBeli;
-
-    const modalExpense = {
-      id: `MODAL-${Date.now()}`,
-      tanggal: new Date().toLocaleDateString('id-ID', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      }),
-      waktu: 'Baru saja (Restok)',
-      keterangan: `Restok ${targetItem.nama} (+${addedQty} ${targetItem.satuan})`,
-      kategori: targetItem.kategori || 'Bahan Baku',
-      nominal: totalBiayaModal,
-      supplier:
-        restockRecord.supplier ||
-        targetItem.supplier ||
-        'Supplier Langganan',
-      metode: 'Tunai',
-      pic: 'Owner',
-    };
-
-    setExpenses((prev) => [modalExpense, ...prev]);
-  };
-
-  // Sinkronisasi stok berdasarkan pembelian yang dicatat pada Pengeluaran.
-  const adjustStockFromExpense = (expense, multiplier = 1) => {
-    const jumlah = Number(expense?.jumlah || 0);
-    const namaBahan = String(expense?.keterangan || '').trim().toLowerCase();
-    const satuanBeli = String(expense?.satuan || '').trim().toLowerCase();
-    if (!jumlah || !namaBahan || !satuanBeli) return;
-
-    setStockItems((prev) => {
-      const normalizeName = (value) => String(value || '').trim().toLowerCase().replace(/rasa$/i, '').trim();
-      const index = prev.findIndex((item) => normalizeName(item.nama) === normalizeName(namaBahan));
-
-      if (index === -1) {
-        if (multiplier < 0) return prev;
-        const record = {
-          tanggal: expense.tanggalStr || expense.tanggal,
-          jumlah,
-          satuan: satuanBeli,
-          supplier: expense.supplier || '',
-          hargaBeli: Number(expense.total || 0) / jumlah,
-          total: Number(expense.total || 0),
-          pic: 'Owner',
-          jenis: 'Restok',
-          expenseId: expense.id,
-        };
-        return [{
-          id: `STK-EXP-${expense.id}`,
-          nama: expense.keterangan,
-          kategori: expense.kategori || 'Bahan Baku',
-          sisa: jumlah,
-          stokAwal: jumlah,
-          minimum: 1,
-          satuan: satuanBeli,
-          terpakaiHariIni: 0,
-          estimasiHabisHari: 0,
-          supplier: expense.supplier || '',
-          hargaBeli: record.hargaBeli,
-          foto: null,
-          riwayatRestok: [record],
-        }, ...prev];
+  // Update stok langsung ke Supabase.
+  const handleUpdateItem = async (updatedItem) => {
+    try {
+      const current = stockItems.find((item) => item.id === updatedItem.id);
+      await updateStock(updatedItem.id, { nama_bahan: updatedItem.nama, kategori: updatedItem.kategori, satuan: updatedItem.satuan, stok_minimum: Number(updatedItem.minimum), harga_satuan: Number(updatedItem.hargaBeli || 0) });
+      if (current && Number(current.sisa) !== Number(updatedItem.sisa)) {
+        await recordStockMutation({ stok_id: updatedItem.id, tipe: 'penyesuaian', jumlah: Number(updatedItem.sisa), keterangan: 'Penyesuaian stok (stock opname)', dibuat_oleh: user?.id });
       }
-
-      const item = prev[index];
-      const satuanStok = String(item.satuan || '').trim().toLowerCase();
-      let qtyMasuk = jumlah;
-      if (satuanBeli === 'gram' && satuanStok === 'kg') qtyMasuk = jumlah / 1000;
-      else if (satuanBeli === 'kg' && satuanStok === 'gram') qtyMasuk = jumlah * 1000;
-      else if (satuanBeli !== satuanStok) return prev;
-
-      const delta = qtyMasuk * multiplier;
-      const record = {
-        tanggal: expense.tanggalStr || expense.tanggal,
-        jumlah: qtyMasuk,
-        satuan: satuanStok,
-        supplier: expense.supplier || '',
-        hargaBeli: Number(expense.total || 0) / jumlah,
-        total: Number(expense.total || 0),
-        pic: 'Owner',
-        jenis: 'Restok',
-        expenseId: expense.id,
-      };
-      return prev.map((stock, i) => i !== index ? stock : ({
-        ...stock,
-        sisa: Math.max(0, Number((Number(stock.sisa || 0) + delta).toFixed(3))),
-        stokAwal: Math.max(0, Number(stock.stokAwal || 0) + delta),
-        supplier: multiplier > 0 ? (expense.supplier || stock.supplier) : stock.supplier,
-        hargaBeli: multiplier > 0 ? record.hargaBeli : stock.hargaBeli,
-        riwayatRestok: multiplier > 0
-          ? [record, ...(stock.riwayatRestok || [])]
-          : (stock.riwayatRestok || []).filter((r) => r.expenseId !== expense.id),
-      }));
-    });
+      await refreshOwnerData();
+    } catch (e) { console.error('Gagal memperbarui stok:', e.message); }
   };
 
-  const handleAddExpense = (newExpense) => {
-    setExpenses((prev) => [newExpense, ...prev]);
-    adjustStockFromExpense(newExpense, 1);
+  const handleRestockItem = async (itemId, addedQty, restockRecord) => {
+    try {
+      await recordStockMutation({ stok_id: itemId, tipe: 'masuk', jumlah: Number(addedQty), keterangan: `Restok ${restockRecord?.supplier || ''}`.trim(), dibuat_oleh: user?.id });
+      await refreshOwnerData();
+    } catch (e) { console.error('Gagal mencatat restok:', e.message); }
   };
 
-  const handleUpdateExpense = (updatedExpense) => {
-    const previous = expenses.find((expense) => expense.id === updatedExpense.id);
-    if (previous) adjustStockFromExpense(previous, -1);
-    adjustStockFromExpense(updatedExpense, 1);
-    setExpenses((prev) => prev.map((expense) =>
-      expense.id === updatedExpense.id ? updatedExpense : expense
-    ));
+  const handleAddExpense = async (newExpense) => {
+    try {
+      const qty = Number(newExpense.jumlah || 1);
+      const total = Number(newExpense.total || newExpense.nominal || 0);
+      await createExpense({ tanggal: newExpense.tanggal, nama: newExpense.keterangan, kategori: newExpense.kategori, jumlah: qty, harga_satuan: total / qty, catatan: `Satuan: ${newExpense.satuan || 'unit'}; Supplier: ${newExpense.supplier || '-'}` }, user?.id);
+      await refreshOwnerData();
+    } catch (e) { console.error('Gagal menyimpan pengeluaran:', e.message); }
   };
 
-  const handleDeleteExpense = (expenseId) => {
-    const target = expenses.find(
-      (expense) => expense.id === expenseId
-    );
-
-    if (target) {
-      adjustStockFromExpense(target, -1);
-    }
-
-    setExpenses((prev) =>
-      prev.filter((expense) => expense.id !== expenseId)
-    );
+  const handleUpdateExpense = async (updatedExpense) => {
+    try {
+      const qty = Number(updatedExpense.jumlah || 1);
+      const total = Number(updatedExpense.total || updatedExpense.nominal || 0);
+      await updateExpense(updatedExpense.id, { tanggal: updatedExpense.tanggal, nama: updatedExpense.keterangan, kategori: updatedExpense.kategori, jumlah: qty, harga_satuan: total / qty });
+      await refreshOwnerData();
+    } catch (e) { console.error('Gagal memperbarui pengeluaran:', e.message); }
   };
+
+  const handleDeleteExpense = async (expenseId) => {
+    try { await deleteExpense(expenseId); await refreshOwnerData(); }
+    catch (e) { console.error('Gagal menghapus pengeluaran:', e.message); }
+  };
+
 
   // Judul header
   const getHeaderTitle = () => {

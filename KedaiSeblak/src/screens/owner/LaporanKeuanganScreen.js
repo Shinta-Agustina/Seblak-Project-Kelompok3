@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import Sidebar from '../../components/Sidebar';
 import TopHeader from '../../components/TopHeader';
 import LaporanDatePickerModal from '../../components/owner/LaporanDatePickerModal';
 import PreviewLaporanModal from '../../components/owner/PreviewLaporanModal';
-import { getFinancialReportData } from '../../data/mockFinancialReport';
+import { getFinancialReport } from '../../services/laporanService';
 
 // Palet Warna Elegan Khas Proyek Seblak Prasmanan
 const WARNA = {
@@ -40,7 +40,7 @@ export default function LaporanKeuanganScreen({ isEmbedded = false, navigation }
   const [activeTab, setActiveTab] = useState('harian');
 
   // Selector value state
-  const [harianDate, setHarianDate] = useState('16 Oktober 2026');
+  const [harianDate, setHarianDate] = useState(() => new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }));
   const [bulananDate, setBulananDate] = useState('Oktober 2026');
   const [tahunanDate, setTahunanDate] = useState('2026');
 
@@ -58,9 +58,41 @@ export default function LaporanKeuanganScreen({ isEmbedded = false, navigation }
     return tahunanDate;
   }, [activeTab, harianDate, bulananDate, tahunanDate]);
 
-  // Ambil data laporan berdasarkan periode dan tanggal yang dipilih
-  const reportData = useMemo(() => {
-    return getFinancialReportData(activeTab, currentSelectorText);
+  // Laporan dihitung dari transaksi dan pengeluaran Supabase, bukan data simulasi.
+  const [reportData, setReportData] = useState({ summary: { omzet: 0, pengeluaran: 0, labaBersih: 0 }, pemasukan: [], pengeluaran: [], topPengeluaran: [] });
+  const [reportLoading, setReportLoading] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const monthMap = { januari: '01', februari: '02', maret: '03', april: '04', mei: '05', juni: '06', juli: '07', agustus: '08', september: '09', oktober: '10', november: '11', desember: '12' };
+    const parsePeriod = () => {
+      if (activeTab === 'harian') {
+        const m = currentSelectorText.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
+        if (!m) return {};
+        const mm = monthMap[m[2].toLowerCase()];
+        const day = `${m[3]}-${mm}-${m[1].padStart(2, '0')}`;
+        return { from: day, to: day };
+      }
+      if (activeTab === 'bulanan') {
+        const m = currentSelectorText.match(/([A-Za-z]+)\s+(\d{4})/);
+        if (!m) return {};
+        const mm = monthMap[m[1].toLowerCase()];
+        const last = new Date(Number(m[2]), Number(mm), 0).getDate();
+        return { from: `${m[2]}-${mm}-01`, to: `${m[2]}-${mm}-${last}` };
+      }
+      const year = String(currentSelectorText).match(/\d{4}/)?.[0];
+      return year ? { from: `${year}-01-01`, to: `${year}-12-31` } : {};
+    };
+    setReportLoading(true);
+    getFinancialReport(parsePeriod()).then((data) => {
+      if (!active) return;
+      const pemasukan = data.transaksi.map((r, i) => ({ no: i + 1, waktu: new Date(r.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }), kasir: r.nama_kasir, totalTransaksi: Number(r.total), metodePembayaran: r.metode_pembayaran, nomor: r.nomor_transaksi }));
+      const pengeluaran = data.pengeluaran.map((r, i) => ({ no: i + 1, tanggal: r.tanggal, nama: r.nama, keterangan: r.nama, kategori: r.kategori, total: Number(r.nominal), nominal: Number(r.nominal) }));
+      const byCategory = {};
+      pengeluaran.forEach((r) => { byCategory[r.kategori] = (byCategory[r.kategori] || 0) + r.total; });
+      const topPengeluaran = Object.entries(byCategory).map(([nama, total]) => ({ nama, total })).sort((a, b) => b.total - a.total).slice(0, 5);
+      setReportData({ summary: { omzet: data.totalOmzet, pengeluaran: data.totalPengeluaran, labaBersih: data.labaBersih }, pemasukan, pengeluaran, topPengeluaran });
+    }).catch((error) => console.error('Gagal memuat laporan Supabase:', error.message)).finally(() => { if (active) setReportLoading(false); });
+    return () => { active = false; };
   }, [activeTab, currentSelectorText]);
 
   const handleSelectDate = (newVal) => {
