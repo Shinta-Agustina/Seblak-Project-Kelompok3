@@ -13,6 +13,7 @@ import SalesChart from '../SalesChart';
 import {
   normalisasiTransaksiKasir,
   hitungToppingTerjual,
+  tanggalAcuan,
 } from '../../../data/salesDataUtils';
 
 const rupiah = (value) =>
@@ -46,7 +47,11 @@ export default function TabPenjualan({ transactions = [] }) {
 
   const hasKasirDetail = semuaTransaksi.length > 0;
 
-  const today = startOfDay(new Date());
+  // Acuan = hari ini bila ada transaksi, selain itu hari transaksi terakhir.
+  const today = useMemo(
+    () => startOfDay(tanggalAcuan(semuaTransaksi)),
+    [semuaTransaksi]
+  );
 
   const transaksiPeriode = useMemo(() => {
     let start = new Date(today);
@@ -196,27 +201,27 @@ export default function TabPenjualan({ transactions = [] }) {
   const periodLabel =
     period === 'Harian'
       ? today.toLocaleDateString('id-ID', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-        })
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
       : period === 'Mingguan'
         ? `${new Date(
-            today.getFullYear(),
-            today.getMonth(),
-            today.getDate() - 6
-          ).toLocaleDateString('id-ID', {
-            day: 'numeric',
-            month: 'short',
-          })} – ${today.toLocaleDateString('id-ID', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-          })}`
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate() - 6
+        ).toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'short',
+        })} – ${today.toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        })}`
         : today.toLocaleDateString('id-ID', {
-            month: 'long',
-            year: 'numeric',
-          });
+          month: 'long',
+          year: 'numeric',
+        });
 
   return (
     <ScrollView
@@ -408,11 +413,10 @@ export default function TabPenjualan({ transactions = [] }) {
                     style={[
                       styles.progressFill,
                       {
-                        width: `${
-                          (item.jumlah /
+                        width: `${(item.jumlah /
                             toppingTerlaris[0].jumlah) *
                           100
-                        }%`,
+                          }%`,
                       },
                     ]}
                   />
@@ -551,7 +555,7 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
     gap: 14,
     width: '100%',
-    maxWidth: 1200,
+    maxWidth: 1680,
     alignSelf: 'center',
   },
   header: {

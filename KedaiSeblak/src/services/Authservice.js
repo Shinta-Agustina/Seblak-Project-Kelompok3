@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
 // Akun kasir/owner dibuat dengan email <username>@kedaiseblak.com.
@@ -64,4 +65,48 @@ export async function getCurrentSession() {
     return null;
   }
   return { user: session.user, profile };
+}
+
+// Login Google (Supabase OAuth). Akun Google harus sudah terdaftar di tabel profiles (didaftarkan owner).
+// Native: lewat proxy Expo (auth.expo.io) + PKCE. Web: redirect biasa, sesi dipulihkan saat halaman dimuat.
+export async function signInWithGoogle() {
+  if (Platform.OS === 'web') {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined },
+    });
+    if (error) throw new Error(error.message);
+    return null; // browser berpindah ke Google, lalu kembali ke aplikasi
+  }
+  let AuthSession; let WebBrowser;
+  try {
+    AuthSession = require('expo-auth-session');
+    WebBrowser = require('expo-web-browser');
+  } catch (e) {
+    throw new Error('Paket expo-auth-session / expo-web-browser belum terpasang.');
+  }
+  WebBrowser.maybeCompleteAuthSession();
+  const proxyUrl = 'https://auth.expo.io/@anonymous/kedai-seblak';
+  const returnUrl = AuthSession.makeRedirectUri();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: proxyUrl, skipBrowserRedirect: true },
+  });
+  if (error) throw new Error(error.message);
+  const startUrl = `${proxyUrl}/start?authUrl=${encodeURIComponent(data.url)}&returnUrl=${encodeURIComponent(returnUrl)}`;
+  const result = await WebBrowser.openAuthSessionAsync(startUrl, returnUrl);
+  if (result.type !== 'success') throw new Error('Login Google dibatalkan.');
+  const code = /[?&]code=([^&#]+)/.exec(result.url)?.[1];
+  if (!code) throw new Error('Kode login Google tidak ditemukan.');
+  const { data: sess, error: exErr } = await supabase.auth.exchangeCodeForSession(decodeURIComponent(code));
+  if (exErr) throw new Error(exErr.message);
+  try {
+    const profile = await fetchProfile(sess.user.id);
+    if (!profile) throw new Error('Akun Google ini belum terdaftar. Hubungi owner.');
+    assertActive(profile);
+    return { user: sess.user, profile };
+  } catch (e) {
+    await supabase.auth.signOut();
+    throw e;
+  }
 }

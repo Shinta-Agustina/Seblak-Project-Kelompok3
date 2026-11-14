@@ -317,7 +317,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   colKet: {
-    width: 140,
+    flex: 1,
+    minWidth: 140,
     paddingHorizontal: 6,
   },
   colKategori: {

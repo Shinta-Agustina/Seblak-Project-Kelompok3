@@ -37,7 +37,7 @@ export default function LaporanKeuanganScreen({ isEmbedded = false, navigation }
   const [viewMode, setViewMode] = useState('main');
 
   // Tab Periode: 'harian' | 'bulanan' | 'tahunan'
-  const [activeTab, setActiveTab] = useState('harian');
+  const [activeTab, setActiveTab] = useState('bulanan');
 
   // Selector value state
   const [harianDate, setHarianDate] = useState(() => new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }));
@@ -61,6 +61,8 @@ export default function LaporanKeuanganScreen({ isEmbedded = false, navigation }
   // Laporan dihitung dari transaksi dan pengeluaran Supabase, bukan data simulasi.
   const [reportData, setReportData] = useState({ summary: { omzet: 0, pengeluaran: 0, labaBersih: 0 }, pemasukan: [], pengeluaran: [], topPengeluaran: [] });
   const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
     let active = true;
     const monthMap = { januari: '01', februari: '02', maret: '03', april: '04', mei: '05', juni: '06', juli: '07', agustus: '08', september: '09', oktober: '10', november: '11', desember: '12' };
@@ -83,17 +85,20 @@ export default function LaporanKeuanganScreen({ isEmbedded = false, navigation }
       return year ? { from: `${year}-01-01`, to: `${year}-12-31` } : {};
     };
     setReportLoading(true);
+    setReportError('');
     getFinancialReport(parsePeriod()).then((data) => {
       if (!active) return;
-      const pemasukan = data.transaksi.map((r, i) => ({ no: i + 1, waktu: new Date(r.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }), kasir: r.nama_kasir, totalTransaksi: Number(r.total), metodePembayaran: r.metode_pembayaran, nomor: r.nomor_transaksi }));
-      const pengeluaran = data.pengeluaran.map((r, i) => ({ no: i + 1, tanggal: r.tanggal, nama: r.nama, keterangan: r.nama, kategori: r.kategori, total: Number(r.nominal), nominal: Number(r.nominal) }));
+      const pemasukan = data.transaksi.map((r, i) => ({ no: i + 1, waktu: new Date(r.created_at).toLocaleString('id-ID', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }), kasir: r.nama_kasir, totalTransaksi: Number(r.total), metodePembayaran: r.metode_pembayaran, nomor: r.nomor_transaksi }));
+      const pengeluaran = data.pengeluaran.map((r, i) => ({ no: i + 1, tanggal: r.tanggal, waktu: `${String(r.tanggal || '').slice(8, 10)}/${String(r.tanggal || '').slice(5, 7)} ${String(r.waktu || '').slice(0, 5)}`.trim(), nama: r.nama, keterangan: r.nama, supplier: r.supplier || '-', jumlah: r.jumlah, satuan: r.satuan, kategori: r.kategori, total: Number(r.nominal), nominal: Number(r.nominal) }));
       const byCategory = {};
-      pengeluaran.forEach((r) => { byCategory[r.kategori] = (byCategory[r.kategori] || 0) + r.total; });
-      const topPengeluaran = Object.entries(byCategory).map(([nama, total]) => ({ nama, total })).sort((a, b) => b.total - a.total).slice(0, 5);
+      pengeluaran.forEach((r) => { byCategory[r.nama] = (byCategory[r.nama] || 0) + r.total; });
+      const sortedTop = Object.entries(byCategory).map(([nama, nominal]) => ({ nama, nominal })).sort((a, b) => b.nominal - a.nominal).slice(0, 3);
+      const maxTop = sortedTop[0]?.nominal || 1;
+      const topPengeluaran = sortedTop.map((x, i) => ({ ...x, rank: i + 1, proporsi: Math.round((x.nominal / maxTop) * 100) }));
       setReportData({ summary: { omzet: data.totalOmzet, pengeluaran: data.totalPengeluaran, labaBersih: data.labaBersih }, pemasukan, pengeluaran, topPengeluaran });
-    }).catch((error) => console.error('Gagal memuat laporan Supabase:', error.message)).finally(() => { if (active) setReportLoading(false); });
+    }).catch((error) => { console.error('Gagal memuat laporan Supabase:', error.message); if (active) setReportError(error.message || 'Gagal memuat laporan.'); }).finally(() => { if (active) setReportLoading(false); });
     return () => { active = false; };
-  }, [activeTab, currentSelectorText]);
+  }, [activeTab, currentSelectorText, reloadKey]);
 
   const handleSelectDate = (newVal) => {
     if (activeTab === 'harian') setHarianDate(newVal);
@@ -190,7 +195,14 @@ export default function LaporanKeuanganScreen({ isEmbedded = false, navigation }
       <View style={styles.sectionHeaderRow}>
         <Ionicons name="newspaper-outline" size={17} color={WARNA.abu} style={{ marginRight: 6 }} />
         <Text style={styles.sectionTitleText}>Ringkasan Keuangan</Text>
+        {reportLoading ? <Text style={{ marginLeft: 8, fontSize: 11, color: '#8D7B70' }}>Memuat data...</Text> : null}
       </View>
+      {reportError ? (
+        <TouchableOpacity onPress={() => setReloadKey((k) => k + 1)} style={{ backgroundColor: '#FDECEA', borderColor: '#F5C2C0', borderWidth: 1, borderRadius: 10, padding: 10, marginBottom: 10 }}>
+          <Text style={{ color: '#B3261E', fontSize: 12, fontWeight: '700' }}>Gagal memuat data: {reportError}</Text>
+          <Text style={{ color: '#B3261E', fontSize: 11, marginTop: 2 }}>Ketuk untuk coba lagi.</Text>
+        </TouchableOpacity>
+      ) : null}
 
       <View style={styles.statCardsRow}>
         {/* Card 1: Total Omzet */}
@@ -537,7 +549,7 @@ export default function LaporanKeuanganScreen({ isEmbedded = false, navigation }
         <TopHeader
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
           isSidebarOpen={sidebarOpen}
-          title="Owner Portal ΓÇó Laporan Keuangan"
+          title="Owner Portal • Laporan Keuangan"
           role="Owner"
         />
         {content}
@@ -566,7 +578,7 @@ const styles = StyleSheet.create({
   },
   viewContainer: {
     width: '100%',
-    maxWidth: 960,
+    maxWidth: 1680,
     alignSelf: 'center',
   },
 

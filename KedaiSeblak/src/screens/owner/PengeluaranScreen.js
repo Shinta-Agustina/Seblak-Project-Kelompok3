@@ -27,7 +27,7 @@ import { useKasir } from '../../context/KasirContext';
 const WARNA = {
   merahTua: '#52141D',      // Brand Deep Maroon
   merahCabe: '#C62828',     // Crimson Accent
-  orangeProject: '#C62828', 
+  orangeProject: '#C62828',
   merahJreng: '#DC2626',    // Merah cerah untuk harga & total
   kuningGold: '#F59E0B',    // Kuning Gold
   goldTua: '#B45309',       // Gold Tua Elegan
@@ -102,10 +102,20 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
   const [rincianData, setRincianData] = useState({ dateTitle: '', items: [], totalNominal: 0 });
 
   // Helper parsing tanggal
+  // Tanggal pengeluaran dari Supabase berformat ISO (YYYY-MM-DD) -> ambil nomor harinya.
   const parseDayNumber = (dateStr) => {
     if (!dateStr) return null;
-    const match = dateStr.match(/^(\d{1,2})/);
+    const iso = String(dateStr).match(/^\d{4}-\d{2}-(\d{2})/);
+    if (iso) return parseInt(iso[1], 10);
+    const match = String(dateStr).match(/^(\d{1,2})/);
     return match ? parseInt(match[1], 10) : null;
+  };
+
+  const labelTanggalPanjang = (iso) => {
+    const d = new Date(`${iso}T00:00:00`);
+    return Number.isNaN(d.getTime())
+      ? iso
+      : d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   };
 
   const tanggalKeISO = (dateStr) => {
@@ -145,10 +155,9 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
   const currentHarianItems = useMemo(() => {
     const targetIso = tanggalKeISO(harianDate);
     if (!targetIso) return expenses;
-    const filtered = expenses.filter(
+    return expenses.filter(
       (item) => item.tanggal === targetIso || item.tanggalStr === harianDate
     );
-    return filtered.length > 0 ? filtered : expenses;
   }, [expenses, harianDate]);
 
   const currentMingguanGroups = useMemo(() => {
@@ -159,15 +168,15 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
 
     for (let d = startDay; d <= endDay; d++) {
       const iso = `2026-10-${String(d).padStart(2, '0')}`;
-      groupsMap[iso] = { isoDate: iso, dayNumber: d, items: [], total: 0, labelHari: '', labelTanggal: '' };
+      groupsMap[iso] = { isoDate: iso, dayNumber: d, items: [], total: 0, labelHari: labelTanggalPanjang(iso), labelTanggal: labelTanggalPanjang(iso) };
     }
 
     expenses.forEach((item) => {
-      const dNum = parseDayNumber(item.tanggalStr);
-      if (dNum && dNum >= startDay && dNum <= endDay) {
+      const dNum = parseDayNumber(item.tanggal);
+      if (dNum && dNum >= startDay && dNum <= endDay && String(item.tanggal).startsWith('2026-10')) {
         const iso = item.tanggal;
         if (!groupsMap[iso]) {
-          groupsMap[iso] = { isoDate: iso, dayNumber: dNum, items: [], total: 0, labelHari: item.hari || '', labelTanggal: item.tanggalStr || '' };
+          groupsMap[iso] = { isoDate: iso, dayNumber: dNum, items: [], total: 0, labelHari: labelTanggalPanjang(iso), labelTanggal: labelTanggalPanjang(iso) };
         }
         groupsMap[iso].items.push(item);
         groupsMap[iso].total += item.total || 0;
@@ -186,8 +195,8 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
       if (item.tanggal && item.tanggal.startsWith('2026-10')) {
         const iso = item.tanggal;
         if (!groupsMap[iso]) {
-          const dNum = parseDayNumber(item.tanggalStr);
-          groupsMap[iso] = { isoDate: iso, dayNumber: dNum || 1, items: [], total: 0, labelHari: item.hari || '', labelTanggal: item.tanggalStr || `${dNum} Oktober 2026` };
+          const dNum = parseDayNumber(item.tanggal);
+          groupsMap[iso] = { isoDate: iso, dayNumber: dNum || 1, items: [], total: 0, labelHari: labelTanggalPanjang(iso), labelTanggal: labelTanggalPanjang(iso) };
         }
         groupsMap[iso].items.push(item);
         groupsMap[iso].total += item.total || 0;
@@ -466,21 +475,21 @@ const styles = StyleSheet.create({
   catatPengeluaranBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: WARNA.biruCatat, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
   catatPengeluaranBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
   tableCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: WARNA.garis, overflow: 'hidden' },
-  tableHorizontalScroll: { paddingBottom: 8 },
-  tableInnerWrapper: { minWidth: 700 },
+  tableHorizontalScroll: { flexGrow: 1, paddingBottom: 8 },
+  tableInnerWrapper: { minWidth: 796, flexGrow: 1 },
   tableHeaderRow: { flexDirection: 'row', backgroundColor: '#F4ECE6', paddingVertical: 10, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: WARNA.garis },
   headerColText: { fontSize: 12, fontWeight: '700', color: WARNA.merahTua },
-  colWaktu: { width: 70 },
-  colKet: { flex: 2 },
-  colKategori: { width: 100 },
-  colJumlah: { width: 80 },
-  colTotal: { width: 90 },
-  colFotoItem: { width: 80, textAlign: 'center' },
-  colFotoStruk: { width: 80, textAlign: 'center' },
-  colAksi: { width: 70, textAlign: 'center' },
+  colWaktu: { width: 75, textAlign: 'center' },
+  colKet: { flex: 1, minWidth: 140, paddingHorizontal: 6 },
+  colKategori: { width: 95, paddingHorizontal: 6 },
+  colJumlah: { width: 75, paddingHorizontal: 6, textAlign: 'center' },
+  colTotal: { width: 110, paddingHorizontal: 6 },
+  colFotoItem: { width: 85, textAlign: 'center' },
+  colFotoStruk: { width: 85, textAlign: 'center' },
+  colAksi: { width: 115, textAlign: 'center' },
   rekapCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: WARNA.garis, padding: 10 },
   rekapItemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: WARNA.garis },
-  rekapDateTitle: { fontSize: 14, fontWeight: '600', color: WARNA.teks },
+  rekapDateTitle: { fontSize: 14, fontWeight: '600', color: WARNA.teks, textTransform: 'capitalize' },
   rekapItemCount: { fontSize: 11, color: WARNA.abu, marginTop: 2 },
   rekapNominalText: { fontSize: 14, fontWeight: '700', color: WARNA.merahJreng },
 });

@@ -22,7 +22,7 @@ import { useKasir } from '../../context/KasirContext';
 export default function LoginScreen({ onLogin }) {
   const { width } = useWindowDimensions();
   const isLargeScreen = width >= 768;
-  const { login } = useKasir();
+  const { login, loginGoogle } = useKasir();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -47,6 +47,20 @@ export default function LoginScreen({ onLogin }) {
       if (onLogin) onLogin(cleanUsername, profile.role === 'owner' ? 'Owner' : 'Kasir');
     } catch (error) {
       setErrors({ form: error.message || 'Email atau password salah.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogle = async () => {
+    if (loading) return;
+    setErrors({});
+    setLoading(true);
+    try {
+      const profile = await loginGoogle();
+      if (profile && onLogin) onLogin(profile.nama, profile.role === 'owner' ? 'Owner' : 'Kasir');
+    } catch (error) {
+      setErrors({ form: error.message || 'Login Google gagal.' });
     } finally {
       setLoading(false);
     }
@@ -156,8 +170,8 @@ export default function LoginScreen({ onLogin }) {
                       errors.username
                         ? '#D32F2F'
                         : focusedField === 'username'
-                        ? '#C62828'
-                        : '#8D7B70'
+                          ? '#C62828'
+                          : '#8D7B70'
                     }
                     style={styles.inputIcon}
                   />
@@ -169,7 +183,10 @@ export default function LoginScreen({ onLogin }) {
                     value={username}
                     onChangeText={(value) => {
                       setUsername(value);
-                      setErrors((prev) => ({ ...prev, username: '', form: '' }));
+                      const v = value.trim();
+                      const msg = !v ? 'Email wajib diisi.'
+                        : (v.includes('@') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) ? 'Format email tidak valid.' : '';
+                      setErrors((prev) => ({ ...prev, username: msg, form: '' }));
                     }}
                     onFocus={() => setFocusedField('username')}
                     onBlur={() => setFocusedField(null)}
@@ -201,8 +218,8 @@ export default function LoginScreen({ onLogin }) {
                       errors.password
                         ? '#D32F2F'
                         : focusedField === 'password'
-                        ? '#C62828'
-                        : '#8D7B70'
+                          ? '#C62828'
+                          : '#8D7B70'
                     }
                     style={styles.inputIcon}
                   />
@@ -214,7 +231,8 @@ export default function LoginScreen({ onLogin }) {
                     value={password}
                     onChangeText={(value) => {
                       setPassword(value);
-                      setErrors((prev) => ({ ...prev, password: '', form: '' }));
+                      const msg = !value ? 'Password wajib diisi.' : value.length < 6 ? 'Password minimal 6 karakter.' : '';
+                      setErrors((prev) => ({ ...prev, password: msg, form: '' }));
                     }}
                     onFocus={() => setFocusedField('password')}
                     onBlur={() => setFocusedField(null)}
@@ -265,6 +283,21 @@ export default function LoginScreen({ onLogin }) {
                       <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
                     </View>
                   )}
+                </TouchableOpacity>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 14, gap: 8 }}>
+                  <View style={{ flex: 1, height: 1, backgroundColor: '#EFE7E2' }} />
+                  <Text style={{ color: '#8D7B70', fontSize: 11 }}>atau</Text>
+                  <View style={{ flex: 1, height: 1, backgroundColor: '#EFE7E2' }} />
+                </View>
+                <TouchableOpacity
+                  onPress={handleGoogle}
+                  disabled={loading}
+                  activeOpacity={0.85}
+                  style={{ marginTop: 12, height: 46, borderRadius: 10, borderWidth: 1, borderColor: '#E3D8D2', backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loading ? 0.6 : 1 }}
+                >
+                  <Ionicons name="logo-google" size={18} color="#DB4437" />
+                  <Text style={{ color: '#2C1810', fontWeight: '700', fontSize: 13 }}>Masuk dengan Google</Text>
                 </TouchableOpacity>
 
                 {/* Informasi Akses */}

@@ -5,19 +5,43 @@ import { TOPPING_ITEMS } from '../data/mockData';
 const TABLE = 'menu_topping';
 const BUCKET = 'menu-seblak';
 
+// Kolom asli menu_topping: id, nama, kategori, harga, deskripsi, stok, satuan, status, foto_url, created_at, updated_at
+// status hanya boleh 'aktif' / 'nonaktif'. "berat" disimpan di deskripsi ("Per 50 gr").
+const statusKeDb = (s) => (String(s || 'aktif').trim().toLowerCase() === 'aktif' ? 'aktif' : 'nonaktif');
+const statusKeUi = (s) => (String(s || 'aktif').trim().toLowerCase() === 'aktif' ? 'Aktif' : 'Nonaktif');
+
+const beratDariDeskripsi = (deskripsi) => {
+  const m = /^\s*per\s+(.+)$/i.exec(String(deskripsi || ''));
+  return m ? m[1].trim() : '1 pcs';
+};
+const satuanDariBerat = (berat) => String(berat || '1 pcs').trim().split(/\s+/).pop() || 'pcs';
+const pathDariUrl = (url) => {
+  const m = new RegExp(`/object/public/${BUCKET}/(.+)$`).exec(String(url || ''));
+  return m ? decodeURIComponent(m[1]) : null;
+};
+
 const mapRow = (row) => ({
   id: row.id,
   nama: row.nama,
   kategori: row.kategori,
   harga: Number(row.harga),
-  berat: row.berat || '1 pcs',
+  berat: beratDariDeskripsi(row.deskripsi),
   stok: Number(row.stok || 0),
-  status: row.status || 'Aktif',
+  status: statusKeUi(row.status),
   emoji: row.emoji || '🍲',
   image: row.foto_url || null,
-  foto_path: row.foto_path || null,
+  foto_path: pathDariUrl(row.foto_url),
 });
 
+const kolomMenu = (values, berat) => ({
+  nama: String(values.nama || '').trim(),
+  kategori: values.kategori,
+  harga: Number(values.harga),
+  stok: Number(values.stok || 0),
+  status: statusKeDb(values.status),
+  deskripsi: `Per ${berat}`,
+  satuan: satuanDariBerat(berat),
+});
 
 export async function seedInitialMenusIfEmpty() {
   const { count, error: countError } = await supabase
@@ -25,10 +49,8 @@ export async function seedInitialMenusIfEmpty() {
   if (countError) throw countError;
   if (count > 0) return false;
   const rows = TOPPING_ITEMS.map((item, index) => ({
-    nama: item.nama, kategori: item.kategori, harga: Number(item.harga),
-    stok: 20 + ((index * 7) % 30), berat: item.berat || '1 pcs',
-    status: 'Aktif', emoji: item.emoji || '🍲',
-    foto_url: item.image || null, foto_path: null,
+    ...kolomMenu({ ...item, stok: 20 + ((index * 7) % 30), status: 'aktif' }, item.berat || '1 pcs'),
+    foto_url: item.image || null,
   }));
   const { error } = await supabase.from(TABLE).insert(rows);
   if (error) throw error;
@@ -36,8 +58,8 @@ export async function seedInitialMenusIfEmpty() {
 }
 
 export async function getMenus({ includeInactive = true } = {}) {
-  let query = supabase.from(TABLE).select('*').order('created_at', { ascending: false });
-  if (!includeInactive) query = query.eq('status', 'Aktif');
+  let query = supabase.from(TABLE).select('*').order('kategori', { ascending: true }).order('nama', { ascending: true });
+  if (!includeInactive) query = query.eq('status', 'aktif');
   const { data, error } = await query;
   if (error) throw error;
   return (data || []).map(mapRow);
@@ -46,19 +68,16 @@ export async function getMenus({ includeInactive = true } = {}) {
 const MAX_FOTO_BYTES = 2 * 1024 * 1024;
 const MIME_DARI_EKSTENSI = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' };
 
-// Foto dari image picker berupa URI lokal (file:///...) yang HANYA dimengerti perangkat.
-// Supabase Storage butuh data biner, jadi URI diubah dulu menjadi ArrayBuffer.
 async function bacaSebagaiArrayBuffer(uri) {
   if (Platform.OS !== 'web') {
     try {
-      // API baru expo-file-system (SDK 54+): new File(uri).arrayBuffer()
       const { File } = require('expo-file-system');
       return await new File(uri).arrayBuffer();
     } catch (e) {
       // lanjut ke fetch bila API File tidak tersedia / gagal
     }
   }
-  const response = await fetch(uri); // web: uri berupa data URL / blob URL
+  const response = await fetch(uri);
   if (!response.ok) throw new Error('Gagal membaca foto dari perangkat.');
   return await response.arrayBuffer();
 }
@@ -73,7 +92,7 @@ function tentukanTipe(uri) {
 async function uploadPhoto(photo) {
   if (!photo) return { foto_url: null, foto_path: null };
   if (typeof photo === 'string' && /^https?:\/\//i.test(photo)) {
-    return { foto_url: photo, foto_path: null }; // foto lama / URL eksternal: tidak diunggah ulang
+    return { foto_url: photo, foto_path: pathDariUrl(photo) };
   }
   const uri = typeof photo === 'string' ? photo : photo.uri;
   if (!uri) throw new Error('Foto tidak valid.');
@@ -83,12 +102,8 @@ async function uploadPhoto(photo) {
   if (buffer.byteLength > MAX_FOTO_BYTES) throw new Error('Ukuran foto maksimal 2 MB.');
 
   const extension = contentType.split('/')[1].replace('jpeg', 'jpg');
-  // Nama file unik: timestamp + acak, supaya tidak pernah tabrakan.
   const path = `produk/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
-  const { error } = await supabase.storage.from(BUCKET).upload(path, buffer, {
-    contentType,
-    upsert: false,
-  });
+  const { error } = await supabase.storage.from(BUCKET).upload(path, buffer, { contentType, upsert: false });
   if (error) throw error;
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
   return { foto_url: data.publicUrl, foto_path: path };
@@ -96,12 +111,7 @@ async function uploadPhoto(photo) {
 
 export async function createMenu(values) {
   const photo = await uploadPhoto(values.image);
-  const payload = {
-    nama: values.nama.trim(), kategori: values.kategori,
-    harga: Number(values.harga), stok: Number(values.stok),
-    status: values.status || 'Aktif', berat: values.berat || '1 pcs',
-    emoji: values.emoji || '🍲', ...photo,
-  };
+  const payload = { ...kolomMenu(values, values.berat || '1 pcs'), foto_url: photo.foto_url };
   const { data, error } = await supabase.from(TABLE).insert(payload).select().single();
   if (error) {
     if (photo.foto_path) await supabase.storage.from(BUCKET).remove([photo.foto_path]);
@@ -115,11 +125,8 @@ export async function updateMenu(id, values, previous = {}) {
   const newPhoto = values.image && values.image !== previous.image && !(typeof values.image === 'string' && /^https?:\/\//i.test(values.image));
   if (newPhoto) photo = await uploadPhoto(values.image);
   const payload = {
-    nama: values.nama.trim(), kategori: values.kategori,
-    harga: Number(values.harga), stok: Number(values.stok),
-    status: values.status || 'Aktif', berat: values.berat || '1 pcs',
-    emoji: values.emoji || previous.emoji || '🍲',
-    foto_url: photo.foto_url, foto_path: photo.foto_path,
+    ...kolomMenu(values, values.berat || previous.berat || '1 pcs'),
+    foto_url: photo.foto_url,
     updated_at: new Date().toISOString(),
   };
   const { data, error } = await supabase.from(TABLE).update(payload).eq('id', id).select().single();

@@ -28,7 +28,7 @@ const WARNA = {
   merahTerang: '#DC2626',
 };
 
-const ITEMS_PER_PAGE = 3;
+const ITEMS_PER_PAGE = 8;
 
 const parseAngka = (value) => {
   if (
@@ -632,10 +632,10 @@ export default function TabStok({
 
   const renderDaftarStok = () => (
     <>
-      <View style={styles.summaryGrid}>
+      <View style={[styles.summaryGrid, isMobile && styles.summaryGridMobile]}>
         <TouchableOpacity
           activeOpacity={0.85}
-          style={styles.summaryCard}
+          style={[styles.summaryCard, isMobile && styles.summaryCardMobile]}
           onPress={() => setStatusFilter('Semua')}
         >
           <View style={styles.summaryIconRed}>
@@ -663,7 +663,7 @@ export default function TabStok({
 
         <TouchableOpacity
           activeOpacity={0.85}
-          style={styles.summaryCard}
+          style={[styles.summaryCard, isMobile && styles.summaryCardMobile]}
           onPress={() => setStatusFilter('Menipis')}
         >
           <View style={styles.summaryIconOrange}>
@@ -698,7 +698,7 @@ export default function TabStok({
 
         <TouchableOpacity
           activeOpacity={0.85}
-          style={styles.summaryCard}
+          style={[styles.summaryCard, isMobile && styles.summaryCardMobile]}
           onPress={() => setStatusFilter('Habis')}
         >
           <View style={styles.summaryIconRed}>
@@ -803,10 +803,10 @@ export default function TabStok({
             option.id === 'Aman'
               ? styles.filterChipAman
               : option.id === 'Menipis'
-              ? styles.filterChipMenipis
-              : option.id === 'Habis'
-              ? styles.filterChipHabis
-              : styles.filterChipSemua;
+                ? styles.filterChipMenipis
+                : option.id === 'Habis'
+                  ? styles.filterChipHabis
+                  : styles.filterChipSemua;
 
           return (
             <TouchableOpacity
@@ -882,6 +882,7 @@ export default function TabStok({
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ flexGrow: 1 }}
             >
               <View style={styles.tableContent}>
                 <View style={styles.tableHeading}>
@@ -917,7 +918,7 @@ export default function TabStok({
                   style={[
                     styles.pageButton,
                     safeCurrentPage === 1 &&
-                      styles.pageButtonDisabled,
+                    styles.pageButtonDisabled,
                   ]}
                   disabled={safeCurrentPage === 1}
                   onPress={() =>
@@ -949,7 +950,7 @@ export default function TabStok({
                       style={[
                         styles.pageButton,
                         safeCurrentPage === page &&
-                          styles.pageButtonActive,
+                        styles.pageButtonActive,
                       ]}
                       onPress={() => setCurrentPage(page)}
                     >
@@ -957,7 +958,7 @@ export default function TabStok({
                         style={[
                           styles.pageButtonText,
                           safeCurrentPage === page &&
-                            styles.pageButtonTextActive,
+                          styles.pageButtonTextActive,
                         ]}
                       >
                         {page}
@@ -969,7 +970,7 @@ export default function TabStok({
                   style={[
                     styles.pageButton,
                     safeCurrentPage === totalPages &&
-                      styles.pageButtonDisabled,
+                    styles.pageButtonDisabled,
                   ]}
                   disabled={safeCurrentPage === totalPages}
                   onPress={() =>
@@ -1792,6 +1793,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
+  summaryGridMobile: { flexDirection: 'column', gap: 8, flexShrink: 0 },
+  summaryCardMobile: { flex: 0, flexShrink: 0, width: '100%', height: 76, minHeight: 76 },
   summaryCard: {
     flex: 1,
     minWidth: 0,
@@ -2000,6 +2003,7 @@ const styles = StyleSheet.create({
 
   tableContent: {
     minWidth: 760,
+    flexGrow: 1,
   },
 
   tableHeading: {
@@ -2013,14 +2017,14 @@ const styles = StyleSheet.create({
   },
 
   headingName: {
-    width: '22%',
+    flex: 22,
     fontSize: 12,
     fontWeight: '800',
     color: WARNA.teks,
   },
 
   headingCategory: {
-    width: '16%',
+    flex: 16,
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '800',
@@ -2028,7 +2032,7 @@ const styles = StyleSheet.create({
   },
 
   headingQuantity: {
-    width: '17%',
+    flex: 17,
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '800',
@@ -2036,7 +2040,7 @@ const styles = StyleSheet.create({
   },
 
   headingMinimum: {
-    width: '17%',
+    flex: 17,
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '800',
@@ -2044,7 +2048,7 @@ const styles = StyleSheet.create({
   },
 
   headingStatus: {
-    width: '15%',
+    flex: 15,
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '800',
@@ -2052,7 +2056,7 @@ const styles = StyleSheet.create({
   },
 
   headingAction: {
-    width: '13%',
+    flex: 13,
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '800',
@@ -2069,7 +2073,7 @@ const styles = StyleSheet.create({
   },
 
   stockNameColumn: {
-    width: '22%',
+    flex: 22,
     paddingRight: 5,
   },
 
@@ -2080,7 +2084,7 @@ const styles = StyleSheet.create({
   },
 
   stockCategory: {
-    width: '16%',
+    flex: 16,
     textAlign: 'center',
     color: WARNA.merah,
     fontSize: 11,
@@ -2088,7 +2092,7 @@ const styles = StyleSheet.create({
   },
 
   stockQuantity: {
-    width: '17%',
+    flex: 17,
     textAlign: 'center',
     color: WARNA.merahTua,
     fontSize: 12,
@@ -2096,7 +2100,7 @@ const styles = StyleSheet.create({
   },
 
   stockMinimum: {
-    width: '17%',
+    flex: 17,
     textAlign: 'center',
     color: WARNA.merahTua,
     fontSize: 12,
@@ -2104,12 +2108,12 @@ const styles = StyleSheet.create({
   },
 
   stockStatusColumn: {
-    width: '15%',
+    flex: 15,
     alignItems: 'center',
   },
 
   stockActionColumn: {
-    width: '13%',
+    flex: 13,
     alignItems: 'center',
   },
 
