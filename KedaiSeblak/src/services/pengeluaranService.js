@@ -13,7 +13,7 @@ function normalisasiTanggal(t) {
 // "Satuan: kg; Supplier: ..." (dari aplikasi) atau "Pembelian 5 kg (EXP-1)" (data impor).
 function bacaSatuan(catatan) {
   const c = String(catatan || '');
-  const a = /Satuan:\s*([^;]+)/i.exec(c);
+  const a = /Satuan:\s*([^;.]+)/i.exec(c);
   if (a) return a[1].trim();
   const b = /Pembelian\s+[\d.,]+\s+([A-Za-z]+)/i.exec(c);
   return b ? b[1] : 'unit';

@@ -327,60 +327,60 @@ export default function MenuHargaScreen({ isEmbedded = false, navigation }) {
         </ScrollView>
       </View>
 
-     
-{/* 2. AREA DAFTAR MENU MENGGUNAKAN FLATLIST */}
-{initialLoading ? (
-  <View style={styles.emptyContainer}><Text style={styles.emptySubtitle}>Memuat data menu dari Supabase...</Text></View>
-) : <FlatList
-  style={styles.cardsScrollArea}
-  contentContainerStyle={styles.cardsScrollContent}
-  data={filteredMenus}
-  keyExtractor={(item, index) =>
-    String(item.id ?? index)
-  }
-  renderItem={({ item }) => (
-    <MenuItemCard
-      item={item}
-      onEdit={() => handleOpenEditModal(item)}
-      onDelete={() => handleOpenDeleteModal(item)}
-    />
-  )}
-  ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-  showsVerticalScrollIndicator
-  keyboardShouldPersistTaps="handled"
-  ListEmptyComponent={
-    <View style={styles.emptyContainer}>
-      <View style={styles.emptyIconCircle}>
-        <Ionicons
-          name={searchQuery ? 'search-outline' : 'restaurant-outline'}
-          size={36}
-          color="#8D7B70"
-        />
-      </View>
 
-      <Text style={styles.emptyTitle}>
-        {searchQuery ? 'Menu Tidak Ditemukan' : 'Belum Ada Menu'}
-      </Text>
-
-      <Text style={styles.emptySubtitle}>
-        {searchQuery
-          ? `Tidak ada menu yang sesuai dengan kata kunci "${searchQuery}".`
-          : 'Daftar menu masih kosong. Tekan tombol Tambah Menu untuk menambahkan.'}
-      </Text>
-
-      <CustomButton
-        title={searchQuery ? 'Reset Pencarian' : '+ Tambah Menu Pertama'}
-        variant={searchQuery ? 'outline' : 'primary'}
-        onPress={() =>
-          searchQuery
-            ? setSearchQuery('')
-            : handleOpenAddModal()
+      {/* 2. AREA DAFTAR MENU MENGGUNAKAN FLATLIST */}
+      {initialLoading ? (
+        <View style={styles.emptyContainer}><Text style={styles.emptySubtitle}>Memuat data menu dari Supabase...</Text></View>
+      ) : <FlatList
+        style={styles.cardsScrollArea}
+        contentContainerStyle={styles.cardsScrollContent}
+        data={filteredMenus}
+        keyExtractor={(item, index) =>
+          String(item.id ?? index)
         }
-        style={styles.emptyActionBtn}
-      />
-    </View>
-  }
-/>}
+        renderItem={({ item }) => (
+          <MenuItemCard
+            item={item}
+            onEdit={() => handleOpenEditModal(item)}
+            onDelete={() => handleOpenDeleteModal(item)}
+          />
+        )}
+        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+        showsVerticalScrollIndicator
+        keyboardShouldPersistTaps="handled"
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconCircle}>
+              <Ionicons
+                name={searchQuery ? 'search-outline' : 'restaurant-outline'}
+                size={36}
+                color="#8D7B70"
+              />
+            </View>
+
+            <Text style={styles.emptyTitle}>
+              {searchQuery ? 'Menu Tidak Ditemukan' : 'Belum Ada Menu'}
+            </Text>
+
+            <Text style={styles.emptySubtitle}>
+              {searchQuery
+                ? `Tidak ada menu yang sesuai dengan kata kunci "${searchQuery}".`
+                : 'Daftar menu masih kosong. Tekan tombol Tambah Menu untuk menambahkan.'}
+            </Text>
+
+            <CustomButton
+              title={searchQuery ? 'Reset Pencarian' : '+ Tambah Menu Pertama'}
+              variant={searchQuery ? 'outline' : 'primary'}
+              onPress={() =>
+                searchQuery
+                  ? setSearchQuery('')
+                  : handleOpenAddModal()
+              }
+              style={styles.emptyActionBtn}
+            />
+          </View>
+        }
+      />}
 
       {/* Reusable Form Modal (Tambah & Edit) */}
       <MenuFormModal
@@ -731,7 +731,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     paddingBottom: 40,
-    maxWidth: 1200,
+    maxWidth: 1680,
     width: '100%',
     alignSelf: 'center',
   },

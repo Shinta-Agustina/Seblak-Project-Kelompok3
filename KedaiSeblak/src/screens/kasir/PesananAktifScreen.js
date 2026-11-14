@@ -44,9 +44,8 @@ const getFormattedToday = () => {
     ];
     const now = new Date();
 
-    return `${days[now.getDay()]}, ${now.getDate()} ${
-      months[now.getMonth()]
-    } ${now.getFullYear()}`;
+    return `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]
+      } ${now.getFullYear()}`;
   }
 };
 
@@ -103,11 +102,11 @@ export default function PesananAktifScreen({ onOpenDetail }) {
     const orderTypeLabel = order.orderType || order.table || 'Dine In';
 
     onOpenDetail({
-      orderNo: order.id,
+      orderNo: order.orderNo || order.id,
       orderType: orderTypeLabel,
       tableNo: orderTypeLabel,
       date: order.date || getFormattedToday(),
-      time: order.time || '09:45',
+      time: order.time || '-',
       items: order.details || [
         {
           name: order.items,
@@ -171,7 +170,7 @@ export default function PesananAktifScreen({ onOpenDetail }) {
               },
             ]}
           >
-            {order.id || `#00${index + 1}`}
+            {order.orderNo || order.id || `#00${index + 1}`}
           </Text>
 
           <Text style={[styles.td, { width: 65, color: '#6F5C53' }]}>
@@ -195,7 +194,7 @@ export default function PesananAktifScreen({ onOpenDetail }) {
             style={[styles.td, { width: 150, color: '#3D2820' }]}
             numberOfLines={1}
           >
-            {order.items || '-'}
+            {order.item || (typeof order.items === 'string' ? order.items : '-')}
           </Text>
 
           <Text

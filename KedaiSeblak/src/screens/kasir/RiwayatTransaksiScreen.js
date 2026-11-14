@@ -78,7 +78,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
   const [activeMethod, setActiveMethod] = useState('Semua');
   const [currentPage, setCurrentPage] = useState(1);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [dateFilterMode, setDateFilterMode] = useState('today');
+  const [dateFilterMode, setDateFilterMode] = useState('all');
 
   const today = new Date();
   const yesterday = new Date();
@@ -300,8 +300,8 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
               {dateFilterMode === 'today'
                 ? todayFormatted
                 : dateFilterMode === 'yesterday'
-                ? 'Kemarin'
-                : 'Semua Riwayat'}
+                  ? 'Kemarin'
+                  : 'Semua Riwayat'}
             </Text>
           </TouchableOpacity>
 
@@ -499,7 +499,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
           style={[
             styles.pageBtn,
             safeCurrentPage === totalPages &&
-              styles.pageBtnDisabled,
+            styles.pageBtnDisabled,
           ]}
           onPress={() =>
             setCurrentPage((page) =>
@@ -574,7 +574,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
               style={[
                 styles.filterOptionBtn,
                 dateFilterMode === 'today' &&
-                  styles.filterOptionBtnActive,
+                styles.filterOptionBtnActive,
               ]}
               onPress={() => changeDateFilter('today')}
               activeOpacity={0.7}
@@ -591,7 +591,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
                     style={[
                       styles.optionTitle,
                       dateFilterMode === 'today' &&
-                        styles.optionTitleActive,
+                      styles.optionTitleActive,
                     ]}
                   >
                     Hari Ini (Harian)
@@ -622,7 +622,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
               style={[
                 styles.filterOptionBtn,
                 dateFilterMode === 'yesterday' &&
-                  styles.filterOptionBtnActive,
+                styles.filterOptionBtnActive,
               ]}
               onPress={() => changeDateFilter('yesterday')}
               activeOpacity={0.7}
@@ -639,7 +639,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
                     style={[
                       styles.optionTitle,
                       dateFilterMode === 'yesterday' &&
-                        styles.optionTitleActive,
+                      styles.optionTitleActive,
                     ]}
                   >
                     Kemarin
@@ -683,7 +683,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
               style={[
                 styles.filterOptionBtn,
                 dateFilterMode === 'all' &&
-                  styles.filterOptionBtnActive,
+                styles.filterOptionBtnActive,
               ]}
               onPress={() => changeDateFilter('all')}
               activeOpacity={0.7}
@@ -693,7 +693,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
                   style={[
                     styles.optionTitle,
                     dateFilterMode === 'all' &&
-                      styles.optionTitleActive,
+                    styles.optionTitleActive,
                   ]}
                 >
                   Semua Riwayat Tanggal

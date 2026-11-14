@@ -1,14 +1,38 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { signIn, signOut, getCurrentSession } from '../services/Authservice';
+import { signIn, signInWithGoogle, signOut, getCurrentSession } from '../services/Authservice';
 import { getMenus } from '../services/menuService';
 import { getCashiers } from '../services/kasirService';
-import { createTransaction, getTransactions, updateTransactionStatus } from '../services/transaksiService';
+import { createTransaction, getTransactions, updateOrderProgress } from '../services/transaksiService';
 
 const KasirContext = createContext(null);
 const DEFAULT_KUAH = 'Original';
 const DEFAULT_LEVEL = 3;
 const DEFAULT_ORDER_TYPE = 'Dine In';
+
+const pad2 = (n) => String(n).padStart(2, '0');
+// Tanggal & jam diambil dalam zona waktu perangkat (WIB), bukan potongan string UTC dari Supabase.
+const tanggalLokal = (value) => {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+const jamLokal = (value) => {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '' : `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+};
+
+// Pesanan aktif = pesanan pada hari kerja terakhir (hari ini bila ada transaksi, selain itu hari transaksi terakhir).
+const STATUS_PESANAN_AKTIF = ['Menunggu', 'Diproses', 'Siap', 'Selesai'];
+const buildOrders = (mapped) => {
+  const hariIni = tanggalLokal(new Date());
+  let acuan = '';
+  mapped.forEach((x) => {
+    if (x.status === 'Lunas' && x.date && x.date <= hariIni && x.date > acuan) acuan = x.date;
+  });
+  return mapped
+    .filter((x) => x.date === acuan && STATUS_PESANAN_AKTIF.includes(x.statusPesanan))
+    .map((x) => ({ ...x, status: x.statusPesanan }));
+};
 
 const mapTransaction = (row) => {
   const items = (row.detail_transaksi || []).map((d) => ({
@@ -18,8 +42,10 @@ const mapTransaction = (row) => {
   }));
   return {
     id: row.id, orderNo: row.nomor_transaksi, no: row.nomor_transaksi,
-    date: row.created_at?.slice(0, 10), waktu: row.created_at,
-    time: row.created_at, table: row.tipe_pesanan, tableNo: row.tipe_pesanan,
+    date: tanggalLokal(row.created_at), waktu: jamLokal(row.created_at),
+    time: jamLokal(row.created_at), createdAt: row.created_at,
+    statusPesanan: row.status_pesanan || 'Diproses',
+    table: row.tipe_pesanan, tableNo: row.tipe_pesanan,
     orderType: row.tipe_pesanan, items, details: items,
     item: items.map((x) => `${x.qty}x ${x.nama}`).join(', '),
     total: Number(row.total), metode: row.metode_pembayaran, method: row.metode_pembayaran,
@@ -52,7 +78,7 @@ export function KasirProvider({ children }) {
     setCashiers(staff.map((x) => ({ id: x.id, name: x.nama, email: x.username, phone: x.no_telepon, status: x.status })));
     const mapped = sales.map(mapTransaction);
     setTransactions(mapped);
-    setOrders(mapped.filter((x) => ['Menunggu', 'Diproses'].includes(x.status)));
+    setOrders(buildOrders(mapped));
   };
 
   const applySession = async (sessionData) => {
@@ -78,6 +104,12 @@ export function KasirProvider({ children }) {
 
   const login = async (email, password) => {
     const result = await signIn(email, password);
+    await applySession(result);
+    return result.profile;
+  };
+  const loginGoogle = async () => {
+    const result = await signInWithGoogle();
+    if (!result) return null; // web: halaman dialihkan ke Google
     await applySession(result);
     return result.profile;
   };
@@ -121,15 +153,16 @@ export function KasirProvider({ children }) {
     }, profileIsCashier ? user.id : null, user.name);
     const mapped = mapTransaction(saved);
     setTransactions((prev) => [mapped, ...prev]);
+    setOrders((prev) => [{ ...mapped, status: mapped.statusPesanan }, ...prev]);
     resetCart();
     return mapped;
   };
   const updateOrderStatus = async (id, status) => {
-    const row = await updateTransactionStatus(id, status);
-    const mapped = mapTransaction({ ...row, detail_transaksi: [] });
-    setOrders((prev) => prev.map((x) => x.id === id ? { ...x, status } : x));
-    setTransactions((prev) => prev.map((x) => x.id === id ? { ...x, status } : x));
-    return mapped;
+    // status di sini = progres pesanan (Diproses/Selesai) -> kolom status_pesanan, bukan status pembayaran
+    await updateOrderProgress(id, status);
+    setOrders((prev) => prev.map((x) => x.id === id ? { ...x, status, statusPesanan: status } : x));
+    setTransactions((prev) => prev.map((x) => x.id === id ? { ...x, statusPesanan: status } : x));
+    return { id, status };
   };
 
   const refreshData = loadReferenceData;
@@ -138,7 +171,7 @@ export function KasirProvider({ children }) {
   const deleteCashier = async (id) => { const { deleteCashier: remove } = await import('../services/kasirService'); await remove(id); await refreshData(); };
 
   const value = useMemo(() => ({
-    user, login, logout, initializing, refreshData, activeTab, setActiveTab,
+    user, login, loginGoogle, logout, initializing, refreshData, activeTab, setActiveTab,
     cashiers, addCashier, updateCashier, deleteCashier, menuItems, setMenuItems,
     cart, setCart, addToCart, updateCartQty, removeFromCart, resetCart, getTotalPrice, getTotalItemsCount,
     selectedKuah, setSelectedKuah, selectedLevel, setSelectedLevel, selectedOrderType, setSelectedOrderType,

@@ -143,7 +143,10 @@ export default function DashboardOwnerScreen() {
           total: r.nominal,
           nominal: r.nominal,
           tanggalStr: r.tanggal,
-          supplier: r.catatan || '-',
+          waktu: String(r.waktu || '').slice(0, 5) || '--:--',
+          supplier: r.supplier || '-',
+          fotoItem: r.foto_item || null,
+          fotoStruk: r.foto_struk || null,
         }))
       );
     } catch (e) {

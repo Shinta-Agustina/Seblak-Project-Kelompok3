@@ -12,21 +12,9 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useKasir } from '../../context/KasirContext';
+import { getShifts } from '../../services/shiftService';
 
-// Data dummy pendukung untuk monitoring shift
-const MOCK_SHIFT_MONITORING = [
-  {
-    kasirId: 'KSR001',
-    namaKasir: 'Siti Aisyah',
-    statusShift: 'BUKA',
-    modalAwal: 150000,
-    omsetKotorSementara: 450000,
-    totalTransaksi: 8,
-    estimasiUangFisik: 600000,
-    selisihFisik: 0,
-    waktuMulai: new Date(),
-  },
-];
+const formatTanggalJam = (iso) => (iso ? new Date(iso).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-');
 
 const formatRupiah = (angka) => `Rp ${Number(angka || 0).toLocaleString('id-ID')}`;
 
@@ -44,6 +32,22 @@ export default function KelolaKasirScreen() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+
+  // Monitoring shift dibaca dari tabel shift_kasir (Supabase)
+  const [shifts, setShifts] = useState([]);
+  const [shiftLoading, setShiftLoading] = useState(false);
+  const [shiftError, setShiftError] = useState('');
+  useEffect(() => {
+    if (activeTab !== 'shift') return undefined;
+    let aktif = true;
+    setShiftLoading(true);
+    setShiftError('');
+    getShifts({ limit: 50 })
+      .then((rows) => { if (aktif) setShifts(rows); })
+      .catch((e) => { if (aktif) setShiftError(e.message || 'Gagal memuat shift.'); })
+      .finally(() => { if (aktif) setShiftLoading(false); });
+    return () => { aktif = false; };
+  }, [activeTab]);
 
   // Cek sesi aktif dari localStorage
   const checkActiveSession = () => {
@@ -321,17 +325,41 @@ export default function KelolaKasirScreen() {
           </View>
         )}
 
-        {/* Konten Tab Shift */}
+        {/* Konten Tab Shift (data dari tabel shift_kasir) */}
         {activeTab === 'shift' && (
           <View>
             <Text style={styles.sectionTitle}>Monitoring Shift Laci Kasir</Text>
-            {MOCK_SHIFT_MONITORING.map((item, index) => (
-              <View key={index} style={styles.shiftCard}>
-                <Text style={styles.cashierName}>{item.namaKasir}</Text>
-                <Text style={styles.cashierDetail}>Modal Awal: {formatRupiah(item.modalAwal)}</Text>
-                <Text style={styles.cashierDetail}>Omzet Sementara: {formatRupiah(item.omsetKotorSementara)}</Text>
+            {shiftLoading ? <Text style={styles.cashierDetail}>Memuat data shift...</Text> : null}
+            {shiftError ? <Text style={[styles.cashierDetail, { color: '#D32F2F' }]}>{shiftError}</Text> : null}
+            {!shiftLoading && !shiftError && shifts.length === 0 ? (
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyText}>Belum ada data shift.</Text>
               </View>
-            ))}
+            ) : null}
+            {shifts.map((s) => {
+              const nama = cashiers.find((c) => c.id === s.kasir_id)?.name || 'Kasir';
+              const buka = String(s.status || '').toLowerCase() === 'buka';
+              const selisih = Number(s.selisih || 0);
+              return (
+                <View key={s.id} style={styles.shiftCard}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={styles.cashierName}>{nama}</Text>
+                    <View style={[styles.statusBadge, buka ? styles.badgeActive : styles.badgeOffline]}>
+                      <Text style={[styles.statusText, buka ? styles.textActive : styles.textOffline]}>{buka ? 'Shift Buka' : 'Shift Tutup'}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.cashierDetail}>{formatTanggalJam(s.waktu_mulai)} - {s.waktu_selesai ? formatTanggalJam(s.waktu_selesai) : 'berjalan'}</Text>
+                  <Text style={styles.cashierDetail}>Modal Awal: {formatRupiah(s.modal_awal)}</Text>
+                  <Text style={styles.cashierDetail}>Omzet Sistem: {formatRupiah(s.omzet_sistem)} ({Number(s.total_transaksi || 0)} transaksi)</Text>
+                  {s.uang_akhir_fisik != null ? <Text style={styles.cashierDetail}>Uang Fisik Akhir: {formatRupiah(s.uang_akhir_fisik)}</Text> : null}
+                  {s.uang_akhir_fisik != null ? (
+                    <Text style={[styles.cashierDetail, { fontWeight: '700', color: selisih === 0 ? '#168653' : '#D32F2F' }]}>
+                      Selisih: {selisih === 0 ? 'Sesuai' : formatRupiah(selisih)}
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            })}
           </View>
         )}
       </ScrollView>

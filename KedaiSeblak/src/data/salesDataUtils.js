@@ -193,6 +193,22 @@ export function hitungToppingTerjual(transactions = []) {
     .sort((a, b) => b.jumlah - a.jumlah);
 }
 
+// Tanggal acuan dashboard: hari ini bila sudah ada transaksi lunas hari ini,
+// selain itu tanggal transaksi lunas terakhir (data Oktober tidak tampil kosong di bulan berikutnya).
+export function tanggalAcuan(transaksi = []) {
+  const now = new Date();
+  const hariIni = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let terbaru = null;
+
+  (transaksi || []).forEach((trx) => {
+    if (!isTransaksiLunas(trx)) return;
+    const tgl = parseTanggalKasir(trx?.tanggal || trx?.date);
+    if (tgl && tgl <= hariIni && (!terbaru || tgl > terbaru)) terbaru = tgl;
+  });
+
+  return terbaru || hariIni;
+}
+
 export function formatTanggalLokal(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
     return '-';
