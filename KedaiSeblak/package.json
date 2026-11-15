@@ -13,6 +13,7 @@
     "@supabase/server": "^1.9.2",
     "@supabase/supabase-js": "^2.119.0",
     "expo": "~57.0.26",
+    "expo-auth-session": "~57.0.17",
     "expo-constants": "~57.0.20",
     "expo-device": "~57.0.2",
     "expo-file-system": "~57.0.7",
