@@ -44,14 +44,14 @@ export default function DetailPengeluaranModal({ visible, item, onClose }) {
   if (!item) return null;
 
   const catBadge = getCategoryBadge(item.kategori, item.keterangan);
-  const fotoItemUri = item.fotoItem || getFallbackPhotoForItem(item.keterangan);
-  const fotoStrukUri = item.fotoStruk || DEFAULT_RECEIPT_PHOTO;
+  const fotoItemUri = item.fotoItem || null;
+  const fotoStrukUri = item.fotoStruk || null;
 
   const displayTime = item.waktu
     ? item.waktu.toLowerCase().includes('wib')
       ? item.waktu
       : `${item.waktu} WIB`
-    : '06:54 WIB';
+    : '--:-- WIB';
 
   return (
     <>
@@ -158,7 +158,7 @@ export default function DetailPengeluaranModal({ visible, item, onClose }) {
                         <Text style={styles.infoLabel}>Supplier</Text>
                         <Text style={styles.infoColon}>:</Text>
                         <Text style={styles.infoValue}>
-                          {item.supplier || 'Toko Sembako Jaya'}
+                          {item.supplier || '-'}
                         </Text>
                       </View>
 
@@ -178,19 +178,19 @@ export default function DetailPengeluaranModal({ visible, item, onClose }) {
                         {/* Card 1: Foto Item */}
                         <View style={styles.photoCard}>
                           <View style={styles.photoImageWrapper}>
-                            <Image
-                              source={{ uri: fotoItemUri }}
-                              style={styles.photoImage}
-                              resizeMode="cover"
-                            />
-                            <TouchableOpacity
-                              style={styles.photoOverlayBtn}
-                              activeOpacity={0.8}
-                              onPress={() => setPreviewImage(fotoItemUri)}
-                              accessibilityLabel="Perbesar foto item"
-                            >
-                              <Ionicons name="scan-outline" size={13} color="#FFFFFF" />
-                            </TouchableOpacity>
+                            {fotoItemUri ? (
+                              <>
+                                <Image source={{ uri: fotoItemUri }} style={styles.photoImage} resizeMode="cover" />
+                                <TouchableOpacity style={styles.photoOverlayBtn} activeOpacity={0.8} onPress={() => setPreviewImage(fotoItemUri)} accessibilityLabel="Perbesar foto item">
+                                  <Ionicons name="scan-outline" size={13} color="#FFFFFF" />
+                                </TouchableOpacity>
+                              </>
+                            ) : (
+                              <View style={[styles.photoImage, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5EFEB' }]}>
+                                <Ionicons name="image-outline" size={30} color="#C9BBB3" />
+                                <Text style={{ fontSize: 11, color: '#A69A90', marginTop: 6 }}>Belum ada foto</Text>
+                              </View>
+                            )}
                           </View>
                           <View style={styles.photoCardFooter}>
                             <Text style={styles.photoCardFooterText}>Foto Item</Text>
@@ -200,19 +200,19 @@ export default function DetailPengeluaranModal({ visible, item, onClose }) {
                         {/* Card 2: Foto Struk / Nota */}
                         <View style={styles.photoCard}>
                           <View style={styles.photoImageWrapper}>
-                            <Image
-                              source={{ uri: fotoStrukUri }}
-                              style={styles.photoImage}
-                              resizeMode="cover"
-                            />
-                            <TouchableOpacity
-                              style={styles.photoOverlayBtn}
-                              activeOpacity={0.8}
-                              onPress={() => setPreviewImage(fotoStrukUri)}
-                              accessibilityLabel="Perbesar foto struk"
-                            >
-                              <Ionicons name="scan-outline" size={13} color="#FFFFFF" />
-                            </TouchableOpacity>
+                            {fotoStrukUri ? (
+                              <>
+                                <Image source={{ uri: fotoStrukUri }} style={styles.photoImage} resizeMode="cover" />
+                                <TouchableOpacity style={styles.photoOverlayBtn} activeOpacity={0.8} onPress={() => setPreviewImage(fotoStrukUri)} accessibilityLabel="Perbesar foto struk">
+                                  <Ionicons name="scan-outline" size={13} color="#FFFFFF" />
+                                </TouchableOpacity>
+                              </>
+                            ) : (
+                              <View style={[styles.photoImage, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5EFEB' }]}>
+                                <Ionicons name="receipt-outline" size={30} color="#C9BBB3" />
+                                <Text style={{ fontSize: 11, color: '#A69A90', marginTop: 6 }}>Belum ada foto</Text>
+                              </View>
+                            )}
                           </View>
                           <View style={styles.photoCardFooter}>
                             <Text style={styles.photoCardFooterText}>Foto Struk / Nota</Text>

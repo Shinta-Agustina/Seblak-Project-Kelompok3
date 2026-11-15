@@ -27,6 +27,7 @@ export default function PaymentModal({
 }) {
   const { width } = useWindowDimensions();
   const isLargeScreen = width >= 768;
+
   const { user, checkoutOrder } = useKasir();
 
   const [paymentMethod, setPaymentMethod] = useState('Tunai');
@@ -34,9 +35,12 @@ export default function PaymentModal({
   const [cashInput, setCashInput] = useState('0');
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Mencegah pembayaran tersimpan lebih dari satu kali.
   const processingRef = useRef(false);
 
-  const orderNumber = transactionData?.orderNo || `TRX-${Date.now()}`;
+  const orderNumber =
+    transactionData?.orderNo || `TRX-${Date.now()}`;
+
   const tableNo = transactionData?.tableNo || 'Meja 2';
 
   const orderTime =
@@ -48,12 +52,14 @@ export default function PaymentModal({
     });
 
   const dateStr =
-    transactionData?.date || new Date().toLocaleDateString('id-ID');
+    transactionData?.date ||
+    new Date().toLocaleDateString('id-ID');
 
   const kuah = transactionData?.kuah || 'Original';
   const pedas = transactionData?.pedas ?? 3;
   const catatan = transactionData?.catatan || '';
 
+  // Normalisasi item pesanan.
   const orderItems = Array.isArray(transactionData?.items)
     ? transactionData.items.map((item) => {
       const qty = Number(item.qty ?? item.quantity ?? 1);
@@ -66,6 +72,7 @@ export default function PaymentModal({
         name,
         nama: name,
         qty,
+        quantity: qty,
         price,
         harga: price,
         subtotal: price * qty,
@@ -85,6 +92,7 @@ export default function PaymentModal({
       ? providedTotal
       : calculatedTotal;
 
+  // Reset input ketika modal pembayaran dibuka.
   useEffect(() => {
     if (visible) {
       setCashInput(String(totalPrice));
@@ -99,7 +107,7 @@ export default function PaymentModal({
   const change = Math.max(0, numericCash - totalPrice);
 
   const handleNumpad = (value) => {
-    if (isProcessing) return;
+    if (processingRef.current) return;
 
     if (value === 'DEL') {
       setCashInput((previous) => {
@@ -111,26 +119,33 @@ export default function PaymentModal({
 
     if (value === '00') {
       setCashInput((previous) => {
-        if (previous === '0' || previous === '') return '0';
+        if (previous === '0' || previous === '') {
+          return '0';
+        }
+
         return previous + '00';
       });
       return;
     }
 
     setCashInput((previous) => {
-      if (previous === '0' || previous === '') return value;
+      if (previous === '0' || previous === '') {
+        return value;
+      }
+
       return previous + value;
     });
   };
 
   const handleQuickAmount = (amount) => {
-    if (!isProcessing) {
+    if (!processingRef.current) {
       setCashInput(String(amount));
     }
   };
 
   const handleProcessPayment = async () => {
-    if (processingRef.current || isProcessing) return;
+    // Pengaman agar transaksi tidak tersimpan dua kali.
+    if (processingRef.current) return;
 
     if (orderItems.length === 0) {
       Alert.alert(
@@ -148,7 +163,10 @@ export default function PaymentModal({
       return;
     }
 
-    if (paymentMethod === 'Tunai' && numericCash < totalPrice) {
+    if (
+      paymentMethod === 'Tunai' &&
+      numericCash < totalPrice
+    ) {
       Alert.alert(
         'Uang Kurang',
         `Uang tunai ${formatCurrency(
@@ -166,9 +184,14 @@ export default function PaymentModal({
         : paymentMethod;
 
     const finalCashPaid =
-      paymentMethod === 'Tunai' ? numericCash : totalPrice;
+      paymentMethod === 'Tunai'
+        ? numericCash
+        : totalPrice;
 
-    const finalChange = paymentMethod === 'Tunai' ? change : 0;
+    const finalChange =
+      paymentMethod === 'Tunai'
+        ? change
+        : 0;
 
     const transactionPayload = {
       orderNo: orderNumber,
@@ -188,14 +211,24 @@ export default function PaymentModal({
       status: 'Lunas',
     };
 
+    // Kunci langsung sebelum proses async dimulai.
     processingRef.current = true;
     setIsProcessing(true);
 
     try {
-      if (typeof onSuccessPayment !== 'function') {
-        throw new Error('Callback pembayaran tidak tersedia.');
+      if (typeof checkoutOrder !== 'function') {
+        throw new Error(
+          'Fungsi checkout tidak tersedia. Periksa KasirContext.'
+        );
       }
 
+      if (typeof onSuccessPayment !== 'function') {
+        throw new Error(
+          'Callback pembayaran tidak tersedia.'
+        );
+      }
+
+      // Simpan transaksi melalui KasirContext.
       const savedTransaction = await checkoutOrder(
         finalMethodName,
         finalCashPaid,
@@ -203,23 +236,29 @@ export default function PaymentModal({
       );
 
       if (!savedTransaction) {
-        throw new Error('Data transaksi tidak dikembalikan setelah disimpan.');
+        throw new Error(
+          'Data transaksi tidak dikembalikan setelah disimpan.'
+        );
       }
 
+      // Gunakan data hasil penyimpanan sebagai sumber utama.
       const completedTransaction = {
         ...transactionPayload,
         ...savedTransaction,
 
         items:
           Array.isArray(savedTransaction.items) &&
-          savedTransaction.items.length > 0
+            savedTransaction.items.length > 0
             ? savedTransaction.items
             : transactionPayload.items,
 
-        total: Number(savedTransaction.total ?? transactionPayload.total),
+        total: Number(
+          savedTransaction.total ?? transactionPayload.total
+        ),
 
         orderNo:
           savedTransaction.orderNo ||
+          savedTransaction.order_no ||
           transactionPayload.orderNo,
 
         method:
@@ -228,24 +267,40 @@ export default function PaymentModal({
           transactionPayload.method,
 
         cashPaid: Number(
-          savedTransaction.cashPaid ?? transactionPayload.cashPaid
+          savedTransaction.cashPaid ??
+          savedTransaction.cash_paid ??
+          transactionPayload.cashPaid
         ),
 
         change: Number(
-          savedTransaction.change ?? transactionPayload.change
+          savedTransaction.change ??
+          savedTransaction.kembalian ??
+          transactionPayload.change
         ),
+
+        paymentStatus:
+          savedTransaction.paymentStatus ||
+          savedTransaction.payment_status ||
+          'Lunas',
       };
 
-      // Kirim data transaksi yang sudah berhasil disimpan ke Dashboard.
+      // Kirim transaksi yang sudah tersimpan ke Dashboard/Struk.
       onSuccessPayment(completedTransaction);
     } catch (error) {
-      console.error('Gagal memproses pembayaran:', error);
+      console.error(
+        'Gagal memproses pembayaran:',
+        error
+      );
 
       Alert.alert(
         'Pembayaran Gagal',
+        `${error?.message || 'Transaksi tidak dapat diproses. Silakan periksa kembali dan coba lagi.'}${error?.details
+          ? '\n\nDetail: ' + error.details
+          : ''
+        }`
       );
     } finally {
-      // Kunci pembayaran selalu dilepas, baik berhasil maupun gagal.
+      // Lepaskan kunci setelah proses selesai.
       processingRef.current = false;
       setIsProcessing(false);
     }
@@ -270,7 +325,7 @@ export default function PaymentModal({
       visible={visible}
       animationType="slide"
       transparent={false}
-      onRequestClose={onClose}
+      onRequestClose={isProcessing ? undefined : onClose}
     >
       <SafeAreaView style={styles.safeContainer}>
         <View style={styles.topBar}>
@@ -280,13 +335,22 @@ export default function PaymentModal({
             activeOpacity={0.7}
             disabled={isProcessing}
           >
-            <Ionicons name="arrow-back" size={22} color="#2C1810" />
-            <Text style={styles.pageTitle}>Pembayaran Pesanan</Text>
+            <Ionicons
+              name="arrow-back"
+              size={22}
+              color="#2C1810"
+            />
+            <Text style={styles.pageTitle}>
+              Pembayaran Pesanan
+            </Text>
           </TouchableOpacity>
 
           <View style={styles.profileChip}>
             <View style={styles.avatarCircle}>
-              <Image source={avatarSource} style={styles.avatarImg} />
+              <Image
+                source={avatarSource}
+                style={styles.avatarImg}
+              />
             </View>
 
             <View>
@@ -308,24 +372,33 @@ export default function PaymentModal({
           ]}
           showsVerticalScrollIndicator={false}
         >
+          {/* KOLOM KIRI */}
           <View
             style={[
               styles.leftColumn,
-              isLargeScreen ? { flex: 1, marginRight: 12 } : { width: '100%' },
+              isLargeScreen
+                ? { flex: 1, marginRight: 12 }
+                : { width: '100%' },
             ]}
           >
             <View style={styles.totalHighlightCard}>
               <View style={styles.totalHeaderRow}>
                 <View>
-                  <Text style={styles.totalBadgeLabel}>TOTAL TAGIHAN</Text>
+                  <Text style={styles.totalBadgeLabel}>
+                    TOTAL TAGIHAN
+                  </Text>
                   <Text style={styles.totalAmountBig}>
                     {formatCurrency(totalPrice)}
                   </Text>
                 </View>
 
                 <View style={styles.orderMetaBadge}>
-                  <Text style={styles.orderMetaText}>{orderNumber}</Text>
-                  <Text style={styles.orderMetaTable}>{tableNo}</Text>
+                  <Text style={styles.orderMetaText}>
+                    {orderNumber}
+                  </Text>
+                  <Text style={styles.orderMetaTable}>
+                    {tableNo}
+                  </Text>
                 </View>
               </View>
 
@@ -335,31 +408,58 @@ export default function PaymentModal({
                 </Text>
 
                 {catatan ? (
-                  <Text style={styles.orderNotesText} numberOfLines={1}>
+                  <Text
+                    style={styles.orderNotesText}
+                    numberOfLines={1}
+                  >
                     Catatan: {catatan}
                   </Text>
                 ) : null}
               </View>
             </View>
 
-            <View style={[styles.cardBox, { marginTop: 14 }]}>
-              <Text style={styles.boxTitle}>Rincian Topping Terpilih</Text>
+            {/* RINCIAN TOPPING */}
+            <View
+              style={[
+                styles.cardBox,
+                { marginTop: 14 },
+              ]}
+            >
+              <Text style={styles.boxTitle}>
+                Rincian Topping Terpilih
+              </Text>
 
               <View style={styles.tableHeader}>
                 <Text style={[styles.thText, { flex: 2 }]}>
                   Nama Topping
                 </Text>
-                <Text style={[styles.thText, { width: 50, textAlign: 'center' }]}>
+
+                <Text
+                  style={[
+                    styles.thText,
+                    { width: 50, textAlign: 'center' },
+                  ]}
+                >
                   Qty
                 </Text>
-                <Text style={[styles.thText, { width: 85, textAlign: 'right' }]}>
+
+                <Text
+                  style={[
+                    styles.thText,
+                    { width: 85, textAlign: 'right' },
+                  ]}
+                >
                   Harga
                 </Text>
               </View>
 
               {orderItems.length === 0 ? (
                 <View style={styles.emptyItems}>
-                  <Ionicons name="cart-outline" size={28} color="#A09088" />
+                  <Ionicons
+                    name="cart-outline"
+                    size={28}
+                    color="#A09088"
+                  />
                   <Text style={styles.emptyItemsText}>
                     Belum ada item pesanan.
                   </Text>
@@ -371,17 +471,30 @@ export default function PaymentModal({
                     style={styles.tableRow}
                   >
                     <Text
-                      style={[styles.tdText, styles.itemName]}
+                      style={[
+                        styles.tdText,
+                        styles.itemName,
+                      ]}
                       numberOfLines={2}
                     >
                       {item.name}
                     </Text>
 
-                    <Text style={[styles.tdText, styles.itemQty]}>
+                    <Text
+                      style={[
+                        styles.tdText,
+                        styles.itemQty,
+                      ]}
+                    >
                       {item.qty}
                     </Text>
 
-                    <Text style={[styles.tdText, styles.itemPrice]}>
+                    <Text
+                      style={[
+                        styles.tdText,
+                        styles.itemPrice,
+                      ]}
+                    >
                       {formatCurrency(item.subtotal)}
                     </Text>
                   </View>
@@ -389,9 +502,17 @@ export default function PaymentModal({
               )}
             </View>
 
-            <View style={[styles.cardBox, { marginTop: 14 }]}>
+            {/* METODE PEMBAYARAN */}
+            <View
+              style={[
+                styles.cardBox,
+                { marginTop: 14 },
+              ]}
+            >
               <View style={styles.sectionHeadingRow}>
-                <Text style={styles.boxTitle}>Metode Pembayaran</Text>
+                <Text style={styles.boxTitle}>
+                  Metode Pembayaran
+                </Text>
 
                 <Text style={styles.activeMethodIndicator}>
                   {paymentMethod === 'Tunai'
@@ -406,6 +527,8 @@ export default function PaymentModal({
                 <TouchableOpacity
                   style={[
                     styles.methodButton,
+                    paymentMethod === 'Tunai' &&
+                    styles.methodButtonActive,
                   ]}
                   onPress={() => setPaymentMethod('Tunai')}
                   disabled={isProcessing}
@@ -414,11 +537,18 @@ export default function PaymentModal({
                   <MaterialIcons
                     name="payments"
                     size={24}
-                    color={paymentMethod === 'Tunai' ? '#FFFFFF' : '#8D7B70'}
+                    color={
+                      paymentMethod === 'Tunai'
+                        ? '#FFFFFF'
+                        : '#8D7B70'
+                    }
                   />
+
                   <Text
                     style={[
                       styles.methodButtonText,
+                      paymentMethod === 'Tunai' &&
+                      styles.methodButtonTextActive,
                     ]}
                   >
                     Tunai
@@ -428,6 +558,8 @@ export default function PaymentModal({
                 <TouchableOpacity
                   style={[
                     styles.methodButton,
+                    paymentMethod === 'QRIS' &&
+                    styles.methodButtonActive,
                   ]}
                   onPress={() => setPaymentMethod('QRIS')}
                   disabled={isProcessing}
@@ -436,11 +568,18 @@ export default function PaymentModal({
                   <MaterialCommunityIcons
                     name="qrcode-scan"
                     size={24}
-                    color={paymentMethod === 'QRIS' ? '#FFFFFF' : '#8D7B70'}
+                    color={
+                      paymentMethod === 'QRIS'
+                        ? '#FFFFFF'
+                        : '#8D7B70'
+                    }
                   />
+
                   <Text
                     style={[
                       styles.methodButtonText,
+                      paymentMethod === 'QRIS' &&
+                      styles.methodButtonTextActive,
                     ]}
                   >
                     QRIS
@@ -450,6 +589,8 @@ export default function PaymentModal({
                 <TouchableOpacity
                   style={[
                     styles.methodButton,
+                    paymentMethod === 'E-Wallet' &&
+                    styles.methodButtonActive,
                   ]}
                   onPress={() => setPaymentMethod('E-Wallet')}
                   disabled={isProcessing}
@@ -458,11 +599,18 @@ export default function PaymentModal({
                   <Ionicons
                     name="wallet-outline"
                     size={24}
-                    color={paymentMethod === 'E-Wallet' ? '#FFFFFF' : '#8D7B70'}
+                    color={
+                      paymentMethod === 'E-Wallet'
+                        ? '#FFFFFF'
+                        : '#8D7B70'
+                    }
                   />
+
                   <Text
                     style={[
                       styles.methodButtonText,
+                      paymentMethod === 'E-Wallet' &&
+                      styles.methodButtonTextActive,
                     ]}
                   >
                     E-Wallet
@@ -473,14 +621,18 @@ export default function PaymentModal({
               {paymentMethod === 'Tunai' ? (
                 <View style={styles.cashSummaryBanner}>
                   <Text style={styles.cashBannerHint}>
-                    Masukkan jumlah uang tunai yang diberikan pelanggan
-                    menggunakan numpad di sebelah kanan.
+                    Masukkan jumlah uang tunai yang diberikan
+                    pelanggan menggunakan numpad di sebelah kanan.
                   </Text>
                 </View>
               ) : paymentMethod === 'QRIS' ? (
                 <View style={styles.qrisContainer}>
                   <View style={styles.qrisQrBox}>
-                    <Ionicons name="qr-code" size={100} color="#2C1810" />
+                    <Ionicons
+                      name="qr-code"
+                      size={100}
+                      color="#2C1810"
+                    />
                   </View>
 
                   <Text style={styles.qrisPromptTitle}>
@@ -499,24 +651,34 @@ export default function PaymentModal({
                   </Text>
 
                   <View style={styles.ewalletPillsRow}>
-                    {['GoPay', 'OVO', 'DANA', 'ShopeePay'].map((wallet) => {
-                      const selected = selectedEwallet === wallet;
+                    {[
+                      'GoPay',
+                      'OVO',
+                      'DANA',
+                      'ShopeePay',
+                    ].map((wallet) => {
+                      const selected =
+                        selectedEwallet === wallet;
 
                       return (
                         <TouchableOpacity
                           key={wallet}
                           style={[
                             styles.ewalletPill,
-                            selected && styles.ewalletPillActive,
+                            selected &&
+                            styles.ewalletPillActive,
                           ]}
-                          onPress={() => setSelectedEwallet(wallet)}
+                          onPress={() =>
+                            setSelectedEwallet(wallet)
+                          }
                           disabled={isProcessing}
                           activeOpacity={0.7}
                         >
                           <Text
                             style={[
                               styles.ewalletPillText,
-                              selected && styles.ewalletPillTextActive,
+                              selected &&
+                              styles.ewalletPillTextActive,
                             ]}
                           >
                             {wallet}
@@ -527,14 +689,15 @@ export default function PaymentModal({
                   </View>
 
                   <Text style={styles.qrisPromptSub}>
-                    E-Wallet masih berupa simulasi, belum terhubung ke
-                    penyedia pembayaran.
+                    E-Wallet masih berupa simulasi, belum terhubung
+                    ke penyedia pembayaran.
                   </Text>
                 </View>
               )}
             </View>
           </View>
 
+          {/* KOLOM KANAN */}
           <View
             style={[
               styles.rightColumn,
@@ -553,7 +716,9 @@ export default function PaymentModal({
 
                 <Text style={styles.amountDisplayText}>
                   {formatCurrency(
-                    paymentMethod === 'Tunai' ? numericCash : totalPrice
+                    paymentMethod === 'Tunai'
+                      ? numericCash
+                      : totalPrice
                   )}
                 </Text>
               </View>
@@ -576,12 +741,16 @@ export default function PaymentModal({
                   <Text
                     style={[
                       styles.changeBoxValue,
-                      numericCash < totalPrice && { color: '#C62828' },
+                      numericCash < totalPrice && {
+                        color: '#C62828',
+                      },
                     ]}
                   >
                     {numericCash >= totalPrice
                       ? formatCurrency(change)
-                      : formatCurrency(totalPrice - numericCash)}
+                      : formatCurrency(
+                        totalPrice - numericCash
+                      )}
                   </Text>
                 </View>
               ) : (
@@ -591,9 +760,10 @@ export default function PaymentModal({
                     size={17}
                     color="#8A6200"
                   />
+
                   <Text style={styles.changeBoxDigitalText}>
-                    Mode simulasi. Pastikan alur pembayaran demo sudah
-                    sesuai sebelum transaksi dikonfirmasi.
+                    Mode simulasi. Pastikan alur pembayaran demo
+                    sudah sesuai sebelum transaksi dikonfirmasi.
                   </Text>
                 </View>
               )}
@@ -603,34 +773,50 @@ export default function PaymentModal({
                   <View style={styles.quickCashRow}>
                     <TouchableOpacity
                       style={styles.quickCashPill}
-                      onPress={() => handleQuickAmount(totalPrice)}
+                      onPress={() =>
+                        handleQuickAmount(totalPrice)
+                      }
                       disabled={isProcessing}
                     >
-                      <Text style={styles.quickCashText}>Uang Pas</Text>
+                      <Text style={styles.quickCashText}>
+                        Uang Pas
+                      </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={styles.quickCashPill}
-                      onPress={() => handleQuickAmount(20000)}
+                      onPress={() =>
+                        handleQuickAmount(20000)
+                      }
                       disabled={isProcessing}
                     >
-                      <Text style={styles.quickCashText}>20k</Text>
+                      <Text style={styles.quickCashText}>
+                        20k
+                      </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={styles.quickCashPill}
-                      onPress={() => handleQuickAmount(50000)}
+                      onPress={() =>
+                        handleQuickAmount(50000)
+                      }
                       disabled={isProcessing}
                     >
-                      <Text style={styles.quickCashText}>50k</Text>
+                      <Text style={styles.quickCashText}>
+                        50k
+                      </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={styles.quickCashPill}
-                      onPress={() => handleQuickAmount(100000)}
+                      onPress={() =>
+                        handleQuickAmount(100000)
+                      }
                       disabled={isProcessing}
                     >
-                      <Text style={styles.quickCashText}>100k</Text>
+                      <Text style={styles.quickCashText}>
+                        100k
+                      </Text>
                     </TouchableOpacity>
                   </View>
 
@@ -650,7 +836,9 @@ export default function PaymentModal({
                             color="#C62828"
                           />
                         ) : (
-                          <Text style={styles.numKeyText}>{key}</Text>
+                          <Text style={styles.numKeyText}>
+                            {key}
+                          </Text>
                         )}
                       </TouchableOpacity>
                     ))}
@@ -663,15 +851,23 @@ export default function PaymentModal({
                   </Text>
 
                   <Text style={styles.digitalInstructionDesc}>
-                    Mode demo: tombol di bawah menyelesaikan simulasi
-                    pembayaran dan menampilkan struk. Pembayaran digital
-                    belum diverifikasi oleh penyedia pembayaran.
+                    Mode demo: tombol di bawah menyelesaikan
+                    simulasi pembayaran dan menampilkan struk.
+                    Pembayaran digital belum diverifikasi oleh
+                    penyedia pembayaran.
                   </Text>
                 </View>
               )}
 
               <TouchableOpacity
-                style={styles.payButton}
+                style={[
+                  styles.payButton,
+                  (
+                    isProcessing ||
+                    orderItems.length === 0 ||
+                    totalPrice <= 0
+                  ) && styles.payButtonDisabled,
+                ]}
                 onPress={handleProcessPayment}
                 disabled={
                   isProcessing ||
@@ -685,10 +881,13 @@ export default function PaymentModal({
                   size={22}
                   color="#FFFFFF"
                 />
+
                 <Text style={styles.payButtonText}>
                   {isProcessing
                     ? 'Memproses...'
-                    : `Konfirmasi Bayar ${formatCurrency(totalPrice)}`}
+                    : `Konfirmasi Bayar ${formatCurrency(
+                      totalPrice
+                    )}`}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -700,7 +899,11 @@ export default function PaymentModal({
 }
 
 const styles = StyleSheet.create({
-  safeContainer: { flex: 1, backgroundColor: '#F8F5F2' },
+  safeContainer: {
+    flex: 1,
+    backgroundColor: '#F8F5F2',
+  },
+
   topBar: {
     minHeight: 60,
     backgroundColor: '#FFFFFF',
@@ -712,202 +915,577 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 10,
   },
-  backButton: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
-  pageTitle: { fontSize: 17, fontWeight: '800', color: '#2C1810' },
-  profileChip: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexShrink: 1,
+  },
+
+  pageTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#2C1810',
+  },
+
+  profileChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
   avatarCircle: {
-    width: 32, height: 32, borderRadius: 16, overflow: 'hidden',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    overflow: 'hidden',
     backgroundColor: '#FFE0B2',
   },
-  avatarImg: { width: '100%', height: '100%' },
-  profileName: { fontSize: 12, fontWeight: '700', color: '#2C1810' },
-  profileRole: { fontSize: 10, color: '#8D7B70' },
-  mainScrollView: { flex: 1 },
-  scrollInner: { padding: 16, paddingBottom: 40, flexGrow: 1 },
+
+  avatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+
+  profileName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2C1810',
+  },
+
+  profileRole: {
+    fontSize: 10,
+    color: '#8D7B70',
+  },
+
+  mainScrollView: {
+    flex: 1,
+  },
+
+  scrollInner: {
+    padding: 16,
+    paddingBottom: 40,
+    flexGrow: 1,
+  },
+
   rowContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
-  leftColumn: { width: '100%' },
-  rightColumn: { width: '100%' },
+
+  leftColumn: {
+    width: '100%',
+  },
+
+  rightColumn: {
+    width: '100%',
+  },
+
   totalHighlightCard: {
-    backgroundColor: '#52141D', borderRadius: 14, padding: 16,
-    elevation: 3, shadowColor: '#52141D',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25, shadowRadius: 6,
+    backgroundColor: '#52141D',
+    borderRadius: 14,
+    padding: 16,
+    elevation: 3,
+    shadowColor: '#52141D',
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
   },
+
   totalHeaderRow: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', gap: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
   },
+
   totalBadgeLabel: {
-    color: '#FFD9D9', fontSize: 11, fontWeight: '800', letterSpacing: 0.5,
+    color: '#FFD9D9',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
+
   totalAmountBig: {
-    color: '#FFFFFF', fontSize: 26, fontWeight: '900',
-    marginTop: 2, letterSpacing: 0.3,
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: '900',
+    marginTop: 2,
+    letterSpacing: 0.3,
   },
+
   orderMetaBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 10, paddingVertical: 6, paddingHorizontal: 12,
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     alignItems: 'flex-end',
   },
-  orderMetaText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
-  orderMetaTable: {
-    color: '#F4C2C6', fontSize: 11, fontWeight: '600', marginTop: 1,
+
+  orderMetaText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
+
+  orderMetaTable: {
+    color: '#F4C2C6',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+
   orderDetailSubRow: {
-    marginTop: 12, paddingTop: 10, borderTopWidth: 1,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.12)',
   },
-  orderDetailSubText: { color: '#F4D4D8', fontSize: 11, fontWeight: '500' },
+
+  orderDetailSubText: {
+    color: '#F4D4D8',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+
   orderNotesText: {
-    color: '#FFE0B2', fontSize: 11, fontWeight: '600', marginTop: 2,
+    color: '#FFE0B2',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
   },
+
   cardBox: {
-    backgroundColor: '#FFFFFF', borderRadius: 14, padding: 16,
-    borderWidth: 1, borderColor: '#EDE5DF', elevation: 2,
-    shadowColor: '#4A2A22', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 5,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#EDE5DF',
+    elevation: 2,
+    shadowColor: '#4A2A22',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
   },
+
   sectionHeadingRow: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    flexWrap: 'wrap',
+    gap: 6,
   },
-  boxTitle: { fontSize: 14, fontWeight: '800', color: '#2C1810' },
+
+  boxTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#2C1810',
+  },
+
   activeMethodIndicator: {
-    fontSize: 11, fontWeight: '700', color: '#C62828',
-    backgroundColor: '#FDECEC', paddingHorizontal: 8,
-    paddingVertical: 3, borderRadius: 6,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#C62828',
+    backgroundColor: '#FDECEC',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
+
   tableHeader: {
-    flexDirection: 'row', alignItems: 'center', marginTop: 8,
-    paddingVertical: 7, borderBottomWidth: 1,
-    borderBottomColor: '#EFE7E2', backgroundColor: '#FCFAF8',
-    paddingHorizontal: 8, borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingVertical: 7,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EFE7E2',
+    backgroundColor: '#FCFAF8',
+    paddingHorizontal: 8,
+    borderRadius: 6,
   },
-  thText: { fontSize: 11, fontWeight: '700', color: '#8D7B70' },
+
+  thText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#8D7B70',
+  },
+
   tableRow: {
-    flexDirection: 'row', alignItems: 'center', paddingVertical: 8,
-    paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#F5ECE6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5ECE6',
   },
-  tdText: { fontSize: 12, color: '#3D2820' },
-  itemName: { flex: 2, fontWeight: '700', paddingRight: 6 },
-  itemQty: { width: 50, textAlign: 'center', color: '#6F5C53' },
-  itemPrice: { width: 85, textAlign: 'right', fontWeight: '800', color: '#2C1810' },
-  emptyItems: { alignItems: 'center', paddingVertical: 20, gap: 6 },
-  emptyItemsText: { color: '#8D7B70', fontSize: 12 },
-  methodsRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+
+  tdText: {
+    fontSize: 12,
+    color: '#3D2820',
+  },
+
+  itemName: {
+    flex: 2,
+    fontWeight: '700',
+    paddingRight: 6,
+  },
+
+  itemQty: {
+    width: 50,
+    textAlign: 'center',
+    color: '#6F5C53',
+  },
+
+  itemPrice: {
+    width: 85,
+    textAlign: 'right',
+    fontWeight: '800',
+    color: '#2C1810',
+  },
+
+  emptyItems: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    gap: 6,
+  },
+
+  emptyItemsText: {
+    color: '#8D7B70',
+    fontSize: 12,
+  },
+
+  methodsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+
   methodButton: {
-    flex: 1, paddingVertical: 12, borderRadius: 10,
-    backgroundColor: '#FAF5F1', borderWidth: 1, borderColor: '#EDE5DF',
-    alignItems: 'center', justifyContent: 'center', gap: 4,
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#FAF5F1',
+    borderWidth: 1,
+    borderColor: '#EDE5DF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
+
   methodButtonActive: {
-    backgroundColor: '#C62828', borderColor: '#C62828',
-    elevation: 2, shadowColor: '#C62828',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3, shadowRadius: 4,
+    backgroundColor: '#C62828',
+    borderColor: '#C62828',
+    elevation: 2,
+    shadowColor: '#C62828',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
+
   methodButtonText: {
-    fontSize: 11, fontWeight: '700', color: '#7E6E67', textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#7E6E67',
+    textAlign: 'center',
   },
-  methodButtonTextActive: { color: '#FFFFFF' },
+
+  methodButtonTextActive: {
+    color: '#FFFFFF',
+  },
+
   cashSummaryBanner: {
-    backgroundColor: '#FAF5F1', borderRadius: 8, padding: 10,
-    borderWidth: 1, borderColor: '#EFE7E2',
+    backgroundColor: '#FAF5F1',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#EFE7E2',
   },
-  cashBannerHint: { fontSize: 11, color: '#6F5C53', lineHeight: 16 },
+
+  cashBannerHint: {
+    fontSize: 11,
+    color: '#6F5C53',
+    lineHeight: 16,
+  },
+
   qrisContainer: {
-    alignItems: 'center', paddingVertical: 12, backgroundColor: '#FAF5F1',
-    borderRadius: 10, borderWidth: 1, borderColor: '#EFE7E2',
+    alignItems: 'center',
+    paddingVertical: 12,
+    backgroundColor: '#FAF5F1',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#EFE7E2',
   },
+
   qrisQrBox: {
-    padding: 8, backgroundColor: '#FFFFFF', borderRadius: 10,
-    marginBottom: 6, borderWidth: 1, borderColor: '#EDE5DF',
+    padding: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: '#EDE5DF',
   },
-  qrisPromptTitle: { fontSize: 13, fontWeight: '800', color: '#2C1810' },
+
+  qrisPromptTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#2C1810',
+  },
+
   qrisPromptSub: {
-    fontSize: 11, color: '#8D7B70', marginTop: 5,
-    textAlign: 'center', lineHeight: 16,
+    fontSize: 11,
+    color: '#8D7B70',
+    marginTop: 5,
+    textAlign: 'center',
+    lineHeight: 16,
   },
+
   ewalletContainer: {
-    paddingVertical: 12, backgroundColor: '#FAF5F1', borderRadius: 10,
-    borderWidth: 1, borderColor: '#EFE7E2', paddingHorizontal: 10, gap: 8,
+    paddingVertical: 12,
+    backgroundColor: '#FAF5F1',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#EFE7E2',
+    paddingHorizontal: 10,
+    gap: 8,
   },
+
   ewalletHeading: {
-    fontSize: 11, fontWeight: '700', color: '#4A3028', marginBottom: 8,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4A3028',
+    marginBottom: 8,
   },
-  ewalletPillsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+
+  ewalletPillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+
   ewalletPill: {
-    paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8,
-    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EDE5DF',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EDE5DF',
   },
-  ewalletPillActive: { backgroundColor: '#C62828', borderColor: '#C62828' },
-  ewalletPillText: { fontSize: 11, fontWeight: '700', color: '#6F5C53' },
-  ewalletPillTextActive: { color: '#FFFFFF' },
+
+  ewalletPillActive: {
+    backgroundColor: '#C62828',
+    borderColor: '#C62828',
+  },
+
+  ewalletPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6F5C53',
+  },
+
+  ewalletPillTextActive: {
+    color: '#FFFFFF',
+  },
+
   keypadCard: {
-    backgroundColor: '#FFFFFF', borderRadius: 14, padding: 16,
-    borderWidth: 1, borderColor: '#EDE5DF', elevation: 2,
-    shadowColor: '#4A2A22', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 5,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#EDE5DF',
+    elevation: 2,
+    shadowColor: '#4A2A22',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
   },
+
   amountDisplayBox: {
-    backgroundColor: '#FAF5F1', borderRadius: 10, padding: 12,
-    borderWidth: 1, borderColor: '#EFE7E2', marginBottom: 8,
+    backgroundColor: '#FAF5F1',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#EFE7E2',
+    marginBottom: 8,
   },
+
   amountDisplayLabel: {
-    fontSize: 11, color: '#8D7B70', fontWeight: '600', marginBottom: 2,
+    fontSize: 11,
+    color: '#8D7B70',
+    fontWeight: '600',
+    marginBottom: 2,
   },
-  amountDisplayText: { fontSize: 20, fontWeight: '900', color: '#2C1810' },
+
+  amountDisplayText: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#2C1810',
+  },
+
   changeBox: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12,
-    borderRadius: 8, borderWidth: 1, marginBottom: 10, gap: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 10,
+    gap: 8,
   },
-  changeBoxSuccess: { backgroundColor: '#E8F5E9', borderColor: '#C8E6C9' },
-  changeBoxShort: { backgroundColor: '#FFEBEE', borderColor: '#FFCDD2' },
-  changeBoxLabel: { fontSize: 12, color: '#4A3028', fontWeight: '700' },
-  changeBoxValue: { fontSize: 15, fontWeight: '900', color: '#2E7D32' },
+
+  changeBoxSuccess: {
+    backgroundColor: '#E8F5E9',
+    borderColor: '#C8E6C9',
+  },
+
+  changeBoxShort: {
+    backgroundColor: '#FFEBEE',
+    borderColor: '#FFCDD2',
+  },
+
+  changeBoxLabel: {
+    fontSize: 12,
+    color: '#4A3028',
+    fontWeight: '700',
+  },
+
+  changeBoxValue: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#2E7D32',
+  },
+
   changeBoxDigital: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#FFF8E1', paddingVertical: 8, paddingHorizontal: 12,
-    borderRadius: 8, borderWidth: 1, borderColor: '#FFE082', marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF8E1',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FFE082',
+    marginBottom: 12,
   },
+
   changeBoxDigitalText: {
-    flex: 1, fontSize: 11, fontWeight: '700', color: '#8A6200', lineHeight: 16,
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#8A6200',
+    lineHeight: 16,
   },
-  quickCashRow: { flexDirection: 'row', gap: 6, marginBottom: 10 },
+
+  quickCashRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 10,
+  },
+
   quickCashPill: {
-    flex: 1, backgroundColor: '#FAF5F1', paddingVertical: 8,
-    borderRadius: 8, borderWidth: 1, borderColor: '#EDE5DF', alignItems: 'center',
+    flex: 1,
+    backgroundColor: '#FAF5F1',
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#EDE5DF',
+    alignItems: 'center',
   },
-  quickCashText: { fontSize: 11, fontWeight: '700', color: '#52141D' },
-  numpadGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+
+  quickCashText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#52141D',
+  },
+
+  numpadGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+
   numKey: {
-    width: '31.3%', backgroundColor: '#FAF5F1', paddingVertical: 12,
-    borderRadius: 8, borderWidth: 1, borderColor: '#EDE5DF',
-    alignItems: 'center', justifyContent: 'center',
+    width: '31.3%',
+    backgroundColor: '#FAF5F1',
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#EDE5DF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  numKeyText: { fontSize: 16, fontWeight: '800', color: '#2C1810' },
+
+  numKeyText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#2C1810',
+  },
+
   digitalInstructionBox: {
-    backgroundColor: '#FFF8E1', padding: 12, borderRadius: 8,
-    borderWidth: 1, borderColor: '#FFE082', marginBottom: 12,
+    backgroundColor: '#FFF8E1',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FFE082',
+    marginBottom: 12,
   },
+
   digitalInstructionTitle: {
-    fontSize: 12, fontWeight: '800', color: '#8A6200', marginBottom: 4,
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#8A6200',
+    marginBottom: 4,
   },
-  digitalInstructionDesc: { fontSize: 11, color: '#8A6200', lineHeight: 15 },
+
+  digitalInstructionDesc: {
+    fontSize: 11,
+    color: '#8A6200',
+    lineHeight: 15,
+  },
+
   payButton: {
-    backgroundColor: '#C62828', borderRadius: 10, paddingVertical: 14,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, elevation: 3, shadowColor: '#C62828',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3, shadowRadius: 5,
+    backgroundColor: '#C62828',
+    borderRadius: 10,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    elevation: 3,
+    shadowColor: '#C62828',
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
   },
+
   payButtonDisabled: {
-    backgroundColor: '#D7CCC8', shadowOpacity: 0, elevation: 0,
+    backgroundColor: '#D7CCC8',
+    shadowOpacity: 0,
+    elevation: 0,
   },
-  payButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
+
+  payButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+  },
 });

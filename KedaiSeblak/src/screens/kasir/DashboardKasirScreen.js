@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
   FlatList,
+  Platform,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -22,6 +22,11 @@ import {
 import { useKasir } from '../../context/KasirContext';
 import { getMenus } from '../../services/menuService';
 
+import {
+  SPICE_LEVELS,
+  BROTH_OPTIONS,
+} from '../../data/mockData';
+
 import formatCurrency from '../../utils/formatCurrency';
 import Sidebar from '../../components/Sidebar';
 import TopHeader from '../../components/TopHeader';
@@ -32,23 +37,6 @@ import ReceiptModal from '../../components/ReceiptModal';
 import PesananAktifScreen from './PesananAktifScreen';
 import RiwayatTransaksiScreen from './RiwayatTransaksiScreen';
 import LaporanScreen from './LaporanPenjualanScreen';
-
-const SPICE_LEVELS = [
-  { level: 0, label: 'Tidak Pedas', chilis: 0 },
-  { level: 1, label: 'Sedikit Pedas', chilis: 1 },
-  { level: 2, label: 'Pedas', chilis: 2 },
-  { level: 3, label: 'Pedas Banget', chilis: 3 },
-  { level: 4, label: 'Extra Pedas', chilis: 4 },
-  { level: 5, label: 'Super Pedas', chilis: 5 },
-];
-
-const BROTH_OPTIONS = [
-  'Original',
-  'Tom Yam',
-  'Mentai',
-  'Suki',
-  'Kari',
-];
 
 export default function DashboardKasirScreen({ navigation }) {
   const { width } = useWindowDimensions();
@@ -141,7 +129,7 @@ export default function DashboardKasirScreen({ navigation }) {
   }, [isMobile]);
 
   // ==========================================
-  // KATEGORI TOPPING
+  // KATEGORI TOPPING DARI DATABASE
   // ==========================================
 
   const toppingCategories = [
@@ -170,22 +158,18 @@ export default function DashboardKasirScreen({ navigation }) {
             includeInactive: false,
           });
 
-          if (mounted) {
-            setSupabaseToppings(
-              Array.isArray(rows) ? rows : []
-            );
-          }
-        } catch (error) {
-          console.error(
-            'Gagal memuat menu dari Supabase:',
-            error
+          console.log(
+            'HASIL MENU DARI SUPABASE:',
+            JSON.stringify(rows, null, 2)
           );
 
           if (mounted) {
-            setSupabaseToppings([]);
+            setSupabaseToppings(Array.isArray(rows) ? rows : []);
+          }
+        } catch (error) {
+          if (mounted) {
             setMenuLoadError(
-              error?.message ||
-              'Gagal memuat menu dari database.'
+              error.message || 'Gagal memuat menu.'
             );
           }
         } finally {
@@ -203,6 +187,10 @@ export default function DashboardKasirScreen({ navigation }) {
     }, [menuReloadKey])
   );
 
+  // ==========================================
+  // MEMASTIKAN KATEGORI MASIH TERSEDIA
+  // ==========================================
+
   useEffect(() => {
     if (
       activeCategory !== 'Semua' &&
@@ -216,6 +204,10 @@ export default function DashboardKasirScreen({ navigation }) {
     supabaseToppings,
   ]);
 
+  // ==========================================
+  // FILTER TOPPING
+  // ==========================================
+
   const filteredToppings = supabaseToppings
     .filter((item) => {
       if (activeCategory === 'Semua') {
@@ -226,8 +218,8 @@ export default function DashboardKasirScreen({ navigation }) {
     })
     .map((item) => ({
       ...item,
-      berat: 'pcs',
-      satuan: 'pcs',
+      berat: item.berat || 'pcs',
+      satuan: item.satuan || 'pcs',
     }));
 
   const total = Number(getTotalPrice()) || 0;
@@ -247,10 +239,7 @@ export default function DashboardKasirScreen({ navigation }) {
     }
 
     const items = safeCart.map((item) => {
-      const price = Number(
-        item.harga ?? item.price ?? 0
-      );
-
+      const price = Number(item.harga ?? item.price ?? 0);
       const qty = Number(item.qty ?? 1);
       const name = item.nama || item.name || 'Item';
 
@@ -261,8 +250,8 @@ export default function DashboardKasirScreen({ navigation }) {
         qty,
         price,
         harga: price,
-        berat: 'pcs',
-        satuan: 'pcs',
+        berat: item.berat || item.satuan || 'pcs',
+        satuan: item.satuan || item.berat || 'pcs',
         subtotal: price * qty,
       };
     });
@@ -432,7 +421,7 @@ export default function DashboardKasirScreen({ navigation }) {
   };
 
   // ==========================================
-  // MENUTUP MODAL
+  // MENUTUP MODAL PEMBAYARAN
   // ==========================================
 
   const handleClosePayment = () => {
@@ -440,6 +429,10 @@ export default function DashboardKasirScreen({ navigation }) {
     setCurrentOrderPayload(null);
     setPendingReceipt(null);
   };
+
+  // ==========================================
+  // MENUTUP MODAL STRUK
+  // ==========================================
 
   const handleCloseReceipt = () => {
     setReceiptVisible(false);
@@ -585,11 +578,9 @@ export default function DashboardKasirScreen({ navigation }) {
               color="#C62828"
               style={styles.emptyCartIcon}
             />
-
             <Text style={styles.emptyCartTitle}>
               Belum ada topping dipilih
             </Text>
-
             <Text style={styles.emptyCartSub}>
               Pilih topping dari katalog menu terlebih dahulu.
             </Text>
@@ -615,7 +606,7 @@ export default function DashboardKasirScreen({ navigation }) {
                 </Text>
 
                 <Text style={styles.itemWeightText}>
-                  pcs
+                  {item.berat || item.satuan || 'pcs'}
                 </Text>
               </View>
 
@@ -721,7 +712,7 @@ export default function DashboardKasirScreen({ navigation }) {
         style={[
           styles.checkoutButton,
           safeCart.length === 0 &&
-            styles.checkoutButtonDisabled,
+          styles.checkoutButtonDisabled,
         ]}
         onPress={handleOpenPayment}
         activeOpacity={0.85}
@@ -750,7 +741,15 @@ export default function DashboardKasirScreen({ navigation }) {
   // ==========================================
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        Platform.OS === 'web' && {
+          height: '100dvh',
+          maxHeight: '100dvh',
+        },
+      ]}
+    >
       {!isMobile && sidebarOpen && (
         <Sidebar isMobile={false} />
       )}
@@ -800,13 +799,19 @@ export default function DashboardKasirScreen({ navigation }) {
               style={[
                 styles.posInner,
                 !isMobile &&
-                  !isTablet &&
-                  styles.posRowLayout,
+                !isTablet &&
+                styles.posRowLayout,
               ]}
             >
               <ScrollView
                 style={styles.catalogColumn}
-                contentContainerStyle={styles.catalogScrollContent}
+                contentContainerStyle={[
+                  styles.catalogScrollContent,
+                  isMobile && {
+                    paddingHorizontal: 14,
+                    paddingBottom: 120,
+                  },
+                ]}
                 showsVerticalScrollIndicator={false}
               >
                 <View style={styles.sectionHeaderRow}>
@@ -825,8 +830,7 @@ export default function DashboardKasirScreen({ navigation }) {
                   contentContainerStyle={styles.categoryScroll}
                 >
                   {toppingCategories.map((category) => {
-                    const isActive =
-                      activeCategory === category;
+                    const isActive = activeCategory === category;
 
                     return (
                       <TouchableOpacity
@@ -842,7 +846,7 @@ export default function DashboardKasirScreen({ navigation }) {
                           style={[
                             styles.catPillText,
                             isActive &&
-                              styles.catPillTextActive,
+                            styles.catPillTextActive,
                           ]}
                         >
                           {category}
@@ -867,9 +871,7 @@ export default function DashboardKasirScreen({ navigation }) {
                     <TouchableOpacity
                       style={styles.menuRetryButton}
                       onPress={() => {
-                        setMenuReloadKey(
-                          (value) => value + 1
-                        );
+                        setMenuReloadKey((value) => value + 1);
                       }}
                       activeOpacity={0.8}
                     >
@@ -897,7 +899,10 @@ export default function DashboardKasirScreen({ navigation }) {
                       return (
                         <View
                           key={item.id}
-                          style={styles.toppingCardWrapper}
+                          style={[
+                            styles.toppingCardWrapper,
+                            isMobile && { width: '48.5%' },
+                          ]}
                         >
                           <ToppingCard
                             item={item}
@@ -935,7 +940,7 @@ export default function DashboardKasirScreen({ navigation }) {
                           style={[
                             styles.levelCard,
                             isSelected &&
-                              styles.levelCardActive,
+                            styles.levelCardActive,
                           ]}
                           onPress={() =>
                             setSelectedLevel(spice.level)
@@ -946,7 +951,7 @@ export default function DashboardKasirScreen({ navigation }) {
                             style={[
                               styles.levelNumber,
                               isSelected &&
-                                styles.levelNumberActive,
+                              styles.levelNumberActive,
                             ]}
                           >
                             {spice.level}
@@ -977,7 +982,7 @@ export default function DashboardKasirScreen({ navigation }) {
                             style={[
                               styles.levelLabel,
                               isSelected &&
-                                styles.levelLabelActive,
+                              styles.levelLabelActive,
                             ]}
                           >
                             {spice.label}
@@ -995,8 +1000,7 @@ export default function DashboardKasirScreen({ navigation }) {
 
                   <View style={styles.brothPillsRow}>
                     {BROTH_OPTIONS.map((broth) => {
-                      const isSelected =
-                        selectedKuah === broth;
+                      const isSelected = selectedKuah === broth;
 
                       return (
                         <TouchableOpacity
@@ -1004,18 +1008,16 @@ export default function DashboardKasirScreen({ navigation }) {
                           style={[
                             styles.brothPill,
                             isSelected &&
-                              styles.brothPillActive,
+                            styles.brothPillActive,
                           ]}
-                          onPress={() =>
-                            setSelectedKuah(broth)
-                          }
+                          onPress={() => setSelectedKuah(broth)}
                           activeOpacity={0.7}
                         >
                           <Text
                             style={[
                               styles.brothPillText,
                               isSelected &&
-                                styles.brothPillTextActive,
+                              styles.brothPillTextActive,
                             ]}
                           >
                             {broth}
@@ -1032,7 +1034,7 @@ export default function DashboardKasirScreen({ navigation }) {
                   style={[
                     styles.orderColumnContainer,
                     isTablet &&
-                      styles.orderColumnTablet,
+                    styles.orderColumnTablet,
                   ]}
                 >
                   {renderOrderPanel()}
@@ -1056,7 +1058,7 @@ export default function DashboardKasirScreen({ navigation }) {
                   style={[
                     styles.mobileViewCartBtn,
                     safeCart.length === 0 &&
-                      styles.mobileViewCartBtnDisabled,
+                    styles.mobileViewCartBtnDisabled,
                   ]}
                   onPress={() => {
                     if (safeCart.length > 0) {
@@ -1128,7 +1130,6 @@ export default function DashboardKasirScreen({ navigation }) {
         )}
       </View>
 
-      {/* MODAL PEMBAYARAN */}
       <PaymentModal
         visible={paymentVisible}
         onClose={handleClosePayment}
@@ -1136,7 +1137,6 @@ export default function DashboardKasirScreen({ navigation }) {
         onSuccessPayment={handleCheckoutSuccess}
       />
 
-      {/* MODAL STRUK */}
       <ReceiptModal
         visible={receiptVisible}
         transactionData={lastTransaction}
@@ -1154,44 +1154,35 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F5F2',
     position: 'relative',
   },
-
   mobileBackdrop: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 999,
     flexDirection: 'row',
   },
-
   backdropTouch: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
-
   mainWrapper: {
     flex: 1,
     flexDirection: 'column',
   },
-
   posContainer: {
     flex: 1,
   },
-
   posInner: {
     flex: 1,
   },
-
   posRowLayout: {
     flexDirection: 'row',
   },
-
   catalogColumn: {
     flex: 1,
   },
-
   catalogScrollContent: {
     padding: 16,
     paddingBottom: 50,
   },
-
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -1199,25 +1190,21 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     flexWrap: 'wrap',
   },
-
   sectionTitle: {
     fontSize: 16,
     fontWeight: '800',
     color: '#2C1810',
     letterSpacing: 0.2,
   },
-
   sectionSubHint: {
     fontSize: 11,
     color: '#8D7B70',
     fontWeight: '500',
   },
-
   categoryScroll: {
     gap: 8,
     paddingBottom: 12,
   },
-
   catPill: {
     paddingVertical: 7,
     paddingHorizontal: 16,
@@ -1226,72 +1213,60 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8DCD4',
   },
-
   catPillActive: {
     backgroundColor: '#C62828',
     borderColor: '#C62828',
   },
-
   catPillText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#7E6E67',
   },
-
   catPillTextActive: {
     color: '#FFFFFF',
   },
-
   toppingsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginBottom: 16,
   },
-
   toppingCardWrapper: {
     width: '31.8%',
     marginBottom: 10,
   },
-
   menuMessageBox: {
-    minHeight: 90,
+    padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    marginBottom: 16,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#EFE7E2',
+    marginBottom: 16,
   },
-
   menuMessageText: {
-    color: '#8D7B70',
     fontSize: 12,
+    color: '#8D7B70',
     textAlign: 'center',
   },
-
   menuErrorText: {
-    color: '#C62828',
     fontSize: 12,
+    color: '#C62828',
     textAlign: 'center',
     marginBottom: 10,
   },
-
   menuRetryButton: {
-    backgroundColor: '#C62828',
-    paddingHorizontal: 16,
     paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: 8,
+    backgroundColor: '#C62828',
   },
-
   menuRetryButtonText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
-
   customSectionBox: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
@@ -1305,19 +1280,16 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     marginBottom: 14,
   },
-
   customSectionTitle: {
     fontSize: 13,
     fontWeight: '800',
     color: '#2C1810',
     marginBottom: 10,
   },
-
   levelsRow: {
     gap: 8,
     paddingVertical: 4,
   },
-
   levelCard: {
     width: 82,
     paddingVertical: 10,
@@ -1329,22 +1301,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-
   levelCardActive: {
     backgroundColor: '#FDECEC',
     borderColor: '#C62828',
   },
-
   levelNumber: {
     fontSize: 15,
     fontWeight: '900',
     color: '#3D2820',
   },
-
   levelNumberActive: {
     color: '#C62828',
   },
-
   chiliIconsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1352,29 +1320,24 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     minHeight: 18,
   },
-
   chiliEmoji: {
     fontSize: 12,
   },
-
   levelLabel: {
     fontSize: 10,
     fontWeight: '600',
     color: '#8D7B70',
     textAlign: 'center',
   },
-
   levelLabelActive: {
     color: '#C62828',
     fontWeight: '700',
   },
-
   brothPillsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-
   brothPill: {
     paddingVertical: 6,
     paddingHorizontal: 16,
@@ -1383,63 +1346,52 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EFE7E2',
   },
-
   brothPillActive: {
     backgroundColor: '#C62828',
     borderColor: '#C62828',
   },
-
   brothPillText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#6F5C53',
   },
-
   brothPillTextActive: {
     color: '#FFFFFF',
   },
-
   orderColumnContainer: {
     width: 360,
     backgroundColor: '#FFFFFF',
     borderLeftWidth: 1,
     borderLeftColor: '#EDE5DF',
   },
-
   orderColumnTablet: {
     width: 320,
   },
-
   orderPanel: {
     flex: 1,
     flexDirection: 'column',
     backgroundColor: '#FFFFFF',
     padding: 16,
   },
-
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
   },
-
   orderHeaderInfo: {
     flex: 1,
   },
-
   orderTitle: {
     fontSize: 15,
     fontWeight: '800',
     color: '#2C1810',
   },
-
   orderSubtitle: {
     fontSize: 11,
     color: '#8D7B70',
     marginTop: 2,
   },
-
   resetBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1451,32 +1403,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F8B4B4',
   },
-
   resetBtnText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#C62828',
   },
-
   mejaSelectBox: {
     marginBottom: 8,
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F5ECE6',
   },
-
   mejaSelectLabel: {
     fontSize: 11,
     fontWeight: '700',
     color: '#4A3028',
     marginBottom: 5,
   },
-
   orderTypeRow: {
     flexDirection: 'row',
     gap: 8,
   },
-
   orderTypePill: {
     flex: 1,
     paddingVertical: 7,
@@ -1487,22 +1434,18 @@ const styles = StyleSheet.create({
     borderColor: '#EFE7E2',
     alignItems: 'center',
   },
-
   orderTypePillActive: {
     backgroundColor: '#C62828',
     borderColor: '#C62828',
   },
-
   orderTypePillText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#6F5C53',
   },
-
   orderTypePillTextActive: {
     color: '#FFFFFF',
   },
-
   tableHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1514,23 +1457,19 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginBottom: 4,
   },
-
   thText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#8D7B70',
   },
-
   numberColumn: {
     width: 24,
     textAlign: 'center',
   },
-
   itemNameColumn: {
     flex: 1,
     paddingHorizontal: 6,
   },
-
   qtyControlRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1538,40 +1477,33 @@ const styles = StyleSheet.create({
     gap: 4,
     width: 75,
   },
-
   itemPriceColumn: {
     width: 85,
     alignItems: 'flex-end',
   },
-
   orderItemsScroll: {
     flex: 1,
     minHeight: 120,
   },
-
   emptyCartBox: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 30,
     gap: 6,
   },
-
   emptyCartIcon: {
     opacity: 0.8,
   },
-
   emptyCartTitle: {
     fontSize: 13,
     fontWeight: '700',
     color: '#3D2820',
   },
-
   emptyCartSub: {
     fontSize: 11,
     color: '#8D7B70',
     textAlign: 'center',
   },
-
   orderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1580,23 +1512,19 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F5ECE6',
     paddingHorizontal: 4,
   },
-
   tdText: {
     fontSize: 12,
     color: '#3D2820',
   },
-
   itemNameText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#2C1810',
   },
-
   itemWeightText: {
     fontSize: 10,
     color: '#8D7B70',
   },
-
   qtyBtn: {
     width: 22,
     height: 22,
@@ -1607,12 +1535,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F8B4B4',
   },
-
   qtyBtnAdd: {
     backgroundColor: '#C62828',
     borderColor: '#C62828',
   },
-
   qtyNumberText: {
     fontSize: 12,
     fontWeight: '800',
@@ -1620,23 +1546,19 @@ const styles = StyleSheet.create({
     minWidth: 16,
     textAlign: 'center',
   },
-
   itemPriceText: {
     fontSize: 12,
     fontWeight: '800',
     color: '#2C1810',
   },
-
   removeItemButton: {
     marginTop: 2,
   },
-
   removeItemText: {
     fontSize: 10,
     fontWeight: '700',
     color: '#D32F2F',
   },
-
   specsContainer: {
     flexDirection: 'row',
     backgroundColor: '#FAF5F1',
@@ -1648,48 +1570,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-
   specItem: {
     flex: 1,
     alignItems: 'center',
   },
-
   specLabel: {
     fontSize: 10,
     fontWeight: '700',
     color: '#8D7B70',
     marginBottom: 3,
   },
-
   specValue: {
     fontSize: 12,
     fontWeight: '800',
     color: '#2C1810',
   },
-
   specChiliRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
     minHeight: 16,
   },
-
   specChiliMuted: {
     fontSize: 11,
     color: '#8D7B70',
   },
-
   notesContainer: {
     marginBottom: 12,
   },
-
   notesLabel: {
     fontSize: 11,
     fontWeight: '700',
     color: '#4A3028',
     marginBottom: 4,
   },
-
   notesInput: {
     backgroundColor: '#FAF5F1',
     borderWidth: 1,
@@ -1702,7 +1616,6 @@ const styles = StyleSheet.create({
     minHeight: 40,
     textAlignVertical: 'top',
   },
-
   checkoutButton: {
     flexDirection: 'row',
     backgroundColor: '#C62828',
@@ -1713,29 +1626,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     elevation: 2,
   },
-
   checkoutButtonDisabled: {
     backgroundColor: '#D1B8B3',
   },
-
   checkoutBtnLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-
   checkoutBtnText: {
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,
   },
-
   checkoutBtnAmount: {
     color: '#FFFFFF',
     fontWeight: '900',
     fontSize: 14,
   },
-
   mobileBottomBar: {
     position: 'absolute',
     bottom: 0,
@@ -1745,7 +1653,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'web' ? 28 : 18,
     borderTopWidth: 1,
     borderTopColor: '#EFE7E2',
     elevation: 10,
@@ -1754,23 +1664,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-
   mobileCartSummary: {
     flex: 1,
   },
-
   mobileCartCount: {
     fontSize: 11,
     color: '#8D7B70',
     fontWeight: '600',
   },
-
   mobileCartTotal: {
     fontSize: 15,
     fontWeight: '900',
     color: '#2C1810',
   },
-
   mobileViewCartBtn: {
     flexDirection: 'row',
     backgroundColor: '#C62828',
@@ -1780,27 +1686,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-
   mobileViewCartBtnDisabled: {
     backgroundColor: '#D1B8B3',
   },
-
   mobileViewCartBtnText: {
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,
   },
-
   mobileModalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-
   mobileModalBackdrop: {
     ...StyleSheet.absoluteFillObject,
   },
-
   mobileModalContent: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
@@ -1808,14 +1709,12 @@ const styles = StyleSheet.create({
     maxHeight: '85%',
     paddingBottom: 20,
   },
-
   mobileSheetHeader: {
     alignItems: 'center',
     paddingTop: 8,
     paddingBottom: 4,
     position: 'relative',
   },
-
   sheetHandle: {
     width: 36,
     height: 4,
@@ -1823,7 +1722,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#D1B8B3',
     marginBottom: 4,
   },
-
   sheetCloseBtn: {
     position: 'absolute',
     right: 12,
