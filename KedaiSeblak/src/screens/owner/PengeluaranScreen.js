@@ -8,27 +8,27 @@ import {
   ScrollView,
   FlatList,
   useWindowDimensions,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import formatCurrency from '../../utils/formatCurrency';
 import Sidebar from '../../components/Sidebar';
 import TopHeader from '../../components/TopHeader';
-import DatePickerModal from '../../components/DatePickerModal';
 import CustomButton from '../../components/CustomButton';
 import SwipeableExpenseRow from '../../components/SwipeableExpenseRow';
+import ExpenseCard from '../../components/ExpenseCard';
+import DatePickerModal, { mingguHariIni, bulanHariIni } from '../../components/DatePickerModal';
 import ExpenseFormModal from '../../components/ExpenseFormModal';
 import DeleteExpenseModal from '../../components/DeleteExpenseModal';
 import RincianPengeluaranModal from '../../components/RincianPengeluaranModal';
 import DetailPengeluaranModal from '../../components/DetailPengeluaranModal';
-import { getExpenses, createExpense, updateExpense, deleteExpense } from '../../services/pengeluaranService';
+import { getExpenses, createExpense, updateExpense, deleteExpense, hariIniIndo } from '../../services/pengeluaranService';
 import { useKasir } from '../../context/KasirContext';
 
 // Palet Warna Elegan Khas Proyek Kedai Seblak
 const WARNA = {
   merahTua: '#52141D',      // Brand Deep Maroon
   merahCabe: '#C62828',     // Crimson Accent
-  orangeProject: '#C62828', 
+  orangeProject: '#C62828',
   merahJreng: '#DC2626',    // Merah cerah untuk harga & total
   kuningGold: '#F59E0B',    // Kuning Gold
   goldTua: '#B45309',       // Gold Tua Elegan
@@ -39,25 +39,6 @@ const WARNA = {
   abu: '#78665E',
   garis: '#EDE5E0',
 };
-
-function formatTanggalIndonesia(date = new Date()) {
-  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
-function formatRentangMinggu(date = new Date()) {
-  const start = new Date(date);
-  const day = (start.getDay() + 6) % 7;
-  start.setDate(start.getDate() - day);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  return `${formatTanggalIndonesia(start)} – ${formatTanggalIndonesia(end)}`;
-}
-
-function formatRentangBulan(date = new Date()) {
-  const start = new Date(date.getFullYear(), date.getMonth(), 1);
-  const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-  return `${formatTanggalIndonesia(start)} – ${formatTanggalIndonesia(end)}`;
-}
 
 export default function PengeluaranScreen({ isEmbedded = false, navigation, expenses: expensesProp, onAddExpense, onUpdateExpense, onDeleteExpense }) {
   const { width } = useWindowDimensions();
@@ -80,9 +61,6 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
           total: r.nominal,
           nominal: r.nominal,
           tanggalStr: new Date(`${r.tanggal}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
-          waktu: new Date(r.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-          satuan: r.bahan_satuan || r.stok_bahan?.satuan || r.satuan || 'pcs',
-          supplier: r.supplier || '-',
         }))
       );
     } catch (e) {
@@ -99,7 +77,7 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
   const [activeTab, setActiveTab] = useState('harian');
 
   // 3. Filter Tanggal per Periode
-  const [harianDate, setHarianDate] = useState(() => formatTanggalIndonesia(new Date()));
+  const [harianDate, setHarianDate] = useState(hariIniIndo());
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedDetailItem, setSelectedDetailItem] = useState(null);
 
@@ -108,8 +86,8 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
     setDetailModalVisible(true);
   };
 
-  const [mingguanDate, setMingguanDate] = useState(() => formatRentangMinggu(new Date()));
-  const [bulananDate, setBulananDate] = useState(() => formatRentangBulan(new Date()));
+  const [mingguanDate, setMingguanDate] = useState(mingguHariIni().label);
+  const [bulananDate, setBulananDate] = useState(bulanHariIni());
 
   // State Modals
   const [datePickerVisible, setDatePickerVisible] = useState(false);
@@ -122,10 +100,20 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
   const [rincianData, setRincianData] = useState({ dateTitle: '', items: [], totalNominal: 0 });
 
   // Helper parsing tanggal
+  // Tanggal pengeluaran dari Supabase berformat ISO (YYYY-MM-DD) -> ambil nomor harinya.
   const parseDayNumber = (dateStr) => {
     if (!dateStr) return null;
-    const match = dateStr.match(/^(\d{1,2})/);
+    const iso = String(dateStr).match(/^\d{4}-\d{2}-(\d{2})/);
+    if (iso) return parseInt(iso[1], 10);
+    const match = String(dateStr).match(/^(\d{1,2})/);
     return match ? parseInt(match[1], 10) : null;
+  };
+
+  const labelTanggalPanjang = (iso) => {
+    const d = new Date(`${iso}T00:00:00`);
+    return Number.isNaN(d.getTime())
+      ? iso
+      : d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   };
 
   const tanggalKeISO = (dateStr) => {
@@ -148,11 +136,13 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
     return mm ? `${match[3]}-${mm}-${match[1].padStart(2, '0')}` : '';
   };
 
-  const parseWeekRange = (rangeStr) => {
-    if (!rangeStr) return [13, 19];
-    const match = rangeStr.match(/(\d{1,2}).*?–.*?(\d{1,2})/);
-    if (match) return [parseInt(match[1], 10), parseInt(match[2], 10)];
-    return [13, 19];
+  const BULAN_ID = ['januari', 'februari', 'maret', 'april', 'mei', 'juni', 'juli', 'agustus', 'september', 'oktober', 'november', 'desember'];
+  // "15 November 2026 – 21 November 2026" -> { y, m (1-12), start, end }
+  const parseRange = (rangeStr) => {
+    const m = /(\d{1,2})\s+([A-Za-z]+)\s+(\d{4}).*?–\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/.exec(String(rangeStr || ''));
+    if (!m) return null;
+    const bulan = BULAN_ID.indexOf(m[2].toLowerCase()) + 1;
+    return bulan ? { y: Number(m[3]), m: bulan, start: Number(m[1]), end: Number(m[4]) } : null;
   };
 
   const currentDateText = useMemo(() => {
@@ -165,49 +155,36 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
   const currentHarianItems = useMemo(() => {
     const targetIso = tanggalKeISO(harianDate);
     if (!targetIso) return expenses;
-    return expenses.filter((item) => item.tanggal === targetIso || item.tanggalStr === harianDate);
+    return expenses.filter(
+      (item) => item.tanggal === targetIso || item.tanggalStr === harianDate
+    );
   }, [expenses, harianDate]);
 
-  const parseRentangISO = (rangeStr) => {
-    const parts = String(rangeStr || '').split('–').map((part) => part.trim());
-    if (parts.length !== 2) return [null, null];
-    return [tanggalKeISO(parts[0]), tanggalKeISO(parts[1])];
+  const buatGrup = (r, daftar) => {
+    const prefix = `${r.y}-${String(r.m).padStart(2, '0')}`;
+    const groupsMap = {};
+    daftar.forEach((item) => {
+      if (!item.tanggal || !String(item.tanggal).startsWith(prefix)) return;
+      const dNum = parseDayNumber(item.tanggal);
+      if (!dNum || dNum < r.start || dNum > r.end) return;
+      const iso = String(item.tanggal).slice(0, 10);
+      if (!groupsMap[iso]) {
+        groupsMap[iso] = { isoDate: iso, dayNumber: dNum, items: [], total: 0, labelHari: labelTanggalPanjang(iso), labelTanggal: labelTanggalPanjang(iso) };
+      }
+      groupsMap[iso].items.push(item);
+      groupsMap[iso].total += item.total || 0;
+    });
+    return Object.values(groupsMap).sort((a, b) => a.dayNumber - b.dayNumber);
   };
 
   const currentMingguanGroups = useMemo(() => {
-    const [startIso, endIso] = parseRentangISO(mingguanDate);
-    if (!startIso || !endIso) return [];
-    const groupsMap = {};
-    expenses.forEach((item) => {
-      if (item.tanggal >= startIso && item.tanggal <= endIso) {
-        const iso = item.tanggal;
-        if (!groupsMap[iso]) {
-          const date = new Date(`${iso}T00:00:00`);
-          groupsMap[iso] = { isoDate: iso, dayNumber: date.getDate(), items: [], total: 0, labelHari: date.toLocaleDateString('id-ID', { weekday: 'long' }), labelTanggal: formatTanggalIndonesia(date) };
-        }
-        groupsMap[iso].items.push(item);
-        groupsMap[iso].total += Number(item.total || 0);
-      }
-    });
-    return Object.values(groupsMap).sort((a, b) => a.isoDate.localeCompare(b.isoDate));
+    const r = parseRange(mingguanDate);
+    return r ? buatGrup(r, expenses) : [];
   }, [expenses, mingguanDate]);
 
   const currentBulananGroups = useMemo(() => {
-    const [startIso, endIso] = parseRentangISO(bulananDate);
-    if (!startIso || !endIso) return [];
-    const groupsMap = {};
-    expenses.forEach((item) => {
-      if (item.tanggal >= startIso && item.tanggal <= endIso) {
-        const iso = item.tanggal;
-        if (!groupsMap[iso]) {
-          const date = new Date(`${iso}T00:00:00`);
-          groupsMap[iso] = { isoDate: iso, dayNumber: date.getDate(), items: [], total: 0, labelHari: date.toLocaleDateString('id-ID', { weekday: 'long' }), labelTanggal: formatTanggalIndonesia(date) };
-        }
-        groupsMap[iso].items.push(item);
-        groupsMap[iso].total += Number(item.total || 0);
-      }
-    });
-    return Object.values(groupsMap).sort((a, b) => a.isoDate.localeCompare(b.isoDate));
+    const r = parseRange(bulananDate);
+    return r ? buatGrup(r, expenses) : [];
   }, [expenses, bulananDate]);
 
   const totalNominal = useMemo(() => {
@@ -248,27 +225,35 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
   const handleSaveExpense = async (itemData) => {
     try {
       const tanggalStr = itemData.tanggalStr || harianDate;
+      if (!editingItem && itemData.tanggalStr) { setHarianDate(itemData.tanggalStr); setActiveTab('harian'); }
       const tanggal = tanggalKeISO(tanggalStr) || new Date().toISOString().slice(0, 10);
+      const jumlah = Number(itemData.jumlah || 1);
+      const total = Number(itemData.total || itemData.nominal || 0);
       const payload = {
         tanggal,
-        waktu: itemData.waktu || null,
+        waktu: itemData.waktu,
+        supplier: itemData.supplier,
+        fotoItem: itemData.fotoItem,
+        fotoStruk: itemData.fotoStruk,
         nama: itemData.keterangan,
         kategori: itemData.kategori,
-        jumlah: Number(itemData.jumlah || 1),
-        satuan: itemData.satuan || 'pcs',
-        supplier: itemData.supplier || null,
-        total: Number(itemData.total || itemData.nominal || 0),
-        fotoItem: itemData.fotoItem || null,
-        fotoStruk: itemData.fotoStruk || null,
-        catatan: itemData.catatan || null,
+        jumlah,
+        harga_satuan: total / jumlah,
+        catatan: `Satuan: ${itemData.satuan || 'unit'}; Supplier: ${itemData.supplier || '-'}`,
       };
-      if (onAddExpense && !editingItem) await onAddExpense({ ...itemData, ...payload, keterangan: itemData.keterangan });
-      else if (onUpdateExpense && editingItem) await onUpdateExpense({ ...editingItem, ...itemData, ...payload });
-      else if (editingItem) await updateExpense(editingItem.id, payload);
-      else await createExpense(payload);
+      if (onAddExpense && !editingItem) {
+        await onAddExpense(itemData);
+      } else if (onUpdateExpense && editingItem) {
+        await onUpdateExpense({ ...editingItem, ...itemData });
+      } else if (editingItem) {
+        await updateExpense(editingItem.id, payload);
+      } else {
+        await createExpense(payload, user?.id);
+      }
+
       await loadExpenses();
     } catch (e) {
-      console.error('Gagal menyimpan pengeluaran:', e.message);
+      console.error('Gagal menyimpan pengeluaran:', e);
       throw e;
     }
   };
@@ -276,20 +261,19 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
   const handleConfirmDelete = async () => {
     if (!itemToDelete) return;
     try {
-      if (onDeleteExpense) await onDeleteExpense(itemToDelete.id);
+      if (onDeleteExpense) onDeleteExpense(itemToDelete.id);
       else await deleteExpense(itemToDelete.id);
       await loadExpenses();
       setDeleteModalVisible(false);
       setItemToDelete(null);
     } catch (e) {
       console.error('Gagal menghapus pengeluaran:', e.message);
-      Alert.alert('Gagal menghapus pengeluaran', e.message || 'Silakan coba lagi.');
     }
   };
 
   const handleOpenRincian = (group) => {
     setRincianData({
-      dateTitle: group.labelHari || group.labelTanggal || `Tanggal ${group.dayNumber} Oktober 2026`,
+      dateTitle: group.labelHari || group.labelTanggal || `Tanggal ${group.dayNumber}`,
       items: group.items || [],
       totalNominal: group.total || 0,
     });
@@ -362,8 +346,24 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
             </TouchableOpacity>
           </View>
 
-          <View style={styles.tableCard}>
-            <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.tableHorizontalScroll}>
+          {isMobile ? (
+            <View>
+              {currentHarianItems.length === 0 ? (
+                <View style={[styles.tableCard, { padding: 24, alignItems: 'center' }]}>
+                  <Text style={{ color: '#8D7B70', fontSize: 12 }}>Belum ada pengeluaran pada tanggal ini.</Text>
+                </View>
+              ) : currentHarianItems.map((it) => (
+                <ExpenseCard
+                  key={String(it.id)}
+                  item={it}
+                  onEdit={(x) => { setEditingItem(x); setFormModalVisible(true); }}
+                  onDelete={(x) => { setItemToDelete(x); setDeleteModalVisible(true); }}
+                  onViewDetail={handleOpenDetailModal}
+                />
+              ))}
+            </View>
+          ) : (
+            <View style={styles.tableCard}>
               <View style={styles.tableInnerWrapper}>
                 <View style={styles.tableHeaderRow}>
                   <Text style={[styles.headerColText, styles.colWaktu]}>Waktu</Text>
@@ -391,8 +391,8 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
                   )}
                 />
               </View>
-            </ScrollView>
-          </View>
+            </View>
+          )}
         </View>
       )}
 
@@ -484,21 +484,21 @@ const styles = StyleSheet.create({
   catatPengeluaranBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: WARNA.biruCatat, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
   catatPengeluaranBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
   tableCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: WARNA.garis, overflow: 'hidden' },
-  tableHorizontalScroll: { paddingBottom: 8 },
-  tableInnerWrapper: { minWidth: 700 },
+  tableHorizontalScroll: { flexGrow: 1, paddingBottom: 8 },
+  tableInnerWrapper: { width: '100%' },
   tableHeaderRow: { flexDirection: 'row', backgroundColor: '#F4ECE6', paddingVertical: 10, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: WARNA.garis },
   headerColText: { fontSize: 12, fontWeight: '700', color: WARNA.merahTua },
-  colWaktu: { width: 70 },
-  colKet: { flex: 2 },
-  colKategori: { width: 100 },
-  colJumlah: { width: 80 },
-  colTotal: { width: 90 },
-  colFotoItem: { width: 80, textAlign: 'center' },
-  colFotoStruk: { width: 80, textAlign: 'center' },
-  colAksi: { width: 70, textAlign: 'center' },
+  colWaktu: { width: 75, textAlign: 'center' },
+  colKet: { flex: 1, minWidth: 140, paddingHorizontal: 6 },
+  colKategori: { width: 95, paddingHorizontal: 6 },
+  colJumlah: { width: 75, paddingHorizontal: 6, textAlign: 'center' },
+  colTotal: { width: 110, paddingHorizontal: 6 },
+  colFotoItem: { width: 85, textAlign: 'center' },
+  colFotoStruk: { width: 85, textAlign: 'center' },
+  colAksi: { width: 115, textAlign: 'center' },
   rekapCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: WARNA.garis, padding: 10 },
   rekapItemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: WARNA.garis },
-  rekapDateTitle: { fontSize: 14, fontWeight: '600', color: WARNA.teks },
+  rekapDateTitle: { fontSize: 14, fontWeight: '600', color: WARNA.teks, textTransform: 'capitalize' },
   rekapItemCount: { fontSize: 11, color: WARNA.abu, marginTop: 2 },
   rekapNominalText: { fontSize: 14, fontWeight: '700', color: WARNA.merahJreng },
 });

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   View,
@@ -33,12 +32,14 @@ const STATUS_CONFIG = {
 };
 
 const getOrderStatus = (order) => {
-  const status = order?.status_pesanan || order?.status;
+  const status =
+    order?.orderStatus ||
+    order?.statusPesanan ||
+    order?.status_pesanan ||
+    order?.status;
 
   if (!status) return 'Menunggu';
-
   if (status === 'Proses') return 'Diproses';
-
   if (status === 'Siap Bayar') return 'Menunggu';
 
   return status;
@@ -52,24 +53,73 @@ const getFormattedToday = () => {
       month: 'long',
       year: 'numeric',
     }).format(new Date());
-  } catch (e) {
+  } catch (error) {
     const days = [
-      'Minggu', 'Senin', 'Selasa', 'Rabu',
-      'Kamis', 'Jumat', 'Sabtu',
+      'Minggu',
+      'Senin',
+      'Selasa',
+      'Rabu',
+      'Kamis',
+      'Jumat',
+      'Sabtu',
     ];
 
     const months = [
-      'Januari', 'Februari', 'Maret', 'April',
-      'Mei', 'Juni', 'Juli', 'Agustus',
-      'September', 'Oktober', 'November', 'Desember',
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
     ];
 
     const now = new Date();
 
-    return `${days[now.getDay()]}, ${now.getDate()} ${
-      months[now.getMonth()]
-    } ${now.getFullYear()}`;
+    return `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]
+      } ${now.getFullYear()}`;
   }
+};
+
+const getOrderItems = (order) => {
+  if (Array.isArray(order?.items)) {
+    return order.items;
+  }
+
+  if (Array.isArray(order?.details)) {
+    return order.details;
+  }
+
+  if (Array.isArray(order?.detail_transaksi)) {
+    return order.detail_transaksi;
+  }
+
+  return [];
+};
+
+const getItemNames = (order) => {
+  const items = getOrderItems(order);
+
+  if (items.length > 0) {
+    return items
+      .map((item) => item.nama || item.name || item.nama_menu || 'Item')
+      .join(', ');
+  }
+
+  if (typeof order?.items === 'string') {
+    return order.items;
+  }
+
+  if (order?.item) {
+    return order.item;
+  }
+
+  return '-';
 };
 
 export default function PesananAktifScreen({ onOpenDetail }) {
@@ -81,10 +131,9 @@ export default function PesananAktifScreen({ onOpenDetail }) {
   const [activeTab, setActiveTab] = useState('Semua');
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
 
-  // Pastikan orders selalu berbentuk array.
   const safeOrders = Array.isArray(orders) ? orders : [];
 
-  // Hitung jumlah pesanan berdasarkan status.
+  // Ringkasan jumlah pesanan berdasarkan status.
   const countMenunggu = safeOrders.filter(
     (order) => getOrderStatus(order) === 'Menunggu'
   ).length;
@@ -116,7 +165,7 @@ export default function PesananAktifScreen({ onOpenDetail }) {
     },
   ];
 
-  // Filter pesanan sesuai tab.
+  // Filter daftar pesanan sesuai tab yang dipilih.
   const filteredOrders = safeOrders.filter((order) => {
     const status = getOrderStatus(order);
 
@@ -125,8 +174,7 @@ export default function PesananAktifScreen({ onOpenDetail }) {
     return status === activeTab;
   });
 
-  // Perubahan status bertahap:
-  // Menunggu -> Diproses -> Selesai.
+  // Perubahan status: Menunggu -> Diproses -> Selesai.
   const handleCycleStatus = async (order) => {
     const currentStatus = getOrderStatus(order);
 
@@ -137,7 +185,11 @@ export default function PesananAktifScreen({ onOpenDetail }) {
     } else if (currentStatus === 'Diproses') {
       nextStatus = 'Selesai';
     } else {
-      // Status Selesai tidak bisa kembali ke status sebelumnya.
+      return;
+    }
+
+    if (!order?.id || typeof updateOrderStatus !== 'function') {
+      console.error('ID pesanan atau fungsi updateOrderStatus tidak tersedia.');
       return;
     }
 
@@ -148,80 +200,172 @@ export default function PesananAktifScreen({ onOpenDetail }) {
     }
   };
 
+  // Membuka detail dengan format data yang sesuai untuk ReceiptModal.
   const handleOpenOrderDetail = (order) => {
-    if (!onOpenDetail) return;
+    if (!onOpenDetail || !order) return;
 
     const orderTypeLabel =
-      order.orderType || order.order_type || order.table || 'Dine In';
+      order.orderType ||
+      order.order_type ||
+      order.tableNo ||
+      order.table ||
+      'Dine In';
 
-    const details = order.details || order.detail_transaksi || [];
+    const details = getOrderItems(order);
+
+    const items =
+      details.length > 0
+        ? details.map((item) => {
+          const name =
+            item.nama ||
+            item.name ||
+            item.nama_menu ||
+            'Item pesanan';
+
+          const qty = Number(item.qty ?? item.jumlah ?? 1);
+
+          const price = Number(
+            item.price ??
+            item.harga ??
+            item.harga_satuan ??
+            0
+          );
+
+          return {
+            ...item,
+            id: item.id || item.menu_id,
+            name,
+            nama: name,
+            qty: Number.isFinite(qty) && qty > 0 ? qty : 1,
+            price: Number.isFinite(price) ? price : 0,
+            harga: Number.isFinite(price) ? price : 0,
+            subtotal: Number(
+              item.subtotal ??
+              (Number.isFinite(price) ? price : 0) *
+              (Number.isFinite(qty) && qty > 0 ? qty : 1)
+            ),
+          };
+        })
+        : [
+          {
+            name: order.item || 'Item pesanan',
+            nama: order.item || 'Item pesanan',
+            qty: 1,
+            price: Number(order.total || order.total_harga || 0),
+            harga: Number(order.total || order.total_harga || 0),
+          },
+        ];
+
+    const total = Number(
+      order.total ??
+      order.total_harga ??
+      items.reduce(
+        (sum, item) => sum + Number(item.subtotal || 0),
+        0
+      )
+    );
 
     onOpenDetail({
       ...order,
-      orderNo: order.nomor_transaksi || order.id,
+      id: order.id,
+      orderNo:
+        order.orderNo ||
+        order.nomor_transaksi ||
+        order.no ||
+        order.id,
       orderType: orderTypeLabel,
-      tableNo: orderTypeLabel,
-      date: order.date || order.tanggal || getFormattedToday(),
-      time: order.time || order.waktu || '09:45',
-      items:
-        details.length > 0
-          ? details
-          : [
-              {
-                name: order.items || 'Item pesanan',
-                qty: 1,
-                price: order.total || 0,
-              },
-            ],
-      total: Number(order.total || order.total_harga || 0),
-      method: order.metode || order.metode_pembayaran || 'QRIS',
+      tableNo: order.tableNo || order.table || orderTypeLabel,
+      date:
+        order.date ||
+        order.tanggal ||
+        getFormattedToday(),
+      time:
+        order.time ||
+        order.waktu ||
+        '-',
+      items,
+      details: items,
+      total: Number.isFinite(total) ? total : 0,
+      method:
+        order.method ||
+        order.metode ||
+        order.metode_pembayaran ||
+        '-',
+      cashPaid: Number(
+        order.cashPaid ??
+        order.uangDiterima ??
+        order.uang_diterima ??
+        0
+      ),
+      change: Number(
+        order.change ??
+        order.kembalian ??
+        0
+      ),
+      kasir:
+        order.kasir ||
+        order.nama_kasir ||
+        '-',
+      kuah: order.kuah || '-',
+      pedas: order.pedas ?? order.level_pedas ?? 0,
+      catatan: order.catatan || '',
+      paymentStatus:
+        order.paymentStatus ||
+        order.status_pembayaran ||
+        order.status ||
+        'Lunas',
+      orderStatus: getOrderStatus(order),
     });
   };
 
-  const renderTableHeader = () => (
-    <View style={[styles.tableHead, isMobile && styles.wideRow]}>
-      <Text style={[styles.th, { width: 55 }]}>No</Text>
+  const renderTableHeader = () => {
+    if (isMobile) return null;
 
-      <Text style={[styles.th, { width: 65 }]}>
-        Waktu
-      </Text>
+    return (
+      <View style={styles.tableHead}>
+        <Text style={[styles.th, { width: 55 }]}>No</Text>
 
-      <Text style={[styles.th, { width: 85 }]}>
-        Tipe
-      </Text>
+        <Text style={[styles.th, { width: 65 }]}>
+          Waktu
+        </Text>
 
-      <Text style={[styles.th, { width: 150 }]}>
-        Item
-      </Text>
+        <Text style={[styles.th, { width: 85 }]}>
+          Tipe
+        </Text>
 
-      <Text
-        style={[
-          styles.th,
-          { width: 100, textAlign: 'right' },
-        ]}
-      >
-        Total
-      </Text>
+        <Text style={[styles.th, { width: 150 }]}>
+          Item
+        </Text>
 
-      <Text
-        style={[
-          styles.th,
-          { width: 110, textAlign: 'center' },
-        ]}
-      >
-        Status
-      </Text>
+        <Text
+          style={[
+            styles.th,
+            { width: 100, textAlign: 'right' },
+          ]}
+        >
+          Total
+        </Text>
 
-      <Text
-        style={[
-          styles.th,
-          { width: 75, textAlign: 'center' },
-        ]}
-      >
-        Aksi
-      </Text>
-    </View>
-  );
+        <Text
+          style={[
+            styles.th,
+            { width: 110, textAlign: 'center' },
+          ]}
+        >
+          Status
+        </Text>
+
+        <Text
+          style={[
+            styles.th,
+            { width: 75, textAlign: 'center' },
+          ]}
+        >
+          Aksi
+        </Text>
+      </View>
+    );
+  };
 
   const renderOrder = ({ item: order, index }) => {
     const currentStatus = getOrderStatus(order);
@@ -232,106 +376,40 @@ export default function PesananAktifScreen({ onOpenDetail }) {
     const orderTypeLabel =
       order.orderType ||
       order.order_type ||
+      order.tableNo ||
       order.table ||
       'Dine In';
 
-    const orderItems = Array.isArray(order.items)
-      ? order.items
-          .map((item) => item.nama || item.name || 'Item')
-          .join(', ')
-      : typeof order.items === 'string'
-      ? order.items
-      : order.items && typeof order.items === 'object'
-      ? order.items.nama || order.items.name || 'Item'
-      : Array.isArray(order.details)
-      ? order.details
-          .map((item) => item.nama || item.name || 'Item')
-          .join(', ')
-      : '-';
-
+    const orderItems = getItemNames(order);
     const isFinished = currentStatus === 'Selesai';
 
-    return (
-      <ScrollView
-        horizontal={isMobile}
-        scrollEnabled={isMobile}
-        showsHorizontalScrollIndicator={isMobile}
-        nestedScrollEnabled
-      >
-        <View
-          style={[
-            styles.tableRow,
-            isMobile && styles.wideRow,
-            index % 2 === 1 && styles.rowAlternate,
-          ]}
-        >
-          <Text
-            style={[
-              styles.td,
-              {
-                width: 55,
-                fontWeight: '700',
-                color: '#8D7B70',
-              },
-            ]}
-          >
-            {order.nomor_transaksi || order.id || `#00${index + 1}`}
-          </Text>
+    const orderNumber =
+      order.orderNo ||
+      order.nomor_transaksi ||
+      order.no ||
+      order.id ||
+      `#00${index + 1}`;
 
-          <Text
-            style={[
-              styles.td,
-              { width: 65, color: '#6F5C53' },
-            ]}
-          >
-            {order.time || order.waktu || '09:00'}
-          </Text>
+    const orderTime =
+      order.time ||
+      order.waktu ||
+      '-';
 
-          <Text
-            style={[
-              styles.td,
-              {
-                width: 85,
-                fontWeight: '700',
-                color: '#2C1810',
-              },
-            ]}
-          >
-            {orderTypeLabel}
-          </Text>
+    const orderTotal = Number(
+      order.total ||
+      order.total_harga ||
+      0
+    );
 
-          <Text
-            style={[
-              styles.td,
-              { width: 150, color: '#3D2820' },
-            ]}
-            numberOfLines={1}
-          >
-            {orderItems}
-          </Text>
+    // Tampilan kartu untuk perangkat mobile.
+    if (isMobile) {
+      return (
+        <View style={mStyles.card}>
+          <View style={mStyles.rowTop}>
+            <Text style={mStyles.no} numberOfLines={1}>
+              {orderNumber}
+            </Text>
 
-          <Text
-            style={[
-              styles.td,
-              {
-                width: 100,
-                textAlign: 'right',
-                fontWeight: '800',
-                color: '#C62828',
-              },
-            ]}
-          >
-            {formatCurrency(
-              Number(order.total || order.total_harga || 0)
-            )}
-          </Text>
-
-          <View
-            style={{
-              width: 110,
-              alignItems: 'center',
-            }}
-          >
             <TouchableOpacity
               style={[
                 styles.statusBadge,
@@ -344,20 +422,8 @@ export default function PesananAktifScreen({ onOpenDetail }) {
               onPress={() => handleCycleStatus(order)}
               disabled={isFinished}
               activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={`Status pesanan ${currentStatus}`}
-              accessibilityHint={
-                isFinished
-                  ? 'Pesanan sudah selesai'
-                  : 'Ketuk untuk melanjutkan status pesanan'
-              }
             >
-              <Text
-                style={[
-                  styles.statusText,
-                  { color: cfg.text },
-                ]}
-              >
+              <Text style={[styles.statusText, { color: cfg.text }]}>
                 {currentStatus}
               </Text>
 
@@ -372,18 +438,23 @@ export default function PesananAktifScreen({ onOpenDetail }) {
             </TouchableOpacity>
           </View>
 
-          <View
-            style={{
-              width: 75,
-              alignItems: 'center',
-            }}
-          >
+          <Text style={mStyles.meta}>
+            {orderTime} · {orderTypeLabel}
+          </Text>
+
+          <Text style={mStyles.items} numberOfLines={2}>
+            {orderItems}
+          </Text>
+
+          <View style={mStyles.rowBottom}>
+            <Text style={mStyles.total}>
+              {formatCurrency(orderTotal)}
+            </Text>
+
             <TouchableOpacity
               style={styles.detailBtn}
               onPress={() => handleOpenOrderDetail(order)}
               activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={`Lihat detail pesanan ${order.id}`}
             >
               <Text style={styles.detailBtnText}>
                 Detail
@@ -391,7 +462,136 @@ export default function PesananAktifScreen({ onOpenDetail }) {
             </TouchableOpacity>
           </View>
         </View>
-      </ScrollView>
+      );
+    }
+
+    // Tampilan tabel untuk desktop dan tablet.
+    return (
+      <View
+        style={[
+          styles.tableRow,
+          index % 2 === 1 && styles.rowAlternate,
+        ]}
+      >
+        <Text
+          style={[
+            styles.td,
+            {
+              width: 55,
+              fontWeight: '700',
+              color: '#8D7B70',
+            },
+          ]}
+        >
+          {orderNumber}
+        </Text>
+
+        <Text
+          style={[
+            styles.td,
+            { width: 65, color: '#6F5C53' },
+          ]}
+        >
+          {orderTime}
+        </Text>
+
+        <Text
+          style={[
+            styles.td,
+            {
+              width: 85,
+              fontWeight: '700',
+              color: '#2C1810',
+            },
+          ]}
+        >
+          {orderTypeLabel}
+        </Text>
+
+        <Text
+          style={[
+            styles.td,
+            { width: 150, color: '#3D2820' },
+          ]}
+          numberOfLines={1}
+        >
+          {orderItems}
+        </Text>
+
+        <Text
+          style={[
+            styles.td,
+            {
+              width: 100,
+              textAlign: 'right',
+              fontWeight: '800',
+              color: '#C62828',
+            },
+          ]}
+        >
+          {formatCurrency(orderTotal)}
+        </Text>
+
+        <View
+          style={{
+            width: 110,
+            alignItems: 'center',
+          }}
+        >
+          <TouchableOpacity
+            style={[
+              styles.statusBadge,
+              {
+                backgroundColor: cfg.bg,
+                borderColor: cfg.border,
+              },
+              isFinished && styles.statusBadgeDisabled,
+            ]}
+            onPress={() => handleCycleStatus(order)}
+            disabled={isFinished}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`Status pesanan ${currentStatus}`}
+            accessibilityHint={
+              isFinished
+                ? 'Pesanan sudah selesai'
+                : 'Ketuk untuk melanjutkan status pesanan'
+            }
+          >
+            <Text style={[styles.statusText, { color: cfg.text }]}>
+              {currentStatus}
+            </Text>
+
+            {!isFinished && (
+              <Ionicons
+                name="chevron-forward"
+                size={12}
+                color={cfg.text}
+                style={{ marginLeft: 3 }}
+              />
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View
+          style={{
+            width: 75,
+            alignItems: 'center',
+          }}
+        >
+          <TouchableOpacity
+            style={styles.detailBtn}
+            onPress={() => handleOpenOrderDetail(order)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`Lihat detail pesanan ${orderNumber}`}
+          >
+            <Text style={styles.detailBtnText}>
+              Detail
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     );
   };
 
@@ -442,20 +642,18 @@ export default function PesananAktifScreen({ onOpenDetail }) {
         })}
       </ScrollView>
 
-      <View style={styles.tableCard}>
-        {isMobile ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator
-            nestedScrollEnabled
-          >
-            <View style={styles.wideTable}>
-              {renderTableHeader()}
-            </View>
-          </ScrollView>
-        ) : (
-          renderTableHeader()
-        )}
+      <View
+        style={[
+          styles.tableCard,
+          isMobile && {
+            backgroundColor: 'transparent',
+            borderWidth: 0,
+            elevation: 0,
+            shadowOpacity: 0,
+          },
+        ]}
+      >
+        {renderTableHeader()}
       </View>
     </View>
   );
@@ -486,7 +684,7 @@ export default function PesananAktifScreen({ onOpenDetail }) {
     <View style={styles.footerSummaryCard}>
       <View style={{ flex: 1 }}>
         <Text style={styles.footerLabel}>
-          Total Pesanan Hari Ini
+          Total Pesanan
         </Text>
 
         <Text style={styles.footerNumber}>
@@ -515,7 +713,7 @@ export default function PesananAktifScreen({ onOpenDetail }) {
       <FlatList
         data={filteredOrders}
         keyExtractor={(order, index) =>
-          String(order.id ?? index)
+          String(order.id ?? order.orderNo ?? index)
         }
         renderItem={renderOrder}
         ListHeaderComponent={renderHeader}
@@ -526,21 +724,18 @@ export default function PesananAktifScreen({ onOpenDetail }) {
         keyboardShouldPersistTaps="handled"
       />
 
+      {/* Modal ringkasan pesanan */}
       <Modal
         visible={summaryModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() =>
-          setSummaryModalVisible(false)
-        }
+        onRequestClose={() => setSummaryModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <TouchableOpacity
             style={StyleSheet.absoluteFillObject}
             activeOpacity={1}
-            onPress={() =>
-              setSummaryModalVisible(false)
-            }
+            onPress={() => setSummaryModalVisible(false)}
             accessibilityLabel="Tutup modal ringkasan"
           />
 
@@ -556,14 +751,12 @@ export default function PesananAktifScreen({ onOpenDetail }) {
                 </View>
 
                 <Text style={styles.modalTitle}>
-                  Ringkasan Pesanan Hari Ini
+                  Ringkasan Pesanan
                 </Text>
               </View>
 
               <TouchableOpacity
-                onPress={() =>
-                  setSummaryModalVisible(false)
-                }
+                onPress={() => setSummaryModalVisible(false)}
                 hitSlop={{
                   top: 10,
                   bottom: 10,
@@ -686,9 +879,7 @@ export default function PesananAktifScreen({ onOpenDetail }) {
 
             <TouchableOpacity
               style={styles.modalCloseBtn}
-              onPress={() =>
-                setSummaryModalVisible(false)
-              }
+              onPress={() => setSummaryModalVisible(false)}
               activeOpacity={0.8}
               accessibilityRole="button"
             >
@@ -1000,5 +1191,51 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
+  },
+});
+
+const mStyles = StyleSheet.create({
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EFE7E2',
+    padding: 12,
+    marginHorizontal: 2,
+    marginBottom: 8,
+  },
+  rowTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  no: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#52141D',
+  },
+  meta: {
+    fontSize: 11,
+    color: '#8D7B70',
+    marginTop: 4,
+  },
+  items: {
+    fontSize: 12,
+    color: '#3D2820',
+    marginTop: 6,
+    lineHeight: 17,
+  },
+  rowBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  total: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#C62828',
   },
 });

@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -38,6 +39,8 @@ function SummaryCard({ title, value, icon, tint, color }) {
 }
 
 export default function TabPenjualan({ transactions = [] }) {
+  const { width: lebarLayar } = useWindowDimensions();
+  const narrow = lebarLayar < 768;
   const [period, setPeriod] = useState('Harian');
 
   const semuaTransaksi = useMemo(
@@ -453,80 +456,99 @@ export default function TabPenjualan({ transactions = [] }) {
           </Text>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator
-        >
-          <View style={styles.table}>
-            <View
-              style={[styles.tableRow, styles.tableHead]}
-            >
-              <Text style={[styles.cell, styles.colId]}>
-                No. Transaksi
-              </Text>
-
-              <Text style={[styles.cell, styles.colDate]}>
-                Tanggal
-              </Text>
-
-              <Text style={[styles.cell, styles.colTime]}>
-                Waktu
-              </Text>
-
-              <Text style={[styles.cell, styles.colCashier]}>
-                Kasir
-              </Text>
-
-              <Text style={[styles.cell, styles.colTotal]}>
-                Total
-              </Text>
-            </View>
-
+        {narrow ? (
+          <View>
             {transaksiPeriode.slice(0, 12).map((trx) => (
-              <View
-                key={trx.id}
-                style={styles.tableRow}
-              >
-                <Text style={[styles.cell, styles.colId]}>
-                  {trx.id}
-                </Text>
-
-                <Text style={[styles.cell, styles.colDate]}>
-                  {trx.tanggal.toLocaleDateString('id-ID', {
-                    day: '2-digit',
-                    month: 'short',
-                  })}
-                </Text>
-
-                <Text style={[styles.cell, styles.colTime]}>
-                  {trx.waktu}
-                </Text>
-
-                <Text
-                  style={[styles.cell, styles.colCashier]}
-                >
-                  {trx.kasir}
-                </Text>
-
-                <Text
-                  style={[
-                    styles.cell,
-                    styles.colTotal,
-                    styles.money,
-                  ]}
-                >
-                  {rupiah(trx.total)}
+              <View key={trx.id} style={{ backgroundColor: '#FBF7F4', borderRadius: 12, borderWidth: 1, borderColor: '#EFE7E2', padding: 12, marginBottom: 8 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ flex: 1, fontSize: 12, fontWeight: '800', color: '#52141D' }} numberOfLines={1}>{trx.id}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: '#C62828' }}>{rupiah(trx.total)}</Text>
+                </View>
+                <Text style={{ fontSize: 11, color: '#8D7B70', marginTop: 4 }}>
+                  {trx.tanggal.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })} · {trx.waktu} · {trx.kasir}
                 </Text>
               </View>
             ))}
-
             {transaksiPeriode.length === 0 && (
-              <Text style={styles.emptyText}>
-                Belum ada transaksi pada periode ini.
-              </Text>
+              <Text style={styles.emptyText}>Belum ada transaksi pada periode ini.</Text>
             )}
           </View>
-        </ScrollView>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator
+          >
+            <View style={styles.table}>
+              <View
+                style={[styles.tableRow, styles.tableHead]}
+              >
+                <Text style={[styles.cell, styles.colId]}>
+                  No. Transaksi
+                </Text>
+
+                <Text style={[styles.cell, styles.colDate]}>
+                  Tanggal
+                </Text>
+
+                <Text style={[styles.cell, styles.colTime]}>
+                  Waktu
+                </Text>
+
+                <Text style={[styles.cell, styles.colCashier]}>
+                  Kasir
+                </Text>
+
+                <Text style={[styles.cell, styles.colTotal]}>
+                  Total
+                </Text>
+              </View>
+
+              {transaksiPeriode.slice(0, 12).map((trx) => (
+                <View
+                  key={trx.id}
+                  style={styles.tableRow}
+                >
+                  <Text style={[styles.cell, styles.colId]}>
+                    {trx.id}
+                  </Text>
+
+                  <Text style={[styles.cell, styles.colDate]}>
+                    {trx.tanggal.toLocaleDateString('id-ID', {
+                      day: '2-digit',
+                      month: 'short',
+                    })}
+                  </Text>
+
+                  <Text style={[styles.cell, styles.colTime]}>
+                    {trx.waktu}
+                  </Text>
+
+                  <Text
+                    style={[styles.cell, styles.colCashier]}
+                  >
+                    {trx.kasir}
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.cell,
+                      styles.colTotal,
+                      styles.money,
+                    ]}
+                  >
+                    {rupiah(trx.total)}
+                  </Text>
+                </View>
+              ))}
+
+              {transaksiPeriode.length === 0 && (
+                <Text style={styles.emptyText}>
+                  Belum ada transaksi pada periode ini.
+                </Text>
+              )}
+            </View>
+          </ScrollView>
+        )}
 
         {transaksiPeriode.length > 12 && (
           <Text style={styles.tableFoot}>

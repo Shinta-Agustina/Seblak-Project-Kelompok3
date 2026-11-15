@@ -1,3 +1,4 @@
+import { hariIniIndo } from '../services/pengeluaranService';
 import React, { useState, useEffect } from 'react';
 import {
   Modal,
@@ -16,17 +17,21 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import CustomButton from './CustomButton';
-
+import { TOPPING_CATEGORIES } from '../data/mockData';
 
 // Kategori Topping riil sesuai dengan data master di dalam proyek Kedai Seblak
-// Kategori riil yang aman digunakan langsung
-const VALID_TOPPING_CATEGORIES = [
-    'Kerupuk & Makaroni',
-    'Topping Utama',
-    'Bumbu & Rempah',
-    'Kemasan',
-    'Lainnya'
-];
+const VALID_TOPPING_CATEGORIES = (
+  Array.isArray(TOPPING_CATEGORIES)
+    ? TOPPING_CATEGORIES.filter((c) => c !== 'Semua')
+    : [
+      'Kerupuk & Makaroni',
+      'Seafood & Olahan',
+      'Daging & Jeroan',
+      'Mie & Bihun',
+      'Telur & Tahu',
+      'Sayur & Jamur',
+    ]
+);
 
 const WARNA_PRIMARY = '#52141D'; // Deep Maroon Project
 
@@ -53,7 +58,6 @@ export default function ExpenseFormModal({
   const [fotoItem, setFotoItem] = useState('');
   const [fotoStruk, setFotoStruk] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -66,9 +70,9 @@ export default function ExpenseFormModal({
         setKategori(isBumbu ? 'Bumbu' : 'Topping');
         setKategoriTopping(
           initialData.kategoriTopping ||
-            (VALID_TOPPING_CATEGORIES.includes(initialData.kategori)
-              ? initialData.kategori
-              : 'Seafood & Olahan')
+          (VALID_TOPPING_CATEGORIES.includes(initialData.kategori)
+            ? initialData.kategori
+            : 'Seafood & Olahan')
         );
         setJumlah(initialData.jumlah != null ? String(initialData.jumlah) : '');
         setSatuan(initialData.satuan || 'kg');
@@ -82,7 +86,7 @@ export default function ExpenseFormModal({
         const now = new Date();
         const hh = String(now.getHours()).padStart(2, '0');
         const mm = String(now.getMinutes()).padStart(2, '0');
-        setTanggal(selectedDateStr || '17 Oktober 2026');
+        setTanggal(hariIniIndo()); // tanggal asli hari ini
         setJam(`${hh}:${mm}`);
         setKeterangan('');
         setKategori('Bumbu');
@@ -164,7 +168,6 @@ export default function ExpenseFormModal({
   };
 
   const handleSubmit = async () => {
-    if (isSubmitting) return;
     if (!tanggal.trim()) {
       setErrorMsg('Tanggal pengeluaran wajib diisi.');
       return;
@@ -217,16 +220,11 @@ export default function ExpenseFormModal({
       fotoStruk: fotoStruk || null,
     };
 
-    setIsSubmitting(true);
-    setErrorMsg('');
     try {
       await onSubmit(payload);
       onClose();
     } catch (error) {
-      console.error('Gagal menyimpan pengeluaran:', error);
-      setErrorMsg(error?.message || 'Pengeluaran gagal disimpan. Periksa koneksi dan izin database.');
-    } finally {
-      setIsSubmitting(false);
+      setErrorMsg(error.message || 'Gagal menyimpan perubahan pengeluaran.');
     }
   };
 
@@ -661,7 +659,6 @@ export default function ExpenseFormModal({
                   <TouchableOpacity
                     style={styles.cancelBtn}
                     onPress={onClose}
-                    disabled={isSubmitting}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.cancelBtnText}>Batal</Text>
@@ -671,8 +668,6 @@ export default function ExpenseFormModal({
                     title={isEdit ? 'Simpan Perubahan' : 'Catat Pengeluaran'}
                     variant="primary"
                     onPress={handleSubmit}
-                    loading={isSubmitting}
-                    disabled={isSubmitting}
                     style={styles.submitBtn}
                   />
                 </View>

@@ -1,15 +1,7 @@
 import { supabase } from '../../lib/supabase';
 
 // Mengambil transaksi beserta detail dan kategori menu.
-const SELECT = `
-  *,
-  detail_transaksi (
-    *,
-    menu_topping (
-      kategori
-    )
-  )
-`;
+const SELECT = '*, detail_transaksi(*, menu_topping(kategori))';
 
 const pad = (n, l = 2) => String(n).padStart(l, '0');
 
@@ -17,45 +9,53 @@ function buatNomorTransaksi() {
   const d = new Date();
 
   const tgl = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
-
   const jam = `${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 
-  const random = Math.random()
+  return `TRX-${tgl}-${jam}-${Math.random()
     .toString(36)
-    .slice(2, 7)
-    .toUpperCase();
-
-  return `TRX-${tgl}-${jam}-${random}`;
+    .slice(2, 5)
+    .toUpperCase()}`;
 }
 
-// Mengambil daftar transaksi
+// Mengambil transaksi terbaru.
+// Maksimal 5.000 transaksi, dibaca per halaman 500 baris.
+const MAKS_BARIS = 5000;
+const UKURAN_HALAMAN = 500;
+
 export async function getTransactions({ limit = 200 } = {}) {
-  const safeLimit = Math.max(1, Math.min(Number(limit) || 200, 1000));
+  const target = Math.max(Number(limit) || 0, MAKS_BARIS);
+  const rows = [];
 
-  const { data, error } = await supabase
-    .from('transaksi')
-    .select(SELECT)
-    .order('created_at', { ascending: false })
-    .limit(safeLimit);
+  for (let from = 0; from < target; from += UKURAN_HALAMAN) {
+    const { data, error } = await supabase
+      .from('transaksi')
+      .select(SELECT)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, Math.min(from + UKURAN_HALAMAN, target) - 1);
 
-  if (error) throw error;
+    if (error) throw error;
 
-  return data || [];
+    rows.push(...(data || []));
+
+    if (!data || data.length < UKURAN_HALAMAN) {
+      break;
+    }
+  }
+
+  return rows;
 }
 
-// Membuat transaksi baru sekaligus mengurangi stok bahan.
-export async function createTransaction(
-  payload,
-  kasirId,
-  namaKasir
-) {
+// Membuat transaksi, menyimpan detail, dan mengurangi stok
+// melalui satu proses database menggunakan RPC.
+export async function createTransaction(payload, kasirId, namaKasir) {
   const rawItems = payload.items || [];
 
   if (!rawItems.length) {
     throw new Error('Keranjang masih kosong.');
   }
 
-  // Validasi item pesanan
+  // Validasi dan normalisasi item pesanan.
   const items = rawItems.map((item) => {
     const harga = Number(item.harga ?? item.price);
     const jumlah = Number(item.qty ?? item.jumlah ?? 1);
@@ -84,14 +84,14 @@ export async function createTransaction(
     };
   });
 
-  // Menghitung total
+  // Hitung subtotal berdasarkan seluruh item.
   const subtotal = items.reduce(
     (total, item) =>
       total + item.harga_satuan * item.jumlah,
     0
   );
 
-  const diskon = Number(payload.diskon || 0);
+  const diskon = Number(payload.diskon ?? 0);
 
   if (
     !Number.isFinite(diskon) ||
@@ -102,10 +102,7 @@ export async function createTransaction(
   }
 
   const total = subtotal - diskon;
-
-  const uangDiterima = Number(
-    payload.uang_diterima ?? total
-  );
+  const uangDiterima = Number(payload.uang_diterima ?? total);
 
   if (
     !Number.isFinite(uangDiterima) ||
@@ -114,6 +111,7 @@ export async function createTransaction(
     throw new Error('Uang pembayaran tidak mencukupi.');
   }
 
+  // Validasi metode pembayaran.
   const metodePembayaran = String(
     payload.metode_pembayaran || ''
   ).trim();
@@ -122,12 +120,14 @@ export async function createTransaction(
     throw new Error('Metode pembayaran wajib dipilih.');
   }
 
+  // Validasi tipe pesanan.
   const tipePesanan = payload.tipe_pesanan || 'Dine In';
 
   if (!['Dine In', 'Takeaway'].includes(tipePesanan)) {
     throw new Error('Tipe pesanan tidak valid.');
   }
 
+  // Validasi level pedas.
   const levelPedas = payload.level_pedas ?? null;
 
   if (
@@ -144,7 +144,7 @@ export async function createTransaction(
   const nomorTransaksi =
     payload.nomor_transaksi || buatNomorTransaksi();
 
-  // Data transaksi untuk RPC
+  // Data transaksi yang dikirim ke fungsi database.
   const transaksiData = {
     nomor_transaksi: nomorTransaksi,
     kasir_id: kasirId || null,
@@ -159,8 +159,7 @@ export async function createTransaction(
     metode_pembayaran: metodePembayaran,
   };
 
-  // Simpan transaksi, detail, dan mutasi stok
-  // dalam satu proses database.
+  // Simpan transaksi, detail, dan mutasi stok secara atomik.
   const { data: transaksiId, error: rpcError } =
     await supabase.rpc('simpan_transaksi', {
       p_transaksi: transaksiData,
@@ -177,7 +176,7 @@ export async function createTransaction(
     throw new Error('ID transaksi tidak berhasil dibuat.');
   }
 
-  // Ambil kembali transaksi beserta detailnya
+  // Ambil kembali transaksi beserta detailnya.
   const { data, error: readError } = await supabase
     .from('transaksi')
     .select(SELECT)
@@ -193,25 +192,40 @@ export async function createTransaction(
   return data;
 }
 
-// Memperbarui status pembayaran
-export async function updateTransactionStatus(id, status) {
-  const allowedStatus = [
+// Memperbarui progres pesanan dapur.
+export async function updateOrderProgress(id, statusPesanan) {
+  const statusValid = [
     'Menunggu',
-    'Lunas',
+    'Diproses',
+    'Siap',
+    'Selesai',
     'Dibatalkan',
-    'Refund',
   ];
 
-  if (!allowedStatus.includes(status)) {
-    throw new Error('Status pembayaran tidak valid.');
+  if (!statusValid.includes(statusPesanan)) {
+    throw new Error('Status pesanan tidak valid.');
   }
 
   const { data, error } = await supabase
     .from('transaksi')
     .update({
-      status,
+      status_pesanan: statusPesanan,
       updated_at: new Date().toISOString(),
     })
+    .eq('id', id)
+    .select('id, status_pesanan')
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
+
+// Memperbarui status pembayaran.
+export async function updateTransactionStatus(id, status) {
+  const { data, error } = await supabase
+    .from('transaksi')
+    .update({ status })
     .eq('id', id)
     .select()
     .single();
@@ -221,28 +235,48 @@ export async function updateTransactionStatus(id, status) {
   return data;
 }
 
-// Memperbarui status pengerjaan pesanan
-export async function updateOrderStatus(id, status) {
-  const allowedStatus = [
-    'Menunggu',
-    'Diproses',
-    'Siap',
-    'Selesai',
-    'Dibatalkan',
-  ];
+// Menghapus transaksi dan detailnya.
+export async function deleteTransaction(id) {
+  const { error: detailError } = await supabase
+    .from('detail_transaksi')
+    .delete()
+    .eq('transaksi_id', id);
 
-  if (!allowedStatus.includes(status)) {
-    throw new Error('Status pesanan tidak valid.');
+  if (detailError) throw detailError;
+
+  const { error } = await supabase
+    .from('transaksi')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+
+  return true;
+}
+
+// Memperbarui data transaksi yang diizinkan.
+export async function updateTransaction(id, patch = {}) {
+  const allowed = {};
+
+  if (patch.status !== undefined) {
+    allowed.status = patch.status;
   }
+
+  if (patch.status_pesanan !== undefined) {
+    allowed.status_pesanan = patch.status_pesanan;
+  }
+
+  if (patch.catatan !== undefined) {
+    allowed.catatan = patch.catatan;
+  }
+
+  allowed.updated_at = new Date().toISOString();
 
   const { data, error } = await supabase
     .from('transaksi')
-    .update({
-      status_pesanan: status,
-      updated_at: new Date().toISOString(),
-    })
+    .update(allowed)
     .eq('id', id)
-    .select()
+    .select('id, status, status_pesanan, catatan')
     .single();
 
   if (error) throw error;

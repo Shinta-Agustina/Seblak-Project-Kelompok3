@@ -89,10 +89,10 @@ export default function SwipeableExpenseRow({
   const catBadge = getCategoryBadge(item.kategori, item.keterangan || item.nama);
 
   // Waktu jam di hari itu (misal: "06:54", "08:30")
-  const waktuFormatted = item.waktu ? item.waktu.replace(/\s*wib/i, '') : '06:54';
+  const waktuFormatted = item.waktu ? String(item.waktu).replace(/\s*wib/i, '').slice(0, 5) : '--:--';
 
-  const fotoItemUri = item.fotoItem || getFallbackPhotoForItem(item.keterangan || item.nama);
-  const fotoStrukUri = item.fotoStruk || DEFAULT_RECEIPT_PHOTO;
+  const fotoItemUri = item.fotoItem || null;
+  const fotoStrukUri = item.fotoStruk || null;
 
   return (
     <View style={[styles.container, isLast && styles.containerLast]}>
@@ -181,11 +181,13 @@ export default function SwipeableExpenseRow({
               }}
               accessibilityLabel="Foto item"
             >
-              <Image
-                source={{ uri: fotoItemUri }}
-                style={styles.thumbnailImg}
-                resizeMode="cover"
-              />
+              {fotoItemUri ? (
+                <Image source={{ uri: fotoItemUri }} style={styles.thumbnailImg} resizeMode="cover" />
+              ) : (
+                <View style={[styles.thumbnailImg, { alignItems: 'center', justifyContent: 'center' }]}>
+                  <Ionicons name="image-outline" size={18} color="#C9BBB3" />
+                </View>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -198,11 +200,13 @@ export default function SwipeableExpenseRow({
               }}
               accessibilityLabel="Foto struk"
             >
-              <Image
-                source={{ uri: fotoStrukUri }}
-                style={styles.thumbnailImg}
-                resizeMode="cover"
-              />
+              {fotoStrukUri ? (
+                <Image source={{ uri: fotoStrukUri }} style={styles.thumbnailImg} resizeMode="cover" />
+              ) : (
+                <View style={[styles.thumbnailImg, { alignItems: 'center', justifyContent: 'center' }]}>
+                  <Ionicons name="receipt-outline" size={18} color="#C9BBB3" />
+                </View>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -252,7 +256,7 @@ export default function SwipeableExpenseRow({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    minWidth: 796,
+    width: '100%',
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F0EAE6',
@@ -300,7 +304,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 8,
-    minWidth: 796,
+    width: '100%',
   },
   cellTextWaktu: {
     fontSize: 12.5,
