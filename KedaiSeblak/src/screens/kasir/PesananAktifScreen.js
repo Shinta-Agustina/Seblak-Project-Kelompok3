@@ -195,7 +195,13 @@ export default function PesananAktifScreen({ onOpenDetail }) {
             style={[styles.td, { width: 150, color: '#3D2820' }]}
             numberOfLines={1}
           >
-            {order.items || '-'}
+            {typeof order.items === 'string'
+              ? order.items
+              : Array.isArray(order.items)
+              ? order.items.map(i => i.nama || i.name || 'Item').join(', ')
+              : order.items && typeof order.items === 'object'
+              ? order.items.nama || order.items.name || JSON.stringify(order.items)
+              : '-'}
           </Text>
 
           <Text

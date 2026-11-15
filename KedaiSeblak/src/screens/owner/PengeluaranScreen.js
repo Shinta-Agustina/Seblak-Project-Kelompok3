@@ -8,6 +8,7 @@ import {
   ScrollView,
   FlatList,
   useWindowDimensions,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import formatCurrency from '../../utils/formatCurrency';
@@ -39,6 +40,25 @@ const WARNA = {
   garis: '#EDE5E0',
 };
 
+function formatTanggalIndonesia(date = new Date()) {
+  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function formatRentangMinggu(date = new Date()) {
+  const start = new Date(date);
+  const day = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - day);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return `${formatTanggalIndonesia(start)} – ${formatTanggalIndonesia(end)}`;
+}
+
+function formatRentangBulan(date = new Date()) {
+  const start = new Date(date.getFullYear(), date.getMonth(), 1);
+  const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  return `${formatTanggalIndonesia(start)} – ${formatTanggalIndonesia(end)}`;
+}
+
 export default function PengeluaranScreen({ isEmbedded = false, navigation, expenses: expensesProp, onAddExpense, onUpdateExpense, onDeleteExpense }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
@@ -61,8 +81,8 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
           nominal: r.nominal,
           tanggalStr: new Date(`${r.tanggal}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
           waktu: new Date(r.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-          satuan: 'unit',
-          supplier: r.catatan || '-',
+          satuan: r.bahan_satuan || r.stok_bahan?.satuan || r.satuan || 'pcs',
+          supplier: r.supplier || '-',
         }))
       );
     } catch (e) {
@@ -79,7 +99,7 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
   const [activeTab, setActiveTab] = useState('harian');
 
   // 3. Filter Tanggal per Periode
-  const [harianDate, setHarianDate] = useState('17 Oktober 2026');
+  const [harianDate, setHarianDate] = useState(() => formatTanggalIndonesia(new Date()));
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedDetailItem, setSelectedDetailItem] = useState(null);
 
@@ -88,8 +108,8 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
     setDetailModalVisible(true);
   };
 
-  const [mingguanDate, setMingguanDate] = useState('13 Oktober 2026 – 19 Oktober 2026');
-  const [bulananDate, setBulananDate] = useState('1 Oktober 2026 – 31 Oktober 2026');
+  const [mingguanDate, setMingguanDate] = useState(() => formatRentangMinggu(new Date()));
+  const [bulananDate, setBulananDate] = useState(() => formatRentangBulan(new Date()));
 
   // State Modals
   const [datePickerVisible, setDatePickerVisible] = useState(false);
@@ -145,56 +165,49 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
   const currentHarianItems = useMemo(() => {
     const targetIso = tanggalKeISO(harianDate);
     if (!targetIso) return expenses;
-    const filtered = expenses.filter(
-      (item) => item.tanggal === targetIso || item.tanggalStr === harianDate
-    );
-    return filtered.length > 0 ? filtered : expenses;
+    return expenses.filter((item) => item.tanggal === targetIso || item.tanggalStr === harianDate);
   }, [expenses, harianDate]);
 
+  const parseRentangISO = (rangeStr) => {
+    const parts = String(rangeStr || '').split('–').map((part) => part.trim());
+    if (parts.length !== 2) return [null, null];
+    return [tanggalKeISO(parts[0]), tanggalKeISO(parts[1])];
+  };
+
   const currentMingguanGroups = useMemo(() => {
-    const isOktober2026 = mingguanDate.includes('Oktober 2026');
-    if (!isOktober2026) return [];
-    const [startDay, endDay] = parseWeekRange(mingguanDate);
+    const [startIso, endIso] = parseRentangISO(mingguanDate);
+    if (!startIso || !endIso) return [];
     const groupsMap = {};
-
-    for (let d = startDay; d <= endDay; d++) {
-      const iso = `2026-10-${String(d).padStart(2, '0')}`;
-      groupsMap[iso] = { isoDate: iso, dayNumber: d, items: [], total: 0, labelHari: '', labelTanggal: '' };
-    }
-
     expenses.forEach((item) => {
-      const dNum = parseDayNumber(item.tanggalStr);
-      if (dNum && dNum >= startDay && dNum <= endDay) {
+      if (item.tanggal >= startIso && item.tanggal <= endIso) {
         const iso = item.tanggal;
         if (!groupsMap[iso]) {
-          groupsMap[iso] = { isoDate: iso, dayNumber: dNum, items: [], total: 0, labelHari: item.hari || '', labelTanggal: item.tanggalStr || '' };
+          const date = new Date(`${iso}T00:00:00`);
+          groupsMap[iso] = { isoDate: iso, dayNumber: date.getDate(), items: [], total: 0, labelHari: date.toLocaleDateString('id-ID', { weekday: 'long' }), labelTanggal: formatTanggalIndonesia(date) };
         }
         groupsMap[iso].items.push(item);
-        groupsMap[iso].total += item.total || 0;
+        groupsMap[iso].total += Number(item.total || 0);
       }
     });
-
-    return Object.values(groupsMap).sort((a, b) => a.dayNumber - b.dayNumber);
+    return Object.values(groupsMap).sort((a, b) => a.isoDate.localeCompare(b.isoDate));
   }, [expenses, mingguanDate]);
 
   const currentBulananGroups = useMemo(() => {
-    const isOktober2026 = bulananDate.includes('Oktober 2026');
-    if (!isOktober2026) return [];
+    const [startIso, endIso] = parseRentangISO(bulananDate);
+    if (!startIso || !endIso) return [];
     const groupsMap = {};
-
     expenses.forEach((item) => {
-      if (item.tanggal && item.tanggal.startsWith('2026-10')) {
+      if (item.tanggal >= startIso && item.tanggal <= endIso) {
         const iso = item.tanggal;
         if (!groupsMap[iso]) {
-          const dNum = parseDayNumber(item.tanggalStr);
-          groupsMap[iso] = { isoDate: iso, dayNumber: dNum || 1, items: [], total: 0, labelHari: item.hari || '', labelTanggal: item.tanggalStr || `${dNum} Oktober 2026` };
+          const date = new Date(`${iso}T00:00:00`);
+          groupsMap[iso] = { isoDate: iso, dayNumber: date.getDate(), items: [], total: 0, labelHari: date.toLocaleDateString('id-ID', { weekday: 'long' }), labelTanggal: formatTanggalIndonesia(date) };
         }
         groupsMap[iso].items.push(item);
-        groupsMap[iso].total += item.total || 0;
+        groupsMap[iso].total += Number(item.total || 0);
       }
     });
-
-    return Object.values(groupsMap).sort((a, b) => a.dayNumber - b.dayNumber);
+    return Object.values(groupsMap).sort((a, b) => a.isoDate.localeCompare(b.isoDate));
   }, [expenses, bulananDate]);
 
   const totalNominal = useMemo(() => {
@@ -236,36 +249,41 @@ export default function PengeluaranScreen({ isEmbedded = false, navigation, expe
     try {
       const tanggalStr = itemData.tanggalStr || harianDate;
       const tanggal = tanggalKeISO(tanggalStr) || new Date().toISOString().slice(0, 10);
-      const jumlah = Number(itemData.jumlah || 1);
-      const total = Number(itemData.total || itemData.nominal || 0);
       const payload = {
         tanggal,
+        waktu: itemData.waktu || null,
         nama: itemData.keterangan,
         kategori: itemData.kategori,
-        jumlah,
-        harga_satuan: total / jumlah,
-        catatan: `Satuan: ${itemData.satuan || 'unit'}; Supplier: ${itemData.supplier || '-'}`,
+        jumlah: Number(itemData.jumlah || 1),
+        satuan: itemData.satuan || 'pcs',
+        supplier: itemData.supplier || null,
+        total: Number(itemData.total || itemData.nominal || 0),
+        fotoItem: itemData.fotoItem || null,
+        fotoStruk: itemData.fotoStruk || null,
+        catatan: itemData.catatan || null,
       };
-      if (onAddExpense && !editingItem) onAddExpense(itemData);
-      else if (onUpdateExpense && editingItem) onUpdateExpense({ ...editingItem, ...itemData });
+      if (onAddExpense && !editingItem) await onAddExpense({ ...itemData, ...payload, keterangan: itemData.keterangan });
+      else if (onUpdateExpense && editingItem) await onUpdateExpense({ ...editingItem, ...itemData, ...payload });
       else if (editingItem) await updateExpense(editingItem.id, payload);
-      else await createExpense(payload, user?.id);
+      else await createExpense(payload);
       await loadExpenses();
     } catch (e) {
       console.error('Gagal menyimpan pengeluaran:', e.message);
+      throw e;
     }
   };
 
   const handleConfirmDelete = async () => {
     if (!itemToDelete) return;
     try {
-      if (onDeleteExpense) onDeleteExpense(itemToDelete.id);
+      if (onDeleteExpense) await onDeleteExpense(itemToDelete.id);
       else await deleteExpense(itemToDelete.id);
       await loadExpenses();
       setDeleteModalVisible(false);
       setItemToDelete(null);
     } catch (e) {
       console.error('Gagal menghapus pengeluaran:', e.message);
+      Alert.alert('Gagal menghapus pengeluaran', e.message || 'Silakan coba lagi.');
     }
   };
 

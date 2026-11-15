@@ -16,21 +16,17 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import CustomButton from './CustomButton';
-import { TOPPING_CATEGORIES } from '../data/mockData';
+
 
 // Kategori Topping riil sesuai dengan data master di dalam proyek Kedai Seblak
-const VALID_TOPPING_CATEGORIES = (
-  Array.isArray(TOPPING_CATEGORIES)
-    ? TOPPING_CATEGORIES.filter((c) => c !== 'Semua')
-    : [
-        'Kerupuk & Makaroni',
-        'Seafood & Olahan',
-        'Daging & Jeroan',
-        'Mie & Bihun',
-        'Telur & Tahu',
-        'Sayur & Jamur',
-      ]
-);
+// Kategori riil yang aman digunakan langsung
+const VALID_TOPPING_CATEGORIES = [
+    'Kerupuk & Makaroni',
+    'Topping Utama',
+    'Bumbu & Rempah',
+    'Kemasan',
+    'Lainnya'
+];
 
 const WARNA_PRIMARY = '#52141D'; // Deep Maroon Project
 
@@ -57,6 +53,7 @@ export default function ExpenseFormModal({
   const [fotoItem, setFotoItem] = useState('');
   const [fotoStruk, setFotoStruk] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -166,7 +163,8 @@ export default function ExpenseFormModal({
     setToppingDropdownOpen(false);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
     if (!tanggal.trim()) {
       setErrorMsg('Tanggal pengeluaran wajib diisi.');
       return;
@@ -219,8 +217,17 @@ export default function ExpenseFormModal({
       fotoStruk: fotoStruk || null,
     };
 
-    onSubmit(payload);
-    onClose();
+    setIsSubmitting(true);
+    setErrorMsg('');
+    try {
+      await onSubmit(payload);
+      onClose();
+    } catch (error) {
+      console.error('Gagal menyimpan pengeluaran:', error);
+      setErrorMsg(error?.message || 'Pengeluaran gagal disimpan. Periksa koneksi dan izin database.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -654,6 +661,7 @@ export default function ExpenseFormModal({
                   <TouchableOpacity
                     style={styles.cancelBtn}
                     onPress={onClose}
+                    disabled={isSubmitting}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.cancelBtnText}>Batal</Text>
@@ -663,6 +671,8 @@ export default function ExpenseFormModal({
                     title={isEdit ? 'Simpan Perubahan' : 'Catat Pengeluaran'}
                     variant="primary"
                     onPress={handleSubmit}
+                    loading={isSubmitting}
+                    disabled={isSubmitting}
                     style={styles.submitBtn}
                   />
                 </View>

@@ -1,8 +1,5 @@
-import { supabase } from '../../lib/supabase';
 
-// Ubah menjadi true hanya jika database memiliki trigger
-// yang otomatis memperbarui stok_bahan.stok.
-const STOK_DIUBAH_TRIGGER = false;
+import { supabase } from '../../lib/supabase';
 
 // =====================================================
 // 1. DATA STOK BAHAN BAKU
@@ -42,10 +39,11 @@ export async function getStockMovements({ limit = 1000 } = {}) {
 
 // =====================================================
 // 3. UPDATE INFORMASI BAHAN BAKU
-// Tidak mengubah jumlah stok.
+// Harga jual disimpan ke stok_bahan.
+// Pemakaian per pcs disimpan ke resep_menu.
 // =====================================================
 
-export async function updateStock(id, values) {
+export async function updateStock(id, values = {}) {
   if (!id) {
     throw new Error('ID stok tidak ditemukan.');
   }
@@ -54,13 +52,16 @@ export async function updateStock(id, values) {
     updated_at: new Date().toISOString(),
   };
 
-  [
+  const allowedFields = [
     'nama_bahan',
     'kategori',
     'satuan',
     'stok_minimum',
     'harga_satuan',
-  ].forEach((key) => {
+    'harga_jual',
+  ];
+
+  allowedFields.forEach((key) => {
     if (values[key] !== undefined) {
       patch[key] = values[key];
     }
@@ -77,38 +78,105 @@ export async function updateStock(id, values) {
     patch.nama_bahan = String(patch.nama_bahan).trim();
   }
 
-  if (patch.stok_minimum !== undefined) {
-    patch.stok_minimum = Number(patch.stok_minimum);
+  [
+    'stok_minimum',
+    'harga_satuan',
+    'harga_jual',
+  ].forEach((key) => {
+    if (patch[key] !== undefined) {
+      patch[key] = Number(patch[key]);
 
+      if (
+        !Number.isFinite(patch[key]) ||
+        patch[key] < 0
+      ) {
+        throw new Error(`${key} tidak valid.`);
+      }
+    }
+  });
+
+  // Validasi pemakaian per pcs.
+  // Nilai ini bukan kolom stok_bahan, melainkan kolom resep_menu.
+  const jumlahPerPorsi =
+    values.jumlah_per_porsi !== undefined
+      ? Number(values.jumlah_per_porsi)
+      : undefined;
+
+  if (jumlahPerPorsi !== undefined) {
     if (
-      !Number.isFinite(patch.stok_minimum) ||
-      patch.stok_minimum < 0
+      !Number.isFinite(jumlahPerPorsi) ||
+      jumlahPerPorsi <= 0
     ) {
-      throw new Error('Stok minimum tidak valid.');
+      throw new Error(
+        'Pemakaian bahan per pcs harus lebih dari 0.'
+      );
     }
   }
 
-  if (patch.harga_satuan !== undefined) {
-    patch.harga_satuan = Number(patch.harga_satuan);
-
-    if (
-      !Number.isFinite(patch.harga_satuan) ||
-      patch.harga_satuan < 0
-    ) {
-      throw new Error('Harga satuan tidak valid.');
-    }
-  }
-
-  const { data, error } = await supabase
+  // Simpan informasi bahan dan harga jual.
+  // Trigger sinkronisasi database akan membuat/memperbarui menu_topping
+  // ketika harga_jual bernilai lebih dari 0.
+  const { data: updatedStock, error: stockError } = await supabase
     .from('stok_bahan')
     .update(patch)
     .eq('id', id)
     .select()
     .single();
 
-  if (error) throw error;
+  if (stockError) throw stockError;
 
-  return data;
+  // Jika pemakaian per pcs dikirim, simpan ke resep_menu.
+  if (jumlahPerPorsi !== undefined) {
+    if (
+      !Number(updatedStock.harga_jual) ||
+      Number(updatedStock.harga_jual) <= 0
+    ) {
+      throw new Error(
+        'Harga jual harus diisi lebih dahulu sebelum mengatur pemakaian per pcs.'
+      );
+    }
+
+    // Cari topping yang dibuat oleh trigger sinkronisasi stok.
+    const { data: topping, error: toppingError } = await supabase
+      .from('menu_topping')
+      .select('id, stok_id')
+      .eq('stok_id', id)
+      .maybeSingle();
+
+    if (toppingError) throw toppingError;
+
+    if (!topping) {
+      throw new Error(
+        'Data topping belum terbentuk. Periksa trigger sinkronisasi stok_bahan ke menu_topping.'
+      );
+    }
+
+    // Simpan resep. Jika sudah ada, perbarui jumlah pemakaiannya.
+    const { data: resep, error: resepError } = await supabase
+      .from('resep_menu')
+      .upsert(
+        {
+          menu_id: topping.id,
+          stok_id: id,
+          jumlah_per_porsi: jumlahPerPorsi,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: 'menu_id,stok_id',
+        }
+      )
+      .select()
+      .single();
+
+    if (resepError) throw resepError;
+
+    return {
+      ...updatedStock,
+      resep,
+    };
+  }
+
+  return updatedStock;
 }
 
 // =====================================================
@@ -222,6 +290,7 @@ export async function tolakPermintaanStok(
 
 // =====================================================
 // 7. MUTASI STOK MANUAL
+// Stok diperbarui oleh trigger database.
 // =====================================================
 
 export async function recordStockMutation({
@@ -250,6 +319,7 @@ export async function recordStockMutation({
     throw new Error('Jumlah harus lebih dari 0.');
   }
 
+  // Pastikan bahan tersedia.
   const { data: current, error: readError } = await supabase
     .from('stok_bahan')
     .select('id, stok')
@@ -264,68 +334,50 @@ export async function recordStockMutation({
     throw new Error('Data stok saat ini tidak valid.');
   }
 
+  // Trigger database memperlakukan:
+  // masuk = tambah stok
+  // keluar = kurangi stok
+  // penyesuaian = tambah sesuai jumlah mutasi
   const baru =
-    tipe === 'masuk'
+    tipe === 'masuk' || tipe === 'penyesuaian'
       ? sekarang + qty
-      : tipe === 'keluar'
-        ? sekarang - qty
-        : qty;
+      : sekarang - qty;
 
   if (baru < 0) {
     throw new Error('Stok tidak boleh negatif.');
   }
 
-  let mutasiId = null;
+  // Insert mutasi. Trigger database akan memperbarui stok_bahan.stok.
+  const { data: mutasi, error: mutationError } = await supabase
+    .from('mutasi_stok')
+    .insert({
+      stok_id,
+      tipe,
+      jumlah: qty,
+      keterangan: keterangan?.trim() || null,
+      dibuat_oleh: dibuat_oleh || null,
+      pengeluaran_id: pengeluaran_id || null,
+    })
+    .select('id')
+    .single();
 
-  if (qty > 0) {
-    const { data: mutasi, error: mutationError } = await supabase
-      .from('mutasi_stok')
-      .insert({
-        stok_id,
-        tipe,
-        jumlah: qty,
-        keterangan: keterangan?.trim() || null,
-        dibuat_oleh: dibuat_oleh || null,
-        pengeluaran_id: pengeluaran_id || null,
-      })
-      .select('id')
-      .single();
+  if (mutationError) throw mutationError;
 
-    if (mutationError) throw mutationError;
+  // Ambil stok terbaru dari database.
+  const { data: updated, error: updatedError } = await supabase
+    .from('stok_bahan')
+    .select('stok')
+    .eq('id', stok_id)
+    .single();
 
-    mutasiId = mutasi.id;
-  }
-
-  if (!STOK_DIUBAH_TRIGGER) {
-    const { error: updateError } = await supabase
-      .from('stok_bahan')
-      .update({
-        stok: baru,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', stok_id);
-
-    if (updateError) {
-      if (mutasiId) {
-        const { error: cleanupError } = await supabase
-          .from('mutasi_stok')
-          .delete()
-          .eq('id', mutasiId);
-
-        if (cleanupError) {
-          console.warn(
-            'Gagal membersihkan data mutasi:',
-            cleanupError.message
-          );
-        }
-      }
-
-      throw updateError;
-    }
+  if (updatedError) {
+    throw new Error(
+      `Mutasi tersimpan, tetapi stok gagal dibaca: ${updatedError.message}`
+    );
   }
 
   return {
-    stok: baru,
-    mutasi_id: mutasiId,
+    stok: Number(updated.stok),
+    mutasi_id: mutasi.id,
   };
 }

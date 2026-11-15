@@ -19,7 +19,6 @@ import MenuFormModal from '../../components/MenuFormModal';
 import DeleteConfirmationModal from '../../components/DeleteConfirmationModal';
 import Sidebar from '../../components/Sidebar';
 import TopHeader from '../../components/TopHeader';
-import { TOPPING_CATEGORIES } from '../../data/mockData';
 import { getMenus, createMenu, updateMenu, deleteMenu, seedInitialMenusIfEmpty } from '../../services/menuService';
 
 const WARNA_CARD_OMZET = '#52141D';
