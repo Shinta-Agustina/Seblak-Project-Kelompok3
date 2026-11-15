@@ -1,0 +1,49 @@
+
+import React from 'react';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
+import LoginScreen from '../screens/auth/LoginScreen';
+import DashboardKasirScreen from '../screens/kasir/DashboardKasirScreen';
+import DashboardOwnerScreen from '../screens/owner/DashboardOwner';
+import PengeluaranScreen from '../screens/owner/PengeluaranScreen';
+import LaporanKeuanganScreen from '../screens/owner/LaporanKeuanganScreen';
+import DetailTransaksiScreen from '../screens/kasir/DetailTransaksiScreen';
+import { useKasir } from '../context/KasirContext';
+
+const Stack = createNativeStackNavigator();
+
+export default function AppNavigator() {
+  const { user } = useKasir();
+  const isOwner = user?.role === 'Owner' || user?.role === 'owner';
+
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {user === null ? (
+        <Stack.Screen name="Login" component={LoginScreen} />
+      ) : isOwner ? (
+        <>
+          <Stack.Screen
+            name="DashboardOwner"
+            component={DashboardOwnerScreen}
+          />
+          <Stack.Screen name="Pengeluaran" component={PengeluaranScreen} />
+          <Stack.Screen
+            name="LaporanKeuangan"
+            component={LaporanKeuanganScreen}
+          />
+        </>
+      ) : (
+        <>
+          <Stack.Screen
+            name="DashboardKasir"
+            component={DashboardKasirScreen}
+          />
+          <Stack.Screen
+            name="DetailTransaksi"
+            component={DetailTransaksiScreen}
+          />
+        </>
+      )}
+    </Stack.Navigator>
+  );
+}
