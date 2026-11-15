@@ -243,12 +243,6 @@ export default function PaymentModal({
 
       Alert.alert(
         'Pembayaran Gagal',
-<<<<<<< HEAD
-        error?.message ||
-          'Transaksi tidak dapat diproses. Silakan periksa kembali dan coba lagi.'
-=======
-        'Transaksi tidak dapat diproses. Silakan periksa kembali dan coba lagi.\n\nPenyebab: ' + (error?.message || 'tidak diketahui') + (error?.details ? '\n' + error.details : '')
->>>>>>> ad990f61ed5ff5aeb12ed751827558f9fc286ff1
       );
     } finally {
       // Kunci pembayaran selalu dilepas, baik berhasil maupun gagal.
@@ -412,12 +406,6 @@ export default function PaymentModal({
                 <TouchableOpacity
                   style={[
                     styles.methodButton,
-<<<<<<< HEAD
-                    paymentMethod === 'Tunai' && styles.methodButtonActive,
-=======
-                    paymentMethod === 'Tunai' &&
-                    styles.methodButtonActive,
->>>>>>> ad990f61ed5ff5aeb12ed751827558f9fc286ff1
                   ]}
                   onPress={() => setPaymentMethod('Tunai')}
                   disabled={isProcessing}
@@ -431,12 +419,6 @@ export default function PaymentModal({
                   <Text
                     style={[
                       styles.methodButtonText,
-<<<<<<< HEAD
-                      paymentMethod === 'Tunai' && styles.methodButtonTextActive,
-=======
-                      paymentMethod === 'Tunai' &&
-                      styles.methodButtonTextActive,
->>>>>>> ad990f61ed5ff5aeb12ed751827558f9fc286ff1
                     ]}
                   >
                     Tunai
@@ -446,12 +428,6 @@ export default function PaymentModal({
                 <TouchableOpacity
                   style={[
                     styles.methodButton,
-<<<<<<< HEAD
-                    paymentMethod === 'QRIS' && styles.methodButtonActive,
-=======
-                    paymentMethod === 'QRIS' &&
-                    styles.methodButtonActive,
->>>>>>> ad990f61ed5ff5aeb12ed751827558f9fc286ff1
                   ]}
                   onPress={() => setPaymentMethod('QRIS')}
                   disabled={isProcessing}
@@ -465,12 +441,6 @@ export default function PaymentModal({
                   <Text
                     style={[
                       styles.methodButtonText,
-<<<<<<< HEAD
-                      paymentMethod === 'QRIS' && styles.methodButtonTextActive,
-=======
-                      paymentMethod === 'QRIS' &&
-                      styles.methodButtonTextActive,
->>>>>>> ad990f61ed5ff5aeb12ed751827558f9fc286ff1
                     ]}
                   >
                     QRIS
@@ -480,12 +450,6 @@ export default function PaymentModal({
                 <TouchableOpacity
                   style={[
                     styles.methodButton,
-<<<<<<< HEAD
-                    paymentMethod === 'E-Wallet' && styles.methodButtonActive,
-=======
-                    paymentMethod === 'E-Wallet' &&
-                    styles.methodButtonActive,
->>>>>>> ad990f61ed5ff5aeb12ed751827558f9fc286ff1
                   ]}
                   onPress={() => setPaymentMethod('E-Wallet')}
                   disabled={isProcessing}
@@ -499,12 +463,6 @@ export default function PaymentModal({
                   <Text
                     style={[
                       styles.methodButtonText,
-<<<<<<< HEAD
-                      paymentMethod === 'E-Wallet' && styles.methodButtonTextActive,
-=======
-                      paymentMethod === 'E-Wallet' &&
-                      styles.methodButtonTextActive,
->>>>>>> ad990f61ed5ff5aeb12ed751827558f9fc286ff1
                     ]}
                   >
                     E-Wallet
