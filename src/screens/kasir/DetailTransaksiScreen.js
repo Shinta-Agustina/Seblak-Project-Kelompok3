@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,14 +6,65 @@ import {
   ScrollView,
   TouchableOpacity,
   useWindowDimensions,
+  TextInput,
+  Alert,
+  Platform,
 } from 'react-native';
+import { useKasir } from '../../context/KasirContext';
+import { updateTransaction, deleteTransaction } from '../../services/transaksiService';
 import { Ionicons } from '@expo/vector-icons';
 import formatCurrency from '../../utils/formatCurrency';
 
 export default function DetailTransaksiScreen({ navigation, route }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 600;
+  const { user, setTransactions, setOrders } = useKasir();
+  const isOwner = user?.role === 'Owner';
   const transaction = route?.params?.transaction || {};
+  const [status, setStatus] = useState(transaction.status || 'Lunas');
+  const [progres, setProgres] = useState(transaction.statusPesanan || 'Diproses');
+  const [catatan, setCatatan] = useState(transaction.catatan || '');
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState({ type: '', text: '' });
+  const dirty = status !== (transaction.status || 'Lunas') || progres !== (transaction.statusPesanan || 'Diproses') || catatan !== (transaction.catatan || '');
+
+  const handleSave = async () => {
+    if (!transaction.id || saving) return;
+    setSaving(true); setMsg({ type: '', text: '' });
+    try {
+      await updateTransaction(transaction.id, { status, status_pesanan: progres, catatan });
+      const apply = (list) => list.map((x) => x.id === transaction.id ? { ...x, status, statusPesanan: progres, catatan } : x);
+      setTransactions((p) => apply(p));
+      setOrders((p) => p.map((x) => x.id === transaction.id ? { ...x, status: progres, statusPesanan: progres, catatan } : x));
+      transaction.status = status; transaction.statusPesanan = progres; transaction.catatan = catatan;
+      setMsg({ type: 'ok', text: 'Perubahan transaksi tersimpan.' });
+    } catch (e) {
+      setMsg({ type: 'err', text: e.message || 'Gagal menyimpan perubahan.' });
+    } finally { setSaving(false); }
+  };
+
+  const doDelete = async () => {
+    try {
+      await deleteTransaction(transaction.id);
+      setTransactions((p) => p.filter((x) => x.id !== transaction.id));
+      setOrders((p) => p.filter((x) => x.id !== transaction.id));
+      navigation.goBack();
+    } catch (e) { setMsg({ type: 'err', text: e.message || 'Gagal menghapus transaksi.' }); }
+  };
+  const handleDelete = () => {
+    const text = `Hapus transaksi ${transaction.orderNo || transaction.no}? Tindakan ini tidak bisa dibatalkan.`;
+    if (Platform.OS === 'web') { if (window.confirm(text)) doDelete(); return; }
+    Alert.alert('Hapus Transaksi', text, [{ text: 'Batal', style: 'cancel' }, { text: 'Hapus', style: 'destructive', onPress: doDelete }]);
+  };
+  const Pilihan = ({ options, value, onChange }) => (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      {options.map((o) => (
+        <TouchableOpacity key={o} onPress={() => onChange(o)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: value === o ? '#C62828' : '#EDE5DF', backgroundColor: value === o ? '#C62828' : '#FFFFFF' }}>
+          <Text style={{ fontSize: 12, fontWeight: '800', color: value === o ? '#FFFFFF' : '#52141D' }}>{o}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
   const items = Array.isArray(transaction.items)
     ? transaction.items
     : Array.isArray(transaction.details)
@@ -101,6 +152,34 @@ export default function DetailTransaksiScreen({ navigation, route }) {
           <InfoRow label="Metode" value={method} />
           {isCash && <InfoRow label="Uang diterima" value={formatCurrency(Number(transaction.cashPaid ?? transaction.cashAmount ?? 0))} />}
           {isCash && <InfoRow label="Kembalian" value={formatCurrency(Number(transaction.change || 0))} />}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Ubah Transaksi</Text>
+          <Text style={styles.infoLabel}>Status pembayaran</Text>
+          <View style={{ height: 6 }} />
+          <Pilihan options={['Menunggu', 'Lunas', 'Dibatalkan', 'Refund']} value={status} onChange={setStatus} />
+          <View style={{ height: 14 }} />
+          <Text style={styles.infoLabel}>Progres pesanan</Text>
+          <View style={{ height: 6 }} />
+          <Pilihan options={['Menunggu', 'Diproses', 'Siap', 'Selesai', 'Dibatalkan']} value={progres} onChange={setProgres} />
+          <View style={{ height: 14 }} />
+          <Text style={styles.infoLabel}>Catatan</Text>
+          <TextInput value={catatan} onChangeText={setCatatan} placeholder="Catatan pesanan" placeholderTextColor="#B0A097" multiline
+            style={{ marginTop: 6, borderWidth: 1, borderColor: '#EDE5DF', borderRadius: 10, padding: 10, fontSize: 13, color: '#2C1810', minHeight: 56 }} />
+          {msg.text ? <Text style={{ marginTop: 10, fontSize: 12, fontWeight: '700', color: msg.type === 'ok' ? '#217A43' : '#B3261E' }}>{msg.text}</Text> : null}
+          <TouchableOpacity disabled={!dirty || saving} onPress={handleSave} activeOpacity={0.85}
+            style={{ marginTop: 12, minHeight: 46, borderRadius: 12, backgroundColor: '#C62828', opacity: !dirty || saving ? 0.5 : 1, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '800' }}>{saving ? 'Menyimpan...' : 'Simpan Perubahan'}</Text>
+          </TouchableOpacity>
+          {isOwner ? (
+            <TouchableOpacity onPress={handleDelete} activeOpacity={0.85}
+              style={{ marginTop: 10, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: '#C62828', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#C62828', fontSize: 13, fontWeight: '800' }}>Hapus Transaksi (Owner)</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={{ marginTop: 10, fontSize: 11, color: '#8D7B70' }}>Hanya Owner yang dapat menghapus transaksi.</Text>
+          )}
         </View>
 
         <TouchableOpacity

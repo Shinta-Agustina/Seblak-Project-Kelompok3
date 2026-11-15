@@ -13,11 +13,37 @@ export async function getStocks() {
 
   if (error) throw error;
 
-  return data || [];
+  const stok = data || [];
+
+  // Pemakaian per pcs (resep topping) agar bisa tampil di modal Edit Stok.
+  // Nilainya dalam satuan stok, mis. 0.05 untuk 50 gram dari stok berbasis kg.
+  // Kegagalan membaca resep tidak boleh menggagalkan daftar stok.
+  const { data: topping } = await supabase
+    .from('menu_topping')
+    .select('stok_id, resep_menu ( stok_id, jumlah_per_porsi )')
+    .not('stok_id', 'is', null);
+
+  const petaPemakaian = {};
+
+  (topping || []).forEach((t) => {
+    const resep = (t.resep_menu || []).find(
+      (r) => r.stok_id === t.stok_id
+    );
+
+    if (resep) {
+      petaPemakaian[t.stok_id] = Number(resep.jumlah_per_porsi);
+    }
+  });
+
+  return stok.map((row) => ({
+    ...row,
+    jumlah_per_porsi: petaPemakaian[row.id] ?? null,
+  }));
 }
 
 // =====================================================
 // 2. RIWAYAT MUTASI STOK
+// Mengambil riwayat beserta nama bahan dan informasi transaksi.
 // =====================================================
 
 export async function getStockMovements({ limit = 1000 } = {}) {
@@ -26,7 +52,8 @@ export async function getStockMovements({ limit = 1000 } = {}) {
     Math.min(Number(limit) || 1000, 5000)
   );
 
-  const { data, error } = await supabase
+  // Ambil data mutasi stok.
+  const { data: movements, error } = await supabase
     .from('mutasi_stok')
     .select('*')
     .order('created_at', { ascending: false })
@@ -34,7 +61,132 @@ export async function getStockMovements({ limit = 1000 } = {}) {
 
   if (error) throw error;
 
-  return data || [];
+  const rows = movements || [];
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  // Kumpulkan ID bahan.
+  const stockIds = [
+    ...new Set(
+      rows
+        .map((item) => item.stok_id)
+        .filter(Boolean)
+    ),
+  ];
+
+  // Kumpulkan ID transaksi.
+  const transactionIds = [
+    ...new Set(
+      rows
+        .map((item) => item.transaksi_id)
+        .filter(Boolean)
+    ),
+  ];
+
+  // Kumpulkan ID pengeluaran.
+  const expenseIds = [
+    ...new Set(
+      rows
+        .map((item) => item.pengeluaran_id)
+        .filter(Boolean)
+    ),
+  ];
+
+  // ---------------------------------------------------
+  // Ambil informasi bahan baku.
+  // ---------------------------------------------------
+
+  let stockMap = {};
+
+  if (stockIds.length > 0) {
+    const { data, error: stockError } = await supabase
+      .from('stok_bahan')
+      .select('id, nama_bahan, kategori, satuan')
+      .in('id', stockIds);
+
+    if (stockError) throw stockError;
+
+    stockMap = Object.fromEntries(
+      (data || []).map((item) => [
+        item.id,
+        item,
+      ])
+    );
+  }
+
+  // ---------------------------------------------------
+  // Ambil nomor transaksi.
+  // ---------------------------------------------------
+
+  let transactionMap = {};
+
+  if (transactionIds.length > 0) {
+    const { data, error: transactionError } = await supabase
+      .from('transaksi')
+      .select('id, nomor_transaksi')
+      .in('id', transactionIds);
+
+    if (transactionError) throw transactionError;
+
+    transactionMap = Object.fromEntries(
+      (data || []).map((item) => [
+        item.id,
+        item,
+      ])
+    );
+  }
+
+  // ---------------------------------------------------
+  // Ambil nama pengeluaran.
+  // ---------------------------------------------------
+
+  let expenseMap = {};
+
+  if (expenseIds.length > 0) {
+    const { data, error: expenseError } = await supabase
+      .from('pengeluaran')
+      .select('id, nama_pengeluaran')
+      .in('id', expenseIds);
+
+    if (expenseError) throw expenseError;
+
+    expenseMap = Object.fromEntries(
+      (data || []).map((item) => [
+        item.id,
+        item,
+      ])
+    );
+  }
+
+  // ---------------------------------------------------
+  // Gabungkan seluruh data.
+  // ---------------------------------------------------
+
+  return rows.map((movement) => ({
+    ...movement,
+
+    nama_bahan:
+      stockMap[movement.stok_id]?.nama_bahan ||
+      'Bahan tidak ditemukan',
+
+    kategori:
+      stockMap[movement.stok_id]?.kategori ||
+      null,
+
+    satuan:
+      stockMap[movement.stok_id]?.satuan ||
+      '',
+
+    nomor_transaksi:
+      transactionMap[movement.transaksi_id]
+        ?.nomor_transaksi || null,
+
+    nama_pengeluaran:
+      expenseMap[movement.pengeluaran_id]
+        ?.nama_pengeluaran || null,
+  }));
 }
 
 // =====================================================
@@ -48,9 +200,8 @@ export async function updateStock(id, values = {}) {
     throw new Error('ID stok tidak ditemukan.');
   }
 
-  const patch = {
-    updated_at: new Date().toISOString(),
-  };
+  // updated_at tidak dikirim karena diisi otomatis database.
+  const patch = {};
 
   const allowedFields = [
     'nama_bahan',
@@ -96,7 +247,6 @@ export async function updateStock(id, values = {}) {
   });
 
   // Validasi pemakaian per pcs.
-  // Nilai ini bukan kolom stok_bahan, melainkan kolom resep_menu.
   const jumlahPerPorsi =
     values.jumlah_per_porsi !== undefined
       ? Number(values.jumlah_per_porsi)
@@ -114,18 +264,18 @@ export async function updateStock(id, values = {}) {
   }
 
   // Simpan informasi bahan dan harga jual.
-  // Trigger sinkronisasi database akan membuat/memperbarui menu_topping
-  // ketika harga_jual bernilai lebih dari 0.
-  const { data: updatedStock, error: stockError } = await supabase
-    .from('stok_bahan')
-    .update(patch)
-    .eq('id', id)
+  const stockQuery =
+    Object.keys(patch).length > 0
+      ? supabase.from('stok_bahan').update(patch).eq('id', id)
+      : supabase.from('stok_bahan').select().eq('id', id);
+
+  const { data: updatedStock, error: stockError } = await stockQuery
     .select()
     .single();
 
   if (stockError) throw stockError;
 
-  // Jika pemakaian per pcs dikirim, simpan ke resep_menu.
+  // Simpan resep jika pemakaian per pcs dikirim.
   if (jumlahPerPorsi !== undefined) {
     if (
       !Number(updatedStock.harga_jual) ||
@@ -151,7 +301,7 @@ export async function updateStock(id, values = {}) {
       );
     }
 
-    // Simpan resep. Jika sudah ada, perbarui jumlah pemakaiannya.
+    // Simpan resep.
     const { data: resep, error: resepError } = await supabase
       .from('resep_menu')
       .upsert(
@@ -337,7 +487,7 @@ export async function recordStockMutation({
   // Trigger database memperlakukan:
   // masuk = tambah stok
   // keluar = kurangi stok
-  // penyesuaian = tambah sesuai jumlah mutasi
+  // penyesuaian = tambah sesuai jumlah mutasi.
   const baru =
     tipe === 'masuk' || tipe === 'penyesuaian'
       ? sekarang + qty
@@ -347,7 +497,7 @@ export async function recordStockMutation({
     throw new Error('Stok tidak boleh negatif.');
   }
 
-  // Insert mutasi. Trigger database akan memperbarui stok_bahan.stok.
+  // Insert mutasi. Trigger database memperbarui stok_bahan.stok.
   const { data: mutasi, error: mutationError } = await supabase
     .from('mutasi_stok')
     .insert({
@@ -363,7 +513,7 @@ export async function recordStockMutation({
 
   if (mutationError) throw mutationError;
 
-  // Ambil stok terbaru dari database.
+  // Ambil stok terbaru.
   const { data: updated, error: updatedError } = await supabase
     .from('stok_bahan')
     .select('stok')

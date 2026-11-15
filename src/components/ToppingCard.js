@@ -44,7 +44,7 @@ export default function ToppingCard({ item, quantity = 0, onAdd, onRemove }) {
           <Text style={styles.name} numberOfLines={1}>
             {item.nama}
           </Text>
-          {item.berat && <Text style={styles.weight}>{item.berat}</Text>}
+          <Text style={styles.weight}>pcs</Text>
         </View>
       </TouchableOpacity>
 

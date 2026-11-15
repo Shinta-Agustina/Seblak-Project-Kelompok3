@@ -1,29 +1,46 @@
-
 import { Platform } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
 const TABLE = 'menu_topping';
 const BUCKET = 'menu-seblak';
 
+// =====================================================
+// MAPPING DATA MENU
+// =====================================================
+
 const mapRow = (row) => ({
   id: row.id,
   nama: row.nama,
   kategori: row.kategori,
-  harga: Number(row.harga),
-  berat: row.satuan || 'pcs',
-  satuan: row.satuan || 'pcs',
+  harga: Number(row.harga || 0),
+
+  // Satuan penjualan selalu pcs.
+  // Satuan stok bahan tetap disimpan di stok_bahan.
+  berat: 'pcs',
+  satuan: 'pcs',
+
   stok: Number(row.stok || 0),
   status: row.status || 'aktif',
   emoji: '🍲',
+
+  // Foto default dari tabel menu_topping.
   image: row.foto_url || null,
 });
+
+// =====================================================
+// SEED MENU AWAL
+// =====================================================
 
 export async function seedInitialMenusIfEmpty() {
   const { count, error: countError } = await supabase
     .from(TABLE)
-    .select('id', { count: 'exact', head: true });
+    .select('id', {
+      count: 'exact',
+      head: true,
+    });
 
   if (countError) throw countError;
+
   if (count > 0) return false;
 
   const rows = TOPPING_ITEMS.map((item, index) => ({
@@ -31,7 +48,7 @@ export async function seedInitialMenusIfEmpty() {
     kategori: item.kategori,
     harga: Number(item.harga),
     stok: 20 + ((index * 7) % 30),
-    satuan: item.berat || 'pcs',
+    satuan: 'pcs',
     status: 'aktif',
     foto_url: item.image || null,
   }));
@@ -45,11 +62,61 @@ export async function seedInitialMenusIfEmpty() {
   return true;
 }
 
-export async function getMenus({ includeInactive = true } = {}) {
+// =====================================================
+// AMBIL FOTO PENGELUARAN BERDASARKAN STOK ID
+// =====================================================
+
+async function getFotoPengeluaran(stokIds = []) {
+  const ids = [
+    ...new Set(
+      stokIds.filter(Boolean).map((id) => String(id))
+    ),
+  ];
+
+  if (ids.length === 0) {
+    return new Map();
+  }
+
+  const { data, error } = await supabase
+    .from('pengeluaran')
+    .select('stok_id, foto_item, created_at')
+    .in('stok_id', ids)
+    .not('foto_item', 'is', null)
+    .neq('foto_item', '')
+    .order('created_at', {
+      ascending: false,
+    });
+
+  if (error) throw error;
+
+  const fotoMap = new Map();
+
+  // Data sudah diurutkan terbaru terlebih dahulu.
+  // Ambil foto pertama untuk setiap stok_id.
+  (data || []).forEach((item) => {
+    const stokId = String(item.stok_id);
+
+    if (!fotoMap.has(stokId) && item.foto_item) {
+      fotoMap.set(stokId, item.foto_item);
+    }
+  });
+
+  return fotoMap;
+}
+
+// =====================================================
+// READ: AMBIL DAFTAR MENU
+// =====================================================
+
+export async function getMenus({
+  includeInactive = true,
+} = {}) {
   let query = supabase
     .from(TABLE)
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('created_at', {
+      ascending: false,
+    });
 
   if (!includeInactive) {
     query = query.eq('status', 'aktif');
@@ -59,8 +126,33 @@ export async function getMenus({ includeInactive = true } = {}) {
 
   if (error) throw error;
 
-  return (data || []).map(mapRow);
+  const menus = data || [];
+
+  const stokIds = menus
+    .map((item) => item.stok_id)
+    .filter(Boolean);
+
+  const fotoMap = await getFotoPengeluaran(stokIds);
+
+  return menus.map((row) => {
+    const fotoPengeluaran = row.stok_id
+      ? fotoMap.get(String(row.stok_id))
+      : null;
+
+    return {
+      ...mapRow(row),
+
+      stok_id: row.stok_id || null,
+
+      // Prioritaskan foto dari Pengeluaran.
+      image: fotoPengeluaran || row.foto_url || null,
+    };
+  });
 }
+
+// =====================================================
+// UPLOAD FOTO MENU
+// =====================================================
 
 const MAX_FOTO_BYTES = 2 * 1024 * 1024;
 
@@ -76,6 +168,7 @@ async function bacaSebagaiArrayBuffer(uri) {
   if (Platform.OS !== 'web') {
     try {
       const { File } = require('expo-file-system');
+
       return await new File(uri).arrayBuffer();
     } catch (e) {
       // Gunakan fetch sebagai alternatif.
@@ -85,20 +178,28 @@ async function bacaSebagaiArrayBuffer(uri) {
   const response = await fetch(uri);
 
   if (!response.ok) {
-    throw new Error('Gagal membaca foto dari perangkat.');
+    throw new Error(
+      'Gagal membaca foto dari perangkat.'
+    );
   }
 
   return await response.arrayBuffer();
 }
 
 function tentukanTipe(uri) {
-  const dataUrl = /^data:(image\/[a-z0-9.+-]+);base64,/i.exec(uri);
+  const dataUrl = /^data:(image\/[a-z0-9.+-]+);base64,/i.exec(
+    uri
+  );
 
   if (dataUrl) {
     return dataUrl[1].toLowerCase();
   }
 
-  const ext = uri.split('?')[0].split('.').pop()?.toLowerCase();
+  const ext = uri
+    .split('?')[0]
+    .split('.')
+    .pop()
+    ?.toLowerCase();
 
   return MIME_DARI_EKSTENSI[ext] || 'image/jpeg';
 }
@@ -106,6 +207,7 @@ function tentukanTipe(uri) {
 async function uploadPhoto(photo) {
   if (!photo) return null;
 
+  // Jika sudah berupa URL, tidak perlu upload ulang.
   if (
     typeof photo === 'string' &&
     /^https?:\/\//i.test(photo)
@@ -113,17 +215,23 @@ async function uploadPhoto(photo) {
     return photo;
   }
 
-  const uri = typeof photo === 'string' ? photo : photo.uri;
+  const uri =
+    typeof photo === 'string'
+      ? photo
+      : photo.uri;
 
   if (!uri) {
     throw new Error('Foto tidak valid.');
   }
 
   const contentType = tentukanTipe(uri);
+
   const buffer = await bacaSebagaiArrayBuffer(uri);
 
   if (buffer.byteLength > MAX_FOTO_BYTES) {
-    throw new Error('Ukuran foto maksimal 2 MB.');
+    throw new Error(
+      'Ukuran foto maksimal 2 MB.'
+    );
   }
 
   const extension = contentType
@@ -150,6 +258,10 @@ async function uploadPhoto(photo) {
   return data.publicUrl;
 }
 
+// =====================================================
+// CREATE: TAMBAH MENU
+// =====================================================
+
 export async function createMenu(values) {
   const foto_url = await uploadPhoto(values.image);
 
@@ -158,9 +270,12 @@ export async function createMenu(values) {
     kategori: values.kategori,
     harga: Number(values.harga),
     stok: Number(values.stok),
-    satuan: values.berat || values.satuan || 'pcs',
+    satuan: 'pcs',
     status: (values.status || 'aktif').toLowerCase(),
     foto_url,
+
+    // Hubungkan menu dengan stok bahan.
+    stok_id: values.stok_id || null,
   };
 
   const { data, error } = await supabase
@@ -174,7 +289,15 @@ export async function createMenu(values) {
   return mapRow(data);
 }
 
-export async function updateMenu(id, values, previous = {}) {
+// =====================================================
+// UPDATE: UBAH MENU
+// =====================================================
+
+export async function updateMenu(
+  id,
+  values,
+  previous = {}
+) {
   let foto_url = previous.image || null;
 
   const newPhoto =
@@ -199,11 +322,15 @@ export async function updateMenu(id, values, previous = {}) {
     kategori: values.kategori,
     harga: Number(values.harga),
     stok: Number(values.stok),
-    satuan: values.berat || values.satuan || 'pcs',
+    satuan: 'pcs',
     status: (values.status || 'aktif').toLowerCase(),
     foto_url,
     updated_at: new Date().toISOString(),
   };
+
+  if (values.stok_id !== undefined) {
+    payload.stok_id = values.stok_id || null;
+  }
 
   const { data, error } = await supabase
     .from(TABLE)
@@ -218,12 +345,16 @@ export async function updateMenu(id, values, previous = {}) {
 
   // Hapus foto lama jika foto baru berhasil disimpan.
   if (newPhoto && previous.image) {
-    const oldPath = previous.image.split('/menu-seblak/')[1];
+    const oldPath = previous.image.split(
+      '/menu-seblak/'
+    )[1];
 
     if (oldPath) {
       const { error: removeError } = await supabase.storage
         .from(BUCKET)
-        .remove([decodeURIComponent(oldPath)]);
+        .remove([
+          decodeURIComponent(oldPath),
+        ]);
 
       if (removeError) {
         console.warn(
@@ -237,7 +368,14 @@ export async function updateMenu(id, values, previous = {}) {
   return mapRow(data);
 }
 
-export async function deleteMenu(id, previous = {}) {
+// =====================================================
+// DELETE: HAPUS MENU
+// =====================================================
+
+export async function deleteMenu(
+  id,
+  previous = {}
+) {
   const { error } = await supabase
     .from(TABLE)
     .delete()
@@ -246,12 +384,16 @@ export async function deleteMenu(id, previous = {}) {
   if (error) throw error;
 
   if (previous.image) {
-    const oldPath = previous.image.split('/menu-seblak/')[1];
+    const oldPath = previous.image.split(
+      '/menu-seblak/'
+    )[1];
 
     if (oldPath) {
       const { error: storageError } = await supabase.storage
         .from(BUCKET)
-        .remove([decodeURIComponent(oldPath)]);
+        .remove([
+          decodeURIComponent(oldPath),
+        ]);
 
       if (storageError) {
         console.warn(
@@ -261,4 +403,6 @@ export async function deleteMenu(id, previous = {}) {
       }
     }
   }
+
+  return true;
 }

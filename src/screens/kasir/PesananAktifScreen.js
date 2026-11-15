@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   View,
@@ -14,14 +15,33 @@ import { useKasir } from '../../context/KasirContext';
 import formatCurrency from '../../utils/formatCurrency';
 
 const STATUS_CONFIG = {
-  Diproses: { bg: '#FFF3E0', text: '#E65100', border: '#FFE0B2' },
-  Proses: { bg: '#FFF3E0', text: '#E65100', border: '#FFE0B2' },
-  Selesai: { bg: '#E8F5E9', text: '#2E7D32', border: '#C8E6C9' },
+  Menunggu: {
+    bg: '#FFF8E1',
+    text: '#F9A825',
+    border: '#FFECB3',
+  },
+  Diproses: {
+    bg: '#FFF3E0',
+    text: '#E65100',
+    border: '#FFE0B2',
+  },
+  Selesai: {
+    bg: '#E8F5E9',
+    text: '#2E7D32',
+    border: '#C8E6C9',
+  },
 };
 
-const normalizeStatus = (status) => {
-  if (status === 'Siap Bayar') return 'Diproses';
-  return status || 'Diproses';
+const getOrderStatus = (order) => {
+  const status = order?.status_pesanan || order?.status;
+
+  if (!status) return 'Menunggu';
+
+  if (status === 'Proses') return 'Diproses';
+
+  if (status === 'Siap Bayar') return 'Menunggu';
+
+  return status;
 };
 
 const getFormattedToday = () => {
@@ -37,11 +57,13 @@ const getFormattedToday = () => {
       'Minggu', 'Senin', 'Selasa', 'Rabu',
       'Kamis', 'Jumat', 'Sabtu',
     ];
+
     const months = [
       'Januari', 'Februari', 'Maret', 'April',
       'Mei', 'Juni', 'Juli', 'Agustus',
       'September', 'Oktober', 'November', 'Desember',
     ];
+
     const now = new Date();
 
     return `${days[now.getDay()]}, ${now.getDate()} ${
@@ -53,99 +75,181 @@ const getFormattedToday = () => {
 export default function PesananAktifScreen({ onOpenDetail }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
-  const { orders, updateOrderStatus } = useKasir();
+
+  const { orders = [], updateOrderStatus } = useKasir();
 
   const [activeTab, setActiveTab] = useState('Semua');
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
 
-  const countDiproses = orders.filter(
-    (order) =>
-      normalizeStatus(order.status) === 'Diproses' ||
-      order.status === 'Proses'
+  // Pastikan orders selalu berbentuk array.
+  const safeOrders = Array.isArray(orders) ? orders : [];
+
+  // Hitung jumlah pesanan berdasarkan status.
+  const countMenunggu = safeOrders.filter(
+    (order) => getOrderStatus(order) === 'Menunggu'
   ).length;
 
-  const countSelesai = orders.filter(
-    (order) => normalizeStatus(order.status) === 'Selesai'
+  const countDiproses = safeOrders.filter(
+    (order) => getOrderStatus(order) === 'Diproses'
+  ).length;
+
+  const countSelesai = safeOrders.filter(
+    (order) => getOrderStatus(order) === 'Selesai'
   ).length;
 
   const tabs = [
-    { id: 'Semua', label: `Semua (${orders.length})` },
-    { id: 'Diproses', label: `Diproses (${countDiproses})` },
-    { id: 'Selesai', label: `Selesai (${countSelesai})` },
+    {
+      id: 'Semua',
+      label: `Semua (${safeOrders.length})`,
+    },
+    {
+      id: 'Menunggu',
+      label: `Menunggu (${countMenunggu})`,
+    },
+    {
+      id: 'Diproses',
+      label: `Diproses (${countDiproses})`,
+    },
+    {
+      id: 'Selesai',
+      label: `Selesai (${countSelesai})`,
+    },
   ];
 
-  const filteredOrders = orders.filter((order) => {
-    const status = normalizeStatus(order.status);
+  // Filter pesanan sesuai tab.
+  const filteredOrders = safeOrders.filter((order) => {
+    const status = getOrderStatus(order);
 
     if (activeTab === 'Semua') return true;
-
-    if (activeTab === 'Diproses') {
-      return status === 'Diproses' || status === 'Proses';
-    }
 
     return status === activeTab;
   });
 
-  const handleCycleStatus = (order) => {
-    const current = normalizeStatus(order.status);
+  // Perubahan status bertahap:
+  // Menunggu -> Diproses -> Selesai.
+  const handleCycleStatus = async (order) => {
+    const currentStatus = getOrderStatus(order);
 
-    const nextStatus =
-      current === 'Diproses' || current === 'Proses'
-        ? 'Selesai'
-        : 'Diproses';
+    let nextStatus = null;
 
-    updateOrderStatus(order.id, nextStatus);
+    if (currentStatus === 'Menunggu') {
+      nextStatus = 'Diproses';
+    } else if (currentStatus === 'Diproses') {
+      nextStatus = 'Selesai';
+    } else {
+      // Status Selesai tidak bisa kembali ke status sebelumnya.
+      return;
+    }
+
+    try {
+      await updateOrderStatus(order.id, nextStatus);
+    } catch (error) {
+      console.error('Gagal mengubah status pesanan:', error);
+    }
   };
 
-  const handleOpenDetail = (order) => {
+  const handleOpenOrderDetail = (order) => {
     if (!onOpenDetail) return;
 
-    const orderTypeLabel = order.orderType || order.table || 'Dine In';
+    const orderTypeLabel =
+      order.orderType || order.order_type || order.table || 'Dine In';
+
+    const details = order.details || order.detail_transaksi || [];
 
     onOpenDetail({
-      orderNo: order.id,
+      ...order,
+      orderNo: order.nomor_transaksi || order.id,
       orderType: orderTypeLabel,
       tableNo: orderTypeLabel,
-      date: order.date || getFormattedToday(),
-      time: order.time || '09:45',
-      items: order.details || [
-        {
-          name: order.items,
-          qty: 1,
-          price: order.total,
-        },
-      ],
-      total: order.total,
-      method: order.metode || 'QRIS',
+      date: order.date || order.tanggal || getFormattedToday(),
+      time: order.time || order.waktu || '09:45',
+      items:
+        details.length > 0
+          ? details
+          : [
+              {
+                name: order.items || 'Item pesanan',
+                qty: 1,
+                price: order.total || 0,
+              },
+            ],
+      total: Number(order.total || order.total_harga || 0),
+      method: order.metode || order.metode_pembayaran || 'QRIS',
     });
   };
 
   const renderTableHeader = () => (
     <View style={[styles.tableHead, isMobile && styles.wideRow]}>
       <Text style={[styles.th, { width: 55 }]}>No</Text>
-      <Text style={[styles.th, { width: 65 }]}>Waktu</Text>
-      {/* Kolom No. Meja diubah menjadi Tipe Pesanan */}
-      <Text style={[styles.th, { width: 85 }]}>Tipe</Text>
-      <Text style={[styles.th, { width: 150 }]}>Item</Text>
-      <Text style={[styles.th, { width: 100, textAlign: 'right' }]}>
+
+      <Text style={[styles.th, { width: 65 }]}>
+        Waktu
+      </Text>
+
+      <Text style={[styles.th, { width: 85 }]}>
+        Tipe
+      </Text>
+
+      <Text style={[styles.th, { width: 150 }]}>
+        Item
+      </Text>
+
+      <Text
+        style={[
+          styles.th,
+          { width: 100, textAlign: 'right' },
+        ]}
+      >
         Total
       </Text>
-      <Text style={[styles.th, { width: 110, textAlign: 'center' }]}>
+
+      <Text
+        style={[
+          styles.th,
+          { width: 110, textAlign: 'center' },
+        ]}
+      >
         Status
       </Text>
-      <Text style={[styles.th, { width: 75, textAlign: 'center' }]}>
+
+      <Text
+        style={[
+          styles.th,
+          { width: 75, textAlign: 'center' },
+        ]}
+      >
         Aksi
       </Text>
     </View>
   );
 
   const renderOrder = ({ item: order, index }) => {
-    const currentStatus = normalizeStatus(order.status);
-    const cfg =
-      STATUS_CONFIG[currentStatus] || STATUS_CONFIG.Diproses;
+    const currentStatus = getOrderStatus(order);
 
-    // Mengambil label tipe pesanan (Dine In / Takeaway)
-    const orderTypeLabel = order.orderType || order.table || 'Dine In';
+    const cfg =
+      STATUS_CONFIG[currentStatus] || STATUS_CONFIG.Menunggu;
+
+    const orderTypeLabel =
+      order.orderType ||
+      order.order_type ||
+      order.table ||
+      'Dine In';
+
+    const orderItems = Array.isArray(order.items)
+      ? order.items
+          .map((item) => item.nama || item.name || 'Item')
+          .join(', ')
+      : typeof order.items === 'string'
+      ? order.items
+      : order.items && typeof order.items === 'object'
+      ? order.items.nama || order.items.name || 'Item'
+      : Array.isArray(order.details)
+      ? order.details
+          .map((item) => item.nama || item.name || 'Item')
+          .join(', ')
+      : '-';
+
+    const isFinished = currentStatus === 'Selesai';
 
     return (
       <ScrollView
@@ -171,11 +275,16 @@ export default function PesananAktifScreen({ onOpenDetail }) {
               },
             ]}
           >
-            {order.id || `#00${index + 1}`}
+            {order.nomor_transaksi || order.id || `#00${index + 1}`}
           </Text>
 
-          <Text style={[styles.td, { width: 65, color: '#6F5C53' }]}>
-            {order.time || '09:00'}
+          <Text
+            style={[
+              styles.td,
+              { width: 65, color: '#6F5C53' },
+            ]}
+          >
+            {order.time || order.waktu || '09:00'}
           </Text>
 
           <Text
@@ -192,16 +301,13 @@ export default function PesananAktifScreen({ onOpenDetail }) {
           </Text>
 
           <Text
-            style={[styles.td, { width: 150, color: '#3D2820' }]}
+            style={[
+              styles.td,
+              { width: 150, color: '#3D2820' },
+            ]}
             numberOfLines={1}
           >
-            {typeof order.items === 'string'
-              ? order.items
-              : Array.isArray(order.items)
-              ? order.items.map(i => i.nama || i.name || 'Item').join(', ')
-              : order.items && typeof order.items === 'object'
-              ? order.items.nama || order.items.name || JSON.stringify(order.items)
-              : '-'}
+            {orderItems}
           </Text>
 
           <Text
@@ -215,10 +321,17 @@ export default function PesananAktifScreen({ onOpenDetail }) {
               },
             ]}
           >
-            {formatCurrency(order.total || 0)}
+            {formatCurrency(
+              Number(order.total || order.total_harga || 0)
+            )}
           </Text>
 
-          <View style={{ width: 110, alignItems: 'center' }}>
+          <View
+            style={{
+              width: 110,
+              alignItems: 'center',
+            }}
+          >
             <TouchableOpacity
               style={[
                 styles.statusBadge,
@@ -226,28 +339,55 @@ export default function PesananAktifScreen({ onOpenDetail }) {
                   backgroundColor: cfg.bg,
                   borderColor: cfg.border,
                 },
+                isFinished && styles.statusBadgeDisabled,
               ]}
               onPress={() => handleCycleStatus(order)}
+              disabled={isFinished}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel={`Ubah status pesanan ${order.id}`}
-              accessibilityHint="Ketuk untuk mengubah status pesanan"
+              accessibilityLabel={`Status pesanan ${currentStatus}`}
+              accessibilityHint={
+                isFinished
+                  ? 'Pesanan sudah selesai'
+                  : 'Ketuk untuk melanjutkan status pesanan'
+              }
             >
-              <Text style={[styles.statusText, { color: cfg.text }]}>
+              <Text
+                style={[
+                  styles.statusText,
+                  { color: cfg.text },
+                ]}
+              >
                 {currentStatus}
               </Text>
+
+              {!isFinished && (
+                <Ionicons
+                  name="chevron-forward"
+                  size={12}
+                  color={cfg.text}
+                  style={{ marginLeft: 3 }}
+                />
+              )}
             </TouchableOpacity>
           </View>
 
-          <View style={{ width: 75, alignItems: 'center' }}>
+          <View
+            style={{
+              width: 75,
+              alignItems: 'center',
+            }}
+          >
             <TouchableOpacity
               style={styles.detailBtn}
-              onPress={() => handleOpenDetail(order)}
+              onPress={() => handleOpenOrderDetail(order)}
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel={`Lihat detail pesanan ${order.id}`}
             >
-              <Text style={styles.detailBtnText}>Detail</Text>
+              <Text style={styles.detailBtnText}>
+                Detail
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -258,9 +398,12 @@ export default function PesananAktifScreen({ onOpenDetail }) {
   const renderHeader = () => (
     <View>
       <View style={styles.headerSection}>
-        <Text style={styles.title}>Pesanan Aktif</Text>
+        <Text style={styles.title}>
+          Pesanan Aktif
+        </Text>
+
         <Text style={styles.subtitle}>
-          Daftar pesanan yang sedang diproses dan menunggu pembayaran.
+          Daftar pesanan yang sedang menunggu, diproses, dan selesai.
         </Text>
       </View>
 
@@ -275,14 +418,22 @@ export default function PesananAktifScreen({ onOpenDetail }) {
           return (
             <TouchableOpacity
               key={tab.id}
-              style={[styles.tab, isActive && styles.tabActive]}
+              style={[
+                styles.tab,
+                isActive && styles.tabActive,
+              ]}
               onPress={() => setActiveTab(tab.id)}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityState={{ selected: isActive }}
+              accessibilityState={{
+                selected: isActive,
+              }}
             >
               <Text
-                style={[styles.tabText, isActive && styles.tabTextActive]}
+                style={[
+                  styles.tabText,
+                  isActive && styles.tabTextActive,
+                ]}
               >
                 {tab.label}
               </Text>
@@ -316,15 +467,31 @@ export default function PesananAktifScreen({ onOpenDetail }) {
         size={36}
         color="#8D7B70"
       />
-      <Text style={styles.emptyText}>Tidak ada pesanan aktif</Text>
+
+      <Text style={styles.emptyText}>
+        {activeTab === 'Semua'
+          ? 'Tidak ada pesanan aktif'
+          : `Tidak ada pesanan ${activeTab.toLowerCase()}`}
+      </Text>
     </View>
+  );
+
+  const totalNilaiPesanan = safeOrders.reduce(
+    (total, order) =>
+      total + Number(order.total || order.total_harga || 0),
+    0
   );
 
   const renderFooter = () => (
     <View style={styles.footerSummaryCard}>
       <View style={{ flex: 1 }}>
-        <Text style={styles.footerLabel}>Total Pesanan Hari Ini</Text>
-        <Text style={styles.footerNumber}>{orders.length}</Text>
+        <Text style={styles.footerLabel}>
+          Total Pesanan Hari Ini
+        </Text>
+
+        <Text style={styles.footerNumber}>
+          {safeOrders.length}
+        </Text>
       </View>
 
       <TouchableOpacity
@@ -363,13 +530,17 @@ export default function PesananAktifScreen({ onOpenDetail }) {
         visible={summaryModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setSummaryModalVisible(false)}
+        onRequestClose={() =>
+          setSummaryModalVisible(false)
+        }
       >
         <View style={styles.modalOverlay}>
           <TouchableOpacity
             style={StyleSheet.absoluteFillObject}
             activeOpacity={1}
-            onPress={() => setSummaryModalVisible(false)}
+            onPress={() =>
+              setSummaryModalVisible(false)
+            }
             accessibilityLabel="Tutup modal ringkasan"
           />
 
@@ -390,33 +561,77 @@ export default function PesananAktifScreen({ onOpenDetail }) {
               </View>
 
               <TouchableOpacity
-                onPress={() => setSummaryModalVisible(false)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                onPress={() =>
+                  setSummaryModalVisible(false)
+                }
+                hitSlop={{
+                  top: 10,
+                  bottom: 10,
+                  left: 10,
+                  right: 10,
+                }}
                 accessibilityRole="button"
                 accessibilityLabel="Tutup ringkasan"
               >
-                <Ionicons name="close" size={20} color="#8D7B70" />
+                <Ionicons
+                  name="close"
+                  size={20}
+                  color="#8D7B70"
+                />
               </TouchableOpacity>
             </View>
 
             <Text style={styles.modalSubtitle}>
-              Statistik akumulasi pesanan yang sedang aktif dan berjalan:
+              Statistik pesanan berdasarkan status:
             </Text>
 
             <View style={styles.summaryList}>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryRowLabel}>Total Pesanan</Text>
+                <Text style={styles.summaryRowLabel}>
+                  Total Pesanan
+                </Text>
+
                 <Text style={styles.summaryRowVal}>
-                  {orders.length} Pesanan
+                  {safeOrders.length} Pesanan
                 </Text>
               </View>
 
               <View style={styles.summaryRow}>
                 <View style={styles.summaryLabelGroup}>
                   <View
-                    style={[styles.statusDot, { backgroundColor: '#E65100' }]}
+                    style={[
+                      styles.statusDot,
+                      { backgroundColor: '#F9A825' },
+                    ]}
                   />
-                  <Text style={styles.summaryRowLabel}>Sedang Diproses</Text>
+
+                  <Text style={styles.summaryRowLabel}>
+                    Menunggu
+                  </Text>
+                </View>
+
+                <Text
+                  style={[
+                    styles.summaryRowVal,
+                    { color: '#F9A825' },
+                  ]}
+                >
+                  {countMenunggu}
+                </Text>
+              </View>
+
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryLabelGroup}>
+                  <View
+                    style={[
+                      styles.statusDot,
+                      { backgroundColor: '#E65100' },
+                    ]}
+                  />
+
+                  <Text style={styles.summaryRowLabel}>
+                    Sedang Diproses
+                  </Text>
                 </View>
 
                 <Text
@@ -432,10 +647,14 @@ export default function PesananAktifScreen({ onOpenDetail }) {
               <View style={styles.summaryRow}>
                 <View style={styles.summaryLabelGroup}>
                   <View
-                    style={[styles.statusDot, { backgroundColor: '#2E7D32' }]}
+                    style={[
+                      styles.statusDot,
+                      { backgroundColor: '#2E7D32' },
+                    ]}
                   />
+
                   <Text style={styles.summaryRowLabel}>
-                    Selesai Disajikan
+                    Selesai
                   </Text>
                 </View>
 
@@ -449,28 +668,33 @@ export default function PesananAktifScreen({ onOpenDetail }) {
                 </Text>
               </View>
 
-              <View style={[styles.summaryRow, styles.summaryTotalRow]}>
+              <View
+                style={[
+                  styles.summaryRow,
+                  styles.summaryTotalRow,
+                ]}
+              >
                 <Text style={styles.summaryTotalLabel}>
                   Total Nilai Pesanan
                 </Text>
 
                 <Text style={styles.summaryTotalValue}>
-                  {formatCurrency(
-                    orders.reduce((total, order) => {
-                      return total + (order.total || 0);
-                    }, 0)
-                  )}
+                  {formatCurrency(totalNilaiPesanan)}
                 </Text>
               </View>
             </View>
 
             <TouchableOpacity
               style={styles.modalCloseBtn}
-              onPress={() => setSummaryModalVisible(false)}
+              onPress={() =>
+                setSummaryModalVisible(false)
+              }
               activeOpacity={0.8}
               accessibilityRole="button"
             >
-              <Text style={styles.modalCloseBtnText}>Tutup Ringkasan</Text>
+              <Text style={styles.modalCloseBtnText}>
+                Tutup Ringkasan
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -576,12 +800,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  statusBadgeDisabled: {
+    opacity: 0.85,
   },
   statusText: {
     fontSize: 11,
