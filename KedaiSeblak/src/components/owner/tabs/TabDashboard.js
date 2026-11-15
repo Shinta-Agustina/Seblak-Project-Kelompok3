@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+﻿import React, { useMemo, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,10 +11,12 @@ import { Ionicons } from '@expo/vector-icons';
 import StatCard from '../StatCard';
 import StatusBadge from '../StatusBadge';
 import SalesChart from '../SalesChart';
+import { getSalesForecast } from '../../../services/forecastService';
 
 import {
   normalisasiTransaksiKasir,
   hitungToppingTerjual,
+  tanggalAcuan,
 } from '../../../data/salesDataUtils';
 
 const rupiah = (value) =>
@@ -37,10 +39,39 @@ export default function TabDashboard({
 
   const hasKasirDetail = transaksi.length > 0;
 
-  const hariIni = awalHari(new Date());
+  // Prediksi penjualan 7 hari ke depan (dihitung dari riwayat transaksi di Supabase)
+  const [forecast, setForecast] = useState(null);
+  const [forecastError, setForecastError] = useState('');
+  useEffect(() => {
+    let aktif = true;
+    getSalesForecast(7)
+      .then((r) => { if (aktif) setForecast(r); })
+      .catch((e) => { if (aktif) setForecastError(e.message || 'Gagal menghitung prediksi.'); });
+    return () => { aktif = false; };
+  }, []);
 
-  const awalMinggu = new Date(hariIni);
-  awalMinggu.setDate(hariIni.getDate() - 6);
+  // Acuan = hari ini bila ada transaksi, selain itu hari transaksi terakhir.
+  const hariIni = useMemo(
+    () => awalHari(tanggalAcuan(transaksi)),
+    [transaksi]
+  );
+
+  const adalahHariIniAsli =
+    hariIni.getTime() === awalHari(new Date()).getTime();
+
+  const labelHari = adalahHariIniAsli
+    ? 'hari ini'
+    : hariIni.toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+  const awalMinggu = useMemo(() => {
+    const tanggal = new Date(hariIni);
+    tanggal.setDate(hariIni.getDate() - 6);
+    return tanggal;
+  }, [hariIni]);
 
   const transaksiHariIni = useMemo(
     () =>
@@ -122,13 +153,7 @@ export default function TabDashboard({
 
   // Total pengeluaran khusus hari ini
   const pengeluaranHariIni = useMemo(() => {
-    const sekarang = new Date();
-
-    const tahun = sekarang.getFullYear();
-    const bulan = String(sekarang.getMonth() + 1).padStart(2, '0');
-    const hari = String(sekarang.getDate()).padStart(2, '0');
-
-    const hariIniKey = `${tahun}-${bulan}-${hari}`;
+    const hariIniKey = getTanggalKey(hariIni);
 
     return (expenses || []).reduce((sum, item) => {
       const tanggalPengeluaran =
@@ -145,7 +170,7 @@ export default function TabDashboard({
 
       return sum;
     }, 0);
-  }, [expenses]);
+  }, [expenses, hariIni]);
 
 
   const lowStockItems = useMemo(
@@ -164,7 +189,7 @@ export default function TabDashboard({
   );
 
   const topToppings = useMemo(
-    () => hitungToppingTerjual(transaksiMingguIni).slice(0, 3),
+    () => hitungToppingTerjual(transaksiMingguIni).slice(0, 5),
     [transaksiMingguIni]
   );
 
@@ -210,12 +235,13 @@ export default function TabDashboard({
           <Text style={styles.title}>Ringkasan Kedai</Text>
 
           <Text style={styles.subtitle}>
-            {new Date().toLocaleDateString('id-ID', {
+            {hariIni.toLocaleDateString('id-ID', {
               weekday: 'long',
               day: 'numeric',
               month: 'long',
               year: 'numeric',
             })}
+            {adalahHariIniAsli ? '' : ' · data transaksi terakhir'}
           </Text>
         </View>
 
@@ -233,7 +259,7 @@ export default function TabDashboard({
         <StatCard
           title="Total Omzet"
           value={rupiah(omzetHariIni)}
-          subtitle="Penjualan hari ini"
+          subtitle={`Penjualan ${labelHari}`}
           iconName="wallet-outline"
           iconColor="#168653"
           iconBg="#DCFCE7"
@@ -243,7 +269,7 @@ export default function TabDashboard({
         <StatCard
           title="Jumlah Transaksi"
           value={`${transaksiHariIni.length} transaksi`}
-          subtitle="Transaksi lunas hari ini"
+          subtitle={`Transaksi lunas ${labelHari}`}
           iconName="receipt-outline"
           iconColor="#C62828"
           iconBg="#FEE2E2"
@@ -264,7 +290,7 @@ export default function TabDashboard({
           title="Pengeluaran"
           value={rupiah(pengeluaranHariIni)}
 
-          subtitle="Belanja bahan & operasional hari ini"
+          subtitle={`Belanja bahan & operasional ${labelHari}`}
 
           iconName="cash-outline"
           iconColor="#D97706"
@@ -282,7 +308,7 @@ export default function TabDashboard({
                 Grafik Penjualan
               </Text>
               <Text style={styles.sectionSubtitle}>
-                7 hari terakhir
+                7 hari terakhir{adalahHariIniAsli ? '' : ` s.d. ${labelHari}`}
               </Text>
             </View>
 
@@ -323,21 +349,17 @@ export default function TabDashboard({
             topToppings.map((item, index) => (
               <View style={styles.topRow} key={item.nama}>
                 <View style={styles.rank}>
-                  <Text style={styles.rankText}>
-                    {index + 1}
-                  </Text>
+                  <Text style={styles.rankText}>{index + 1}</Text>
                 </View>
-
-                <Text
-                  style={styles.topName}
-                  numberOfLines={1}
-                >
-                  {item.nama}
-                </Text>
-
-                <Text style={styles.topQty}>
-                  {item.jumlah}
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.topLine}>
+                    <Text style={styles.topName} numberOfLines={1}>{item.nama}</Text>
+                    <Text style={styles.topQty}>{item.jumlah}x</Text>
+                  </View>
+                  <View style={styles.topBarBg}>
+                    <View style={[styles.topBarFill, { width: `${Math.max(6, Math.round((item.jumlah / (topToppings[0].jumlah || 1)) * 100))}%` }]} />
+                  </View>
+                </View>
               </View>
             ))
           ) : (
@@ -346,6 +368,43 @@ export default function TabDashboard({
             </Text>
           )}
         </View>
+      </View>
+
+      {/* Prediksi penjualan */}
+      <View style={styles.card}>
+        <View style={styles.sectionHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sectionTitle}>Prediksi Penjualan 7 Hari</Text>
+            <Text style={styles.sectionSubtitle}>
+              {forecast && forecast.prediksi.length
+                ? `Metode: ${forecast.metode} · dari ${forecast.jumlahHari} hari data`
+                : 'Estimasi omzet harian berdasarkan riwayat transaksi'}
+            </Text>
+          </View>
+          {forecast && forecast.prediksi.length ? (
+            <View style={{ backgroundColor: forecast.keyakinan === 'tinggi' ? '#E3F6EC' : forecast.keyakinan === 'sedang' ? '#FFF3D6' : '#FBEAEC', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: forecast.keyakinan === 'tinggi' ? '#168653' : forecast.keyakinan === 'sedang' ? '#B7791F' : '#C62828' }}>
+                Keyakinan {forecast.keyakinan}{forecast.mape != null ? ` · MAPE ${forecast.mape.toFixed(1)}%` : ''}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        {forecastError ? (
+          <Text style={styles.emptyText}>Prediksi belum tersedia: {forecastError}</Text>
+        ) : !forecast ? (
+          <Text style={styles.emptyText}>Menghitung prediksi...</Text>
+        ) : !forecast.prediksi.length ? (
+          <Text style={styles.emptyText}>Belum ada riwayat transaksi untuk diprediksi.</Text>
+        ) : (
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+            {forecast.prediksi.map((p) => (
+              <View key={p.tanggal} style={{ flexGrow: 1, flexBasis: 110, backgroundColor: '#FBF7F4', borderRadius: 12, borderWidth: 1, borderColor: '#EFE7E2', padding: 10 }}>
+                <Text style={{ fontSize: 11, color: '#8D7B70', fontWeight: '700' }}>{p.hari} · {p.tanggal.slice(8, 10)}/{p.tanggal.slice(5, 7)}</Text>
+                <Text style={{ fontSize: 14, color: '#52141D', fontWeight: '800', marginTop: 4 }}>{rupiah(p.prediksi)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
 
       {/* Stok menipis */}
@@ -444,7 +503,7 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
     gap: 16,
     width: '100%',
-    maxWidth: 1200,
+    maxWidth: 1680,
     alignSelf: 'center',
   },
   pageHeader: {
@@ -552,6 +611,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
   },
+  topLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  topBarBg: { height: 5, borderRadius: 3, backgroundColor: '#F4EFEB', marginTop: 6, overflow: 'hidden' },
+  topBarFill: { height: 5, borderRadius: 3, backgroundColor: '#C62828' },
   topName: {
     flex: 1,
     color: '#2C1810',

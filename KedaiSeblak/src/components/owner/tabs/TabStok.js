@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 ﻿
+=======
+>>>>>>> ad990f61ed5ff5aeb12ed751827558f9fc286ff1
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,

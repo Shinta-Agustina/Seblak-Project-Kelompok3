@@ -11,6 +11,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useKasir } from '../../context/KasirContext';
 import formatCurrency from '../../utils/formatCurrency';
+import { hitungToppingTerjual } from '../../data/salesDataUtils';
 
 function SimpleBarChart({ data, maxValue }) {
     return (
@@ -55,19 +56,43 @@ const getFormattedToday = () => {
 export default function LaporanPenjualanHarian() {
     const { width } = useWindowDimensions();
     const isMobile = width < 768;
-    const { transactions, user } = useKasir();
+    const { transactions: semuaTransaksi, user } = useKasir();
     const isOwner = user?.role === 'Owner';
-    const todayFormatted = getFormattedToday();
+
+    // Laporan "harian" memakai hari kerja terakhir yang punya transaksi lunas
+    // (hari ini bila sudah ada transaksi), bukan seluruh riwayat.
+    const hariIniKey = (() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    })();
+    const lunas = (semuaTransaksi || []).filter((t) => t.status === 'Lunas' && t.date);
+    const tanggalAcuanKey = lunas.reduce(
+        (acc, t) => (t.date <= hariIniKey && t.date > acc ? t.date : acc),
+        ''
+    ) || hariIniKey;
+    const transactions = lunas.filter((t) => t.date === tanggalAcuanKey);
+    const adalahHariIni = tanggalAcuanKey === hariIniKey;
+    const labelHari = adalahHariIni ? 'Hari Ini' : 'Hari Kerja Terakhir';
+    const todayFormatted = (() => {
+        const [y, m, d] = tanggalAcuanKey.split('-').map(Number);
+        const tgl = new Date(y, m - 1, d);
+        try {
+            return new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(tgl);
+        } catch (e) {
+            return tanggalAcuanKey;
+        }
+    })();
+    const namaKasirBertugas = transactions[0]?.kasir || user?.name || '-';
 
     const totalOmzet = transactions.reduce((acc, t) => acc + (t.total || 0), 0);
     const totalTunai = transactions
-        .filter((t) => t.metode === 'Tunai')
+        .filter((t) => ['tunai', 'cash'].includes(String(t.metode || '').toLowerCase()))
         .reduce((acc, t) => acc + (t.total || 0), 0);
     const totalQRIS = transactions
-        .filter((t) => t.metode === 'QRIS')
+        .filter((t) => String(t.metode || '').toLowerCase() === 'qris')
         .reduce((acc, t) => acc + (t.total || 0), 0);
     const totalEWallet = transactions
-        .filter((t) => t.metode === 'E-Wallet')
+        .filter((t) => String(t.metode || '').toLowerCase() === 'e-wallet')
         .reduce((acc, t) => acc + (t.total || 0), 0);
 
     const avgPerTrx =
@@ -86,15 +111,10 @@ export default function LaporanPenjualanHarian() {
     const maxPayment = Math.max(totalTunai, totalQRIS, totalEWallet, 1);
 
     // Top toppings data
-    const toppingRankings = [
-        { label: 'Kerupuk', value: 38, display: '38 porsi' },
-        { label: 'Makaroni', value: 32, display: '32 porsi' },
-        { label: 'Bakso', value: 29, display: '29 porsi' },
-        { label: 'Sosis', value: 24, display: '24 porsi' },
-        { label: 'Ceker', value: 20, display: '20 porsi' },
-        { label: 'Telur', value: 18, display: '18 butir' },
-    ];
-    const maxTopping = 40;
+    const toppingRankings = hitungToppingTerjual(transactions)
+        .slice(0, 6)
+        .map((t) => ({ label: t.nama, value: t.jumlah, display: `${t.jumlah} porsi` }));
+    const maxTopping = Math.max(...toppingRankings.map((t) => t.value), 1);
 
     const handleExport = () => {
         Alert.alert(
@@ -144,7 +164,7 @@ export default function LaporanPenjualanHarian() {
                                 Ringkasan Bisnis Kedai Seblak
                             </Text>
                             <Text style={styles.ownerCardSub}>
-                                Kasir Bertugas: Siti Aisyah • Sesi: Pagi/Siang • Status: 100% Lunas
+                                Kasir Bertugas: {namaKasirBertugas} • Hanya transaksi berstatus Lunas
                             </Text>
                         </View>
                         <TouchableOpacity
@@ -159,7 +179,7 @@ export default function LaporanPenjualanHarian() {
 
                     <View style={styles.ownerStatsGrid}>
                         <View style={styles.ownerStatItem}>
-                            <Text style={styles.ownerStatLabel}>Omzet Hari Ini</Text>
+                            <Text style={styles.ownerStatLabel}>Omzet {labelHari}</Text>
                             <Text style={styles.ownerStatVal}>
                                 {formatCurrency(totalOmzet)}
                             </Text>
@@ -189,7 +209,7 @@ export default function LaporanPenjualanHarian() {
             >
                 <View style={[styles.metricCard, { borderTopColor: '#C62828' }]}>
                     <Ionicons name="trending-up-outline" size={20} color="#C62828" />
-                    <Text style={styles.metricLabel}>Total Omzet Hari Ini</Text>
+                    <Text style={styles.metricLabel}>Total Omzet {labelHari}</Text>
                     <Text style={styles.metricValue}>{formatCurrency(totalOmzet)}</Text>
                     <Text style={styles.metricSub}>{transactions.length} Transaksi</Text>
                 </View>
