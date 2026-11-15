@@ -1,5 +1,7 @@
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
+
 import {
   View,
   StyleSheet,
@@ -10,6 +12,7 @@ import {
 
 import Sidebar from '../../components/Sidebar';
 import TopHeader from '../../components/TopHeader';
+
 import TabDashboard from '../../components/owner/tabs/TabDashboard';
 import TabPenjualan from '../../components/owner/tabs/TabPenjualan';
 import TabStok from '../../components/owner/tabs/TabStok';
@@ -57,6 +60,19 @@ const parseQuantity = (value) => {
   );
 
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+// Mengubah nominal Rupiah menjadi angka.
+// Contoh: "90.000" menjadi 90000.
+const parseRupiah = (value) => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  const cleaned = String(value ?? '').replace(/[^\d-]/g, '');
+  const result = Number(cleaned);
+
+  return Number.isFinite(result) ? result : 0;
 };
 
 // Konversi satuan pembelian ke satuan inventaris stok.
@@ -123,7 +139,10 @@ export default function DashboardOwnerScreen() {
   const [stockPresetFilter, setStockPresetFilter] = useState('Semua');
   const [expenses, setExpenses] = useState([]);
 
-  // Memuat ulang seluruh data Owner.
+  // ==========================================
+  // MEMUAT ULANG DATA OWNER
+  // ==========================================
+
   const refreshOwnerData = useCallback(async () => {
     const [
       stocksResult,
@@ -158,28 +177,36 @@ export default function DashboardOwnerScreen() {
           return {
             ...r,
             id: r.id,
+
             keterangan:
               r.nama_pengeluaran ||
               r.nama ||
               r.keterangan ||
               '-',
+
             nama:
               r.nama_pengeluaran ||
               r.nama ||
               r.keterangan ||
               '-',
+
             total,
             nominal: total,
             jumlah,
+
             tanggalStr: r.tanggalStr || r.tanggal,
+
             satuan:
               r.bahan_satuan ||
               r.satuan ||
               r.stok_bahan?.satuan ||
               'pcs',
+
             supplier: r.supplier || '-',
+
             fotoItem: r.fotoItem || r.foto_item || null,
             fotoStruk: r.fotoStruk || r.foto_struk || null,
+
             jumlahDiterima: Number(
               r.jumlah_diterima ?? r.jumlah ?? 0
             ),
@@ -245,8 +272,6 @@ export default function DashboardOwnerScreen() {
 
       setStockItems(
         stocks.map((r) => {
-          // Cari foto berdasarkan ID stok.
-          // Jika tidak ada, cocokkan berdasarkan nama bahan.
           const matchingExpense = expenseRows.find(
             (expense) =>
               (expense.fotoItem || expense.foto_item) &&
@@ -273,14 +298,17 @@ export default function DashboardOwnerScreen() {
             estimasiHabisHari: 0,
             hargaBeli: Number(r.harga_satuan || 0),
             hargaJual: Number(r.harga_jual || 0),
+
             jumlahPerPorsi:
               r.jumlah_per_porsi != null
                 ? Number(r.jumlah_per_porsi)
                 : null,
+
             foto:
               matchingExpense?.fotoItem ||
               matchingExpense?.foto_item ||
               null,
+
             riwayatRestok: movementByStock[r.id] || [],
           };
         })
@@ -293,9 +321,9 @@ export default function DashboardOwnerScreen() {
     }
   }, []);
 
-  // -----------------------------------------
+  // ==========================================
   // REFRESH SAAT HALAMAN OWNER DIBUKA
-  // -----------------------------------------
+  // ==========================================
 
   useFocusEffect(
     useCallback(() => {
@@ -312,17 +340,17 @@ export default function DashboardOwnerScreen() {
     }, [refreshOwnerData, refreshData])
   );
 
-  // -----------------------------------------
+  // ==========================================
   // RESPONSIVE SIDEBAR
-  // -----------------------------------------
+  // ==========================================
 
   useEffect(() => {
     setSidebarOpen(!isMobile);
   }, [isMobile]);
 
-  // -----------------------------------------
+  // ==========================================
   // NAVIGASI
-  // -----------------------------------------
+  // ==========================================
 
   const handleChangeTab = (tab) => {
     setActiveTab(tab);
@@ -345,9 +373,9 @@ export default function DashboardOwnerScreen() {
     }
   };
 
-  // -----------------------------------------
+  // ==========================================
   // UPDATE STOK
-  // -----------------------------------------
+  // ==========================================
 
   const handleUpdateItem = async (updatedItem) => {
     try {
@@ -361,12 +389,14 @@ export default function DashboardOwnerScreen() {
         satuan: updatedItem.satuan,
         stok_minimum: Number(updatedItem.minimum || 0),
         harga_satuan: Number(updatedItem.hargaBeli || 0),
+
         harga_jual: Number(
           updatedItem.hargaJual ??
           updatedItem.harga_jual ??
           current?.hargaJual ??
           0
         ),
+
         jumlah_per_porsi:
           updatedItem.jumlahPerPorsi ??
           updatedItem.jumlah_per_porsi ??
@@ -374,7 +404,6 @@ export default function DashboardOwnerScreen() {
           null,
       });
 
-      // Catat perubahan stok jika jumlah stok berubah.
       if (
         current &&
         Number(current.sisa) !== Number(updatedItem.sisa)
@@ -404,21 +433,24 @@ export default function DashboardOwnerScreen() {
     }
   };
 
-  // -----------------------------------------
+  // ==========================================
   // TAMBAH PENGELUARAN
-  // -----------------------------------------
+  // ==========================================
 
   const handleAddExpense = async (newExpense) => {
     try {
-      const qty = Number(newExpense.jumlah || 1);
-      const total = Number(
-        newExpense.total ||
-        newExpense.nominal ||
-        0
+      const qty = parseQuantity(newExpense.jumlah);
+
+      const total = parseRupiah(
+        newExpense.total ?? newExpense.nominal
       );
 
       if (qty <= 0) {
         throw new Error('Jumlah pembelian harus lebih dari 0.');
+      }
+
+      if (total <= 0) {
+        throw new Error('Total pembelian harus lebih dari Rp 0.');
       }
 
       await createExpense(
@@ -426,16 +458,26 @@ export default function DashboardOwnerScreen() {
           tanggal:
             tanggalIndoKeISO(newExpense.tanggalStr) ||
             undefined,
+
           waktu: newExpense.waktu,
           supplier: newExpense.supplier,
           fotoItem: newExpense.fotoItem,
           fotoStruk: newExpense.fotoStruk,
-          nama: newExpense.keterangan,
+
+          nama:
+            newExpense.keterangan ||
+            newExpense.nama ||
+            '',
+
           kategori: newExpense.kategori,
           jumlah: qty,
+          total,
           harga_satuan: total / qty,
-          catatan: `Satuan: ${newExpense.satuan || 'unit'
-            }; Supplier: ${newExpense.supplier || '-'}`,
+
+          catatan: [
+            `Satuan: ${newExpense.satuan || 'unit'}`,
+            `Supplier: ${newExpense.supplier || '-'}`,
+          ].join('; '),
         },
         user?.id
       );
@@ -451,53 +493,99 @@ export default function DashboardOwnerScreen() {
     }
   };
 
-  // -----------------------------------------
+  // ==========================================
   // EDIT PENGELUARAN
-  // -----------------------------------------
+  // ==========================================
 
   const handleUpdateExpense = async (updatedExpense) => {
     try {
-      const qty = Number(updatedExpense.jumlah || 1);
-      const total = Number(
-        updatedExpense.total ||
-        updatedExpense.nominal ||
-        0
-      );
+      const qty = parseQuantity(updatedExpense.jumlah);
 
-      if (qty <= 0) {
+      const totalValue =
+        updatedExpense.total !== undefined &&
+          updatedExpense.total !== null
+          ? updatedExpense.total
+          : updatedExpense.nominal;
+
+      const total = parseRupiah(totalValue);
+
+      if (!Number.isFinite(qty) || qty <= 0) {
         throw new Error('Jumlah pembelian harus lebih dari 0.');
+      }
+
+      if (!Number.isFinite(total) || total <= 0) {
+        throw new Error('Total pembelian harus lebih dari Rp 0.');
+      }
+
+      const hargaSatuan = total / qty;
+
+      const nama =
+        updatedExpense.keterangan ||
+        updatedExpense.nama ||
+        updatedExpense.nama_pengeluaran ||
+        '';
+
+      if (!String(nama).trim()) {
+        throw new Error('Nama pengeluaran wajib diisi.');
       }
 
       await updateExpense(updatedExpense.id, {
         tanggal:
-          tanggalIndoKeISO(updatedExpense.tanggalStr) ||
-          undefined,
+          tanggalIndoKeISO(
+            updatedExpense.tanggalStr || updatedExpense.tanggal
+          ) || undefined,
+
         waktu: updatedExpense.waktu,
         supplier: updatedExpense.supplier,
+
         fotoItem: updatedExpense.fotoItem,
         fotoStruk: updatedExpense.fotoStruk,
-        catatan: `Satuan: ${updatedExpense.satuan || 'unit'
-          }; Supplier: ${updatedExpense.supplier || '-'}`,
-        nama: updatedExpense.keterangan,
-        kategori: updatedExpense.kategori,
+
+        catatan: [
+          `Satuan: ${updatedExpense.satuan || 'unit'}`,
+          `Supplier: ${updatedExpense.supplier || '-'}`,
+          updatedExpense.kategoriTopping
+            ? `Subkategori: ${updatedExpense.kategoriTopping}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join('; '),
+
+        nama,
+        kategori: updatedExpense.kategori || 'Lainnya',
+
         jumlah: qty,
-        harga_satuan: total / qty,
+        harga_satuan: hargaSatuan,
+
+        // Total tidak dikirim langsung ke kolom database.
+        // Service akan menghitung harga_satuan dari total.
+        total,
       });
 
       await refreshOwnerData();
+
+      Alert.alert(
+        'Berhasil',
+        'Pengeluaran berhasil diperbarui.'
+      );
     } catch (error) {
       console.error(
         'Gagal memperbarui pengeluaran:',
         error.message
       );
 
+      Alert.alert(
+        'Gagal',
+        error.message || 'Pengeluaran gagal diperbarui.'
+      );
+
       throw error;
     }
   };
 
-  // -----------------------------------------
+  // ==========================================
   // HAPUS PENGELUARAN
-  // -----------------------------------------
+  // ==========================================
 
   const handleDeleteExpense = async (expenseId) => {
     try {
@@ -513,9 +601,9 @@ export default function DashboardOwnerScreen() {
     }
   };
 
-  // -----------------------------------------
+  // ==========================================
   // PENERIMAAN STOK DARI PEMBELIAN
-  // -----------------------------------------
+  // ==========================================
 
   const handleTerimaStok = async (
     expenseId,
@@ -532,6 +620,7 @@ export default function DashboardOwnerScreen() {
           'Data Tidak Ditemukan',
           'Data pembelian tidak ditemukan.'
         );
+
         return false;
       }
 
@@ -554,6 +643,7 @@ export default function DashboardOwnerScreen() {
           'Bahan Tidak Ditemukan',
           `Bahan "${expense.keterangan || expense.nama}" belum terdaftar di inventaris stok.`
         );
+
         return false;
       }
 
@@ -564,6 +654,7 @@ export default function DashboardOwnerScreen() {
           'Jumlah Tidak Valid',
           'Jumlah stok yang diterima harus lebih dari 0.'
         );
+
         return false;
       }
 
@@ -578,6 +669,7 @@ export default function DashboardOwnerScreen() {
           'Satuan Tidak Sesuai',
           `Satuan pembelian (${satuanBeli}) tidak dapat dikonversi ke satuan stok (${targetItem.satuan}).`
         );
+
         return false;
       }
 
@@ -585,8 +677,10 @@ export default function DashboardOwnerScreen() {
         stok_id: targetItem.id,
         tipe: 'masuk',
         jumlah: Number(qtyKonversi),
-        keterangan: `Restok dari ${expense.supplier || 'Pembelian'
-          }${catatan ? ` (${catatan})` : ''}`,
+
+        keterangan: `Restok dari ${expense.supplier || 'Pembelian'}${catatan ? ` (${catatan})` : ''
+          }`,
+
         dibuat_oleh: user?.id,
       });
 
@@ -613,9 +707,9 @@ export default function DashboardOwnerScreen() {
     }
   };
 
-  // -----------------------------------------
+  // ==========================================
   // JUDUL HEADER
-  // -----------------------------------------
+  // ==========================================
 
   const getHeaderTitle = () => {
     switch (activeTab) {
@@ -642,9 +736,9 @@ export default function DashboardOwnerScreen() {
     }
   };
 
-  // -----------------------------------------
+  // ==========================================
   // TAMPILAN
-  // -----------------------------------------
+  // ==========================================
 
   return (
     <View style={styles.container}>
@@ -740,32 +834,41 @@ export default function DashboardOwnerScreen() {
   );
 }
 
+// ==========================================
+// STYLES
+// ==========================================
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     flexDirection: 'row',
     backgroundColor: WARNA.latar,
   },
+
   mobileBackdrop: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 999,
     elevation: 20,
     flexDirection: 'row',
   },
+
   backdropTouch: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(44, 24, 16, 0.45)',
   },
+
   mainWrapper: {
     flex: 1,
     minWidth: 0,
     height: '100%',
   },
+
   tabContent: {
     flex: 1,
     minWidth: 0,
     width: '100%',
   },
+
   embeddedTabContainer: {
     flex: 1,
     minWidth: 0,

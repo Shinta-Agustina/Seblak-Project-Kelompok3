@@ -1,61 +1,96 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import formatCurrency from '../utils/formatCurrency';
 
-export default function ToppingCard({ item, quantity = 0, onAdd, onRemove }) {
+export default function ToppingCard({
+  item,
+  quantity = 0,
+  onAdd,
+  onRemove,
+}) {
   const [imageError, setImageError] = useState(false);
 
+  const imageUrl =
+    item?.image ||
+    item?.foto_url ||
+    item?.foto_item ||
+    item?.fotoItem ||
+    null;
+
+  // Coba tampilkan ulang jika URL gambar berubah.
+  useEffect(() => {
+    setImageError(false);
+  }, [imageUrl]);
+
   const imageSource =
-    typeof item.image === 'string' ? { uri: item.image } : item.image;
+    typeof imageUrl === 'string'
+      ? { uri: imageUrl }
+      : imageUrl;
 
   return (
     <View style={[styles.card, quantity > 0 && styles.cardSelected]}>
-      {/* Clickable Image & Title Area to add item */}
       <TouchableOpacity
         style={styles.cardHeaderArea}
         onPress={onAdd}
         activeOpacity={0.8}
       >
         <View style={styles.imageWrapper}>
-          {!imageError && item.image ? (
+          {!imageError && imageSource ? (
             <Image
               source={imageSource}
               style={styles.image}
-              onError={() => setImageError(true)}
+              onError={(event) => {
+                console.log(
+                  'GAGAL MEMUAT GAMBAR:',
+                  item?.nama,
+                  imageUrl,
+                  event.nativeEvent?.error
+                );
+                setImageError(true);
+              }}
               resizeMode="cover"
             />
           ) : (
             <View style={styles.emojiFallback}>
-              <Text style={styles.emojiText}>{item.emoji || '🍲'}</Text>
+              <Text style={styles.emojiText}>
+                {item?.emoji || '🍲'}
+              </Text>
             </View>
           )}
 
-          {/* Quantity Badge on Top Right */}
           {quantity > 0 && (
             <View style={styles.qtyBadge}>
-              <Text style={styles.qtyBadgeText}>{quantity}x</Text>
+              <Text style={styles.qtyBadgeText}>
+                {quantity}x
+              </Text>
             </View>
           )}
         </View>
 
-        {/* Item Info */}
         <View style={styles.infoWrapper}>
           <Text style={styles.name} numberOfLines={1}>
-            {item.nama}
+            {item?.nama || 'Tanpa Nama'}
           </Text>
           <Text style={styles.weight}>pcs</Text>
         </View>
       </TouchableOpacity>
 
-      {/* Action / Counter Area */}
       {quantity === 0 ? (
         <TouchableOpacity
           style={styles.addButton}
           onPress={onAdd}
           activeOpacity={0.8}
         >
-          <Text style={styles.price}>{formatCurrency(item.harga)}</Text>
+          <Text style={styles.price}>
+            {formatCurrency(item?.harga || 0)}
+          </Text>
           <View style={styles.plusIconCircle}>
             <Ionicons name="add" size={14} color="#C62828" />
           </View>
@@ -71,9 +106,11 @@ export default function ToppingCard({ item, quantity = 0, onAdd, onRemove }) {
           </TouchableOpacity>
 
           <View style={styles.counterNumberBox}>
-            <Text style={styles.counterNumberText}>{quantity}</Text>
+            <Text style={styles.counterNumberText}>
+              {quantity}
+            </Text>
             <Text style={styles.counterPriceSub}>
-              {formatCurrency(item.harga * quantity)}
+              {formatCurrency((item?.harga || 0) * quantity)}
             </Text>
           </View>
 

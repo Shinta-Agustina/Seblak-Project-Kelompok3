@@ -158,6 +158,11 @@ export default function DashboardKasirScreen({ navigation }) {
             includeInactive: false,
           });
 
+          console.log(
+            'HASIL MENU DARI SUPABASE:',
+            JSON.stringify(rows, null, 2)
+          );
+
           if (mounted) {
             setSupabaseToppings(Array.isArray(rows) ? rows : []);
           }
