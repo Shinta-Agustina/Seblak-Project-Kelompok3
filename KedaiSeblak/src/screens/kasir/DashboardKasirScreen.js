@@ -33,7 +33,6 @@ import PesananAktifScreen from './PesananAktifScreen';
 import RiwayatTransaksiScreen from './RiwayatTransaksiScreen';
 import LaporanScreen from './LaporanPenjualanScreen';
 
-// Konfigurasi pilihan kasir, bukan data menu dummy.
 const SPICE_LEVELS = [
   { level: 0, label: 'Tidak Pedas', chilis: 0 },
   { level: 1, label: 'Sedikit Pedas', chilis: 1 },
@@ -53,6 +52,21 @@ const BROTH_OPTIONS = [
 
 export default function DashboardKasirScreen({ navigation }) {
   const { width } = useWindowDimensions();
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
+
+  const [paymentVisible, setPaymentVisible] = useState(false);
+  const [receiptVisible, setReceiptVisible] = useState(false);
+
+  const [currentOrderPayload, setCurrentOrderPayload] = useState(null);
+  const [lastTransaction, setLastTransaction] = useState(null);
+  const [pendingReceipt, setPendingReceipt] = useState(null);
+
+  const [supabaseToppings, setSupabaseToppings] = useState([]);
+  const [menuLoadError, setMenuLoadError] = useState('');
+  const [menuLoading, setMenuLoading] = useState(true);
+  const [menuReloadKey, setMenuReloadKey] = useState(0);
 
   const isMobile = width < 768;
   const isTablet = width >= 768 && width < 1024;
@@ -80,26 +94,56 @@ export default function DashboardKasirScreen({ navigation }) {
     user,
   } = useKasir();
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [paymentVisible, setPaymentVisible] = useState(false);
-  const [receiptVisible, setReceiptVisible] = useState(false);
-  const [currentOrderPayload, setCurrentOrderPayload] = useState(null);
-  const [lastTransaction, setLastTransaction] = useState(null);
-  const [mobileCartOpen, setMobileCartOpen] = useState(false);
+  const safeCart = Array.isArray(cart) ? cart : [];
 
-  // Data menu dari Supabase
-  const [supabaseToppings, setSupabaseToppings] = useState([]);
-  const [menuLoadError, setMenuLoadError] = useState('');
-  const [menuLoading, setMenuLoading] = useState(true);
-  const [menuReloadKey, setMenuReloadKey] = useState(0);
+  // ==========================================
+  // MEMBUKA STRUK DARI PESANAN AKTIF / RIWAYAT
+  // ==========================================
+
+  const handleOpenReceiptFromHistory = useCallback((transaction) => {
+    if (!transaction) {
+      Alert.alert(
+        'Transaksi Tidak Ditemukan',
+        'Data transaksi tidak tersedia.'
+      );
+      return;
+    }
+
+    setLastTransaction(transaction);
+    setReceiptVisible(true);
+  }, []);
+
+  // ==========================================
+  // MENAMPILKAN STRUK SETELAH PEMBAYARAN
+  // ==========================================
+
+  useEffect(() => {
+    if (paymentVisible || !pendingReceipt) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setLastTransaction(pendingReceipt);
+      setReceiptVisible(true);
+      setPendingReceipt(null);
+      setCurrentOrderPayload(null);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [paymentVisible, pendingReceipt]);
+
+  // ==========================================
+  // SIDEBAR
+  // ==========================================
 
   useEffect(() => {
     setSidebarOpen(!isMobile);
   }, [isMobile]);
 
-  const safeCart = Array.isArray(cart) ? cart : [];
+  // ==========================================
+  // KATEGORI TOPPING
+  // ==========================================
 
-  // Kategori topping dibuat otomatis berdasarkan database.
   const toppingCategories = [
     'Semua',
     ...new Set(
@@ -109,8 +153,10 @@ export default function DashboardKasirScreen({ navigation }) {
     ),
   ];
 
-  // Mengambil menu aktif dari Supabase.
-  // Data diperbarui setiap kali halaman kasir kembali difokuskan.
+  // ==========================================
+  // LOAD MENU SUPABASE
+  // ==========================================
+
   useFocusEffect(
     useCallback(() => {
       let mounted = true;
@@ -157,8 +203,6 @@ export default function DashboardKasirScreen({ navigation }) {
     }, [menuReloadKey])
   );
 
-  // Jika kategori yang dipilih sudah tidak tersedia,
-  // kembalikan ke kategori Semua.
   useEffect(() => {
     if (
       activeCategory !== 'Semua' &&
@@ -172,19 +216,27 @@ export default function DashboardKasirScreen({ navigation }) {
     supabaseToppings,
   ]);
 
-  // Filter menu berdasarkan kategori.
-  const filteredToppings = supabaseToppings.filter((item) => {
-    if (activeCategory === 'Semua') {
-      return true;
-    }
+  const filteredToppings = supabaseToppings
+    .filter((item) => {
+      if (activeCategory === 'Semua') {
+        return true;
+      }
 
-    return item.kategori === activeCategory;
-  });
+      return item.kategori === activeCategory;
+    })
+    .map((item) => ({
+      ...item,
+      berat: 'pcs',
+      satuan: 'pcs',
+    }));
 
   const total = Number(getTotalPrice()) || 0;
   const totalItemsCount = Number(getTotalItemsCount()) || 0;
 
-  // Membuka modal pembayaran.
+  // ==========================================
+  // MEMBUKA PEMBAYARAN
+  // ==========================================
+
   const handleOpenPayment = () => {
     if (safeCart.length === 0) {
       Alert.alert(
@@ -209,7 +261,8 @@ export default function DashboardKasirScreen({ navigation }) {
         qty,
         price,
         harga: price,
-        berat: item.berat || '',
+        berat: 'pcs',
+        satuan: 'pcs',
         subtotal: price * qty,
       };
     });
@@ -270,7 +323,10 @@ export default function DashboardKasirScreen({ navigation }) {
     setPaymentVisible(true);
   };
 
-  // Dipanggil setelah pembayaran berhasil.
+  // ==========================================
+  // PEMBAYARAN BERHASIL
+  // ==========================================
+
   const handleCheckoutSuccess = (txData) => {
     if (!txData) {
       Alert.alert(
@@ -310,19 +366,19 @@ export default function DashboardKasirScreen({ navigation }) {
 
       orderNo:
         txData.orderNo ||
+        txData.nomor_transaksi ||
         fallbackOrder.orderNo ||
         `TRX-${Date.now()}`,
 
       orderType:
         txData.orderType ||
-        txData.tableNo ||
+        txData.tipe_pesanan ||
         fallbackOrder.orderType ||
         'Dine In',
 
       tableNo:
-        txData.orderType ||
         txData.tableNo ||
-        fallbackOrder.orderType ||
+        fallbackOrder.tableNo ||
         'Dine In',
 
       date: txData.date || fallbackOrder.date || '-',
@@ -342,14 +398,26 @@ export default function DashboardKasirScreen({ navigation }) {
       method:
         txData.method ||
         txData.metode ||
+        txData.metode_pembayaran ||
         txData.paymentMethod ||
         '-',
 
-      cashPaid: Number(txData.cashPaid ?? 0),
-      change: Number(txData.change ?? 0),
+      cashPaid: Number(
+        txData.cashPaid ??
+        txData.uangDiterima ??
+        txData.uang_diterima ??
+        0
+      ),
+
+      change: Number(
+        txData.change ??
+        txData.kembalian ??
+        0
+      ),
 
       kasir:
         txData.kasir ||
+        txData.nama_kasir ||
         fallbackOrder.kasir ||
         user?.name ||
         user?.nama ||
@@ -360,50 +428,33 @@ export default function DashboardKasirScreen({ navigation }) {
 
     setPaymentVisible(false);
     setMobileCartOpen(false);
-    setLastTransaction(completedTransaction);
-    setReceiptVisible(true);
-    setCurrentOrderPayload(null);
+    setPendingReceipt(completedTransaction);
   };
 
-  // Membuka detail transaksi dari riwayat.
-  const handleOpenReceiptFromHistory = (txData) => {
-    if (!txData) {
-      Alert.alert(
-        'Transaksi Tidak Ditemukan',
-        'Data transaksi tidak tersedia.'
-      );
-      return;
-    }
+  // ==========================================
+  // MENUTUP MODAL
+  // ==========================================
 
-    if (navigation?.navigate) {
-      navigation.navigate('DetailTransaksi', {
-        transaction: txData,
-      });
-      return;
-    }
-
-    setLastTransaction(txData);
-    setReceiptVisible(true);
-  };
-
-  // Menutup modal pembayaran.
   const handleClosePayment = () => {
     setPaymentVisible(false);
     setCurrentOrderPayload(null);
+    setPendingReceipt(null);
   };
 
-  // Menutup modal struk.
   const handleCloseReceipt = () => {
     setReceiptVisible(false);
     setLastTransaction(null);
-    setCurrentOrderPayload(null);
   };
 
-  // Memulai pesanan baru.
+  // ==========================================
+  // PESANAN BARU
+  // ==========================================
+
   const handleNewOrder = () => {
     setReceiptVisible(false);
     setLastTransaction(null);
     setCurrentOrderPayload(null);
+    setPendingReceipt(null);
 
     resetCart();
     setCatatan('');
@@ -413,7 +464,10 @@ export default function DashboardKasirScreen({ navigation }) {
     }
   };
 
-  // Mengosongkan keranjang.
+  // ==========================================
+  // RESET KERANJANG
+  // ==========================================
+
   const handleResetCart = () => {
     Alert.alert(
       'Reset Pesanan',
@@ -435,12 +489,18 @@ export default function DashboardKasirScreen({ navigation }) {
     );
   };
 
-  // Panel pesanan.
+  // ==========================================
+  // PANEL PESANAN
+  // ==========================================
+
   const renderOrderPanel = () => (
     <View style={styles.orderPanel}>
       <View style={styles.orderHeader}>
         <View style={styles.orderHeaderInfo}>
-          <Text style={styles.orderTitle}>Pesanan Saat Ini</Text>
+          <Text style={styles.orderTitle}>
+            Pesanan Saat Ini
+          </Text>
+
           <Text style={styles.orderSubtitle}>
             {totalItemsCount} item dipilih ({selectedOrderType || 'Dine In'})
           </Text>
@@ -451,13 +511,19 @@ export default function DashboardKasirScreen({ navigation }) {
           onPress={handleResetCart}
           activeOpacity={0.7}
         >
-          <Ionicons name="refresh" size={14} color="#C62828" />
+          <Ionicons
+            name="refresh"
+            size={14}
+            color="#C62828"
+          />
           <Text style={styles.resetBtnText}>Reset</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.mejaSelectBox}>
-        <Text style={styles.mejaSelectLabel}>Tipe Pesanan</Text>
+        <Text style={styles.mejaSelectLabel}>
+          Tipe Pesanan
+        </Text>
 
         <View style={styles.orderTypeRow}>
           {['Dine In', 'Takeaway'].map((type) => {
@@ -479,7 +545,9 @@ export default function DashboardKasirScreen({ navigation }) {
                     isSelected && styles.orderTypePillTextActive,
                   ]}
                 >
-                  {type === 'Dine In' ? 'Dine In' : 'Bungkus (Takeaway)'}
+                  {type === 'Dine In'
+                    ? 'Dine In'
+                    : 'Bungkus (Takeaway)'}
                 </Text>
               </TouchableOpacity>
             );
@@ -488,10 +556,18 @@ export default function DashboardKasirScreen({ navigation }) {
       </View>
 
       <View style={styles.tableHeader}>
-        <Text style={[styles.thText, styles.numberColumn]}>No</Text>
-        <Text style={[styles.thText, styles.itemNameColumn]}>Item</Text>
-        <Text style={[styles.thText, styles.qtyControlRow]}>Jumlah</Text>
-        <Text style={[styles.thText, styles.itemPriceColumn]}>Harga</Text>
+        <Text style={[styles.thText, styles.numberColumn]}>
+          No
+        </Text>
+        <Text style={[styles.thText, styles.itemNameColumn]}>
+          Item
+        </Text>
+        <Text style={[styles.thText, styles.qtyControlRow]}>
+          Jumlah
+        </Text>
+        <Text style={[styles.thText, styles.itemPriceColumn]}>
+          Harga
+        </Text>
       </View>
 
       <FlatList
@@ -520,7 +596,10 @@ export default function DashboardKasirScreen({ navigation }) {
           </View>
         }
         renderItem={({ item, index }) => {
-          const itemPrice = Number(item.harga ?? item.price ?? 0);
+          const itemPrice = Number(
+            item.harga ?? item.price ?? 0
+          );
+
           const qty = Number(item.qty ?? 1);
           const itemName = item.nama || item.name || 'Item';
 
@@ -531,13 +610,13 @@ export default function DashboardKasirScreen({ navigation }) {
               </Text>
 
               <View style={styles.itemNameColumn}>
-                <Text style={styles.itemNameText}>{itemName}</Text>
+                <Text style={styles.itemNameText}>
+                  {itemName}
+                </Text>
 
-                {item.berat ? (
-                  <Text style={styles.itemWeightText}>
-                    {item.berat}
-                  </Text>
-                ) : null}
+                <Text style={styles.itemWeightText}>
+                  pcs
+                </Text>
               </View>
 
               <View style={styles.qtyControlRow}>
@@ -546,17 +625,27 @@ export default function DashboardKasirScreen({ navigation }) {
                   onPress={() => updateCartQty(item.id, -1)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="remove" size={13} color="#C62828" />
+                  <Ionicons
+                    name="remove"
+                    size={13}
+                    color="#C62828"
+                  />
                 </TouchableOpacity>
 
-                <Text style={styles.qtyNumberText}>{qty}</Text>
+                <Text style={styles.qtyNumberText}>
+                  {qty}
+                </Text>
 
                 <TouchableOpacity
                   style={[styles.qtyBtn, styles.qtyBtnAdd]}
                   onPress={() => addToCart(item)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="add" size={13} color="#FFFFFF" />
+                  <Ionicons
+                    name="add"
+                    size={13}
+                    color="#FFFFFF"
+                  />
                 </TouchableOpacity>
               </View>
 
@@ -570,7 +659,9 @@ export default function DashboardKasirScreen({ navigation }) {
                   style={styles.removeItemButton}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.removeItemText}>Hapus</Text>
+                  <Text style={styles.removeItemText}>
+                    Hapus
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -591,10 +682,15 @@ export default function DashboardKasirScreen({ navigation }) {
 
           <View style={styles.specChiliRow}>
             {Number(selectedLevel) === 0 ? (
-              <Text style={styles.specChiliMuted}>0 Cabai</Text>
+              <Text style={styles.specChiliMuted}>
+                0 Cabai
+              </Text>
             ) : (
               Array.from({
-                length: Math.max(0, Number(selectedLevel) || 0),
+                length: Math.max(
+                  0,
+                  Number(selectedLevel) || 0
+                ),
               }).map((_, index) => (
                 <Text key={index} style={styles.chiliEmoji}>
                   🌶️
@@ -606,7 +702,9 @@ export default function DashboardKasirScreen({ navigation }) {
       </View>
 
       <View style={styles.notesContainer}>
-        <Text style={styles.notesLabel}>Catatan (opsional)</Text>
+        <Text style={styles.notesLabel}>
+          Catatan (opsional)
+        </Text>
 
         <TextInput
           style={styles.notesInput}
@@ -622,7 +720,8 @@ export default function DashboardKasirScreen({ navigation }) {
       <TouchableOpacity
         style={[
           styles.checkoutButton,
-          safeCart.length === 0 && styles.checkoutButtonDisabled,
+          safeCart.length === 0 &&
+            styles.checkoutButtonDisabled,
         ]}
         onPress={handleOpenPayment}
         activeOpacity={0.85}
@@ -634,7 +733,9 @@ export default function DashboardKasirScreen({ navigation }) {
             size={19}
             color="#FFFFFF"
           />
-          <Text style={styles.checkoutBtnText}>Hitung Total</Text>
+          <Text style={styles.checkoutBtnText}>
+            Hitung Total
+          </Text>
         </View>
 
         <Text style={styles.checkoutBtnAmount}>
@@ -643,6 +744,10 @@ export default function DashboardKasirScreen({ navigation }) {
       </TouchableOpacity>
     </View>
   );
+
+  // ==========================================
+  // TAMPILAN UTAMA
+  // ==========================================
 
   return (
     <View style={styles.container}>
@@ -681,18 +786,22 @@ export default function DashboardKasirScreen({ navigation }) {
 
         {activeTab === 'Riwayat Transaksi' && (
           <RiwayatTransaksiScreen
-            onOpenReceipt={handleOpenReceiptFromHistory}
+            onOpenDetail={handleOpenReceiptFromHistory}
           />
         )}
 
-        {activeTab === 'Laporan' && <LaporanScreen />}
+        {activeTab === 'Laporan' && (
+          <LaporanScreen />
+        )}
 
         {activeTab === 'Kasir' && (
           <View style={styles.posContainer}>
             <View
               style={[
                 styles.posInner,
-                !isMobile && !isTablet && styles.posRowLayout,
+                !isMobile &&
+                  !isTablet &&
+                  styles.posRowLayout,
               ]}
             >
               <ScrollView
@@ -710,14 +819,14 @@ export default function DashboardKasirScreen({ navigation }) {
                   </Text>
                 </View>
 
-                {/* KATEGORI DARI SUPABASE */}
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.categoryScroll}
                 >
                   {toppingCategories.map((category) => {
-                    const isActive = activeCategory === category;
+                    const isActive =
+                      activeCategory === category;
 
                     return (
                       <TouchableOpacity
@@ -732,7 +841,8 @@ export default function DashboardKasirScreen({ navigation }) {
                         <Text
                           style={[
                             styles.catPillText,
-                            isActive && styles.catPillTextActive,
+                            isActive &&
+                              styles.catPillTextActive,
                           ]}
                         >
                           {category}
@@ -742,7 +852,6 @@ export default function DashboardKasirScreen({ navigation }) {
                   })}
                 </ScrollView>
 
-                {/* STATUS DATA MENU */}
                 {menuLoading ? (
                   <View style={styles.menuMessageBox}>
                     <Text style={styles.menuMessageText}>
@@ -758,7 +867,9 @@ export default function DashboardKasirScreen({ navigation }) {
                     <TouchableOpacity
                       style={styles.menuRetryButton}
                       onPress={() => {
-                        setMenuReloadKey((value) => value + 1);
+                        setMenuReloadKey(
+                          (value) => value + 1
+                        );
                       }}
                       activeOpacity={0.8}
                     >
@@ -779,7 +890,8 @@ export default function DashboardKasirScreen({ navigation }) {
                   <View style={styles.toppingsGrid}>
                     {filteredToppings.map((item) => {
                       const cartItem = safeCart.find(
-                        (cartEntry) => cartEntry.id === item.id
+                        (cartEntry) =>
+                          cartEntry.id === item.id
                       );
 
                       return (
@@ -789,9 +901,13 @@ export default function DashboardKasirScreen({ navigation }) {
                         >
                           <ToppingCard
                             item={item}
-                            quantity={cartItem ? cartItem.qty : 0}
+                            quantity={
+                              cartItem ? cartItem.qty : 0
+                            }
                             onAdd={() => addToCart(item)}
-                            onRemove={() => updateCartQty(item.id, -1)}
+                            onRemove={() =>
+                              updateCartQty(item.id, -1)
+                            }
                           />
                         </View>
                       );
@@ -799,7 +915,6 @@ export default function DashboardKasirScreen({ navigation }) {
                   </View>
                 )}
 
-                {/* LEVEL KEPEDASAN */}
                 <View style={styles.customSectionBox}>
                   <Text style={styles.customSectionTitle}>
                     Level Kepedasan
@@ -819,15 +934,19 @@ export default function DashboardKasirScreen({ navigation }) {
                           key={spice.level}
                           style={[
                             styles.levelCard,
-                            isSelected && styles.levelCardActive,
+                            isSelected &&
+                              styles.levelCardActive,
                           ]}
-                          onPress={() => setSelectedLevel(spice.level)}
+                          onPress={() =>
+                            setSelectedLevel(spice.level)
+                          }
                           activeOpacity={0.7}
                         >
                           <Text
                             style={[
                               styles.levelNumber,
-                              isSelected && styles.levelNumberActive,
+                              isSelected &&
+                                styles.levelNumberActive,
                             ]}
                           >
                             {spice.level}
@@ -857,7 +976,8 @@ export default function DashboardKasirScreen({ navigation }) {
                           <Text
                             style={[
                               styles.levelLabel,
-                              isSelected && styles.levelLabelActive,
+                              isSelected &&
+                                styles.levelLabelActive,
                             ]}
                           >
                             {spice.label}
@@ -868,7 +988,6 @@ export default function DashboardKasirScreen({ navigation }) {
                   </ScrollView>
                 </View>
 
-                {/* PILIHAN KUAH */}
                 <View style={styles.customSectionBox}>
                   <Text style={styles.customSectionTitle}>
                     Pilihan Kuah
@@ -876,22 +995,27 @@ export default function DashboardKasirScreen({ navigation }) {
 
                   <View style={styles.brothPillsRow}>
                     {BROTH_OPTIONS.map((broth) => {
-                      const isSelected = selectedKuah === broth;
+                      const isSelected =
+                        selectedKuah === broth;
 
                       return (
                         <TouchableOpacity
                           key={broth}
                           style={[
                             styles.brothPill,
-                            isSelected && styles.brothPillActive,
+                            isSelected &&
+                              styles.brothPillActive,
                           ]}
-                          onPress={() => setSelectedKuah(broth)}
+                          onPress={() =>
+                            setSelectedKuah(broth)
+                          }
                           activeOpacity={0.7}
                         >
                           <Text
                             style={[
                               styles.brothPillText,
-                              isSelected && styles.brothPillTextActive,
+                              isSelected &&
+                                styles.brothPillTextActive,
                             ]}
                           >
                             {broth}
@@ -907,7 +1031,8 @@ export default function DashboardKasirScreen({ navigation }) {
                 <View
                   style={[
                     styles.orderColumnContainer,
-                    isTablet && styles.orderColumnTablet,
+                    isTablet &&
+                      styles.orderColumnTablet,
                   ]}
                 >
                   {renderOrderPanel()}
@@ -915,7 +1040,6 @@ export default function DashboardKasirScreen({ navigation }) {
               )}
             </View>
 
-            {/* BAR BAWAH MOBILE */}
             {isMobile && (
               <View style={styles.mobileBottomBar}>
                 <View style={styles.mobileCartSummary}>
@@ -959,18 +1083,21 @@ export default function DashboardKasirScreen({ navigation }) {
               </View>
             )}
 
-            {/* MODAL KERANJANG MOBILE */}
             {isMobile && (
               <Modal
                 visible={mobileCartOpen}
                 animationType="slide"
                 transparent
-                onRequestClose={() => setMobileCartOpen(false)}
+                onRequestClose={() =>
+                  setMobileCartOpen(false)
+                }
               >
                 <View style={styles.mobileModalOverlay}>
                   <TouchableOpacity
                     style={styles.mobileModalBackdrop}
-                    onPress={() => setMobileCartOpen(false)}
+                    onPress={() =>
+                      setMobileCartOpen(false)
+                    }
                     activeOpacity={1}
                   />
 
@@ -980,7 +1107,9 @@ export default function DashboardKasirScreen({ navigation }) {
 
                       <TouchableOpacity
                         style={styles.sheetCloseBtn}
-                        onPress={() => setMobileCartOpen(false)}
+                        onPress={() =>
+                          setMobileCartOpen(false)
+                        }
                       >
                         <Ionicons
                           name="close"

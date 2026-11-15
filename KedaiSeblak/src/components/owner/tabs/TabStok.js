@@ -1,4 +1,5 @@
-﻿import React, { useState, useMemo, useEffect } from 'react';
+﻿
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,13 +7,11 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   useWindowDimensions,
-  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import StockDetailModal from '../StockDetailModal';
+import StockDetailModal from '../StockEditModal';
 
 const WARNA = {
   merah: '#C62828',
@@ -30,6 +29,10 @@ const WARNA = {
 
 const ITEMS_PER_PAGE = 3;
 
+// =====================================================
+// HELPER
+// =====================================================
+
 const parseAngka = (value) => {
   if (
     value === null ||
@@ -39,9 +42,7 @@ const parseAngka = (value) => {
     return NaN;
   }
 
-  return Number(
-    String(value).trim().replace(',', '.')
-  );
+  return Number(String(value).trim().replace(',', '.'));
 };
 
 const getJenisStok = (item) => {
@@ -56,7 +57,11 @@ const getJenisStok = (item) => {
   ).trim().toLowerCase();
 
   if (
-    ['bumbu', 'bumbu & kuah', 'bahan dasar'].includes(kategori) ||
+    [
+      'bumbu',
+      'bumbu & kuah',
+      'bahan dasar',
+    ].includes(kategori) ||
     String(item?.id || '').startsWith('STK-BAHAN-')
   ) {
     return 'Bumbu';
@@ -66,8 +71,10 @@ const getJenisStok = (item) => {
 };
 
 const getItemStatus = (item) => {
-  const sisa = Number(item?.sisa ?? 0);
-  const minimum = Number(item?.minimum ?? 1);
+  const sisa = Number(item?.sisa ?? item?.stok ?? 0);
+  const minimum = Number(
+    item?.minimum ?? item?.stok_minimum ?? 1
+  );
 
   if (sisa <= 0) return 'Habis';
   if (sisa <= minimum) return 'Menipis';
@@ -78,43 +85,113 @@ const getItemStatus = (item) => {
 const formatTanggal = (value) => {
   if (!value) return '-';
 
-  if (value instanceof Date) {
-    return value.toLocaleString('id-ID');
+  const tanggal = new Date(value);
+
+  if (Number.isNaN(tanggal.getTime())) {
+    return String(value);
   }
 
-  return String(value);
+  return tanggal.toLocaleString('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const formatJumlah = (value) => {
+  return Number(value || 0).toLocaleString('id-ID', {
+    maximumFractionDigits: 4,
+  });
 };
 
 const getHistoryTimestamp = (record) => {
   const raw =
+    record.created_at ||
     record.timestamp ||
     record.createdAt ||
     record.tanggalISO ||
     record.date;
 
-  if (raw) {
-    const parsed = new Date(raw).getTime();
+  if (!raw) return 0;
 
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
+  const parsed = new Date(raw).getTime();
+
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+// =====================================================
+// INFORMASI JENIS MUTASI
+// =====================================================
+
+const getMovementInfo = (record) => {
+  const tipe = String(record?.tipe || '').toLowerCase();
+
+  if (tipe === 'masuk') {
+    return {
+      label: 'Stok Masuk',
+      icon: 'arrow-down-circle-outline',
+      color: WARNA.hijau,
+      background: '#DCFCE7',
+      prefix: '+',
+    };
   }
 
-  return 0;
+  if (tipe === 'keluar' && record?.transaksi_id) {
+    return {
+      label: 'Penjualan',
+      icon: 'cart-outline',
+      color: WARNA.merah,
+      background: '#FCE1E5',
+      prefix: '-',
+    };
+  }
+
+  if (tipe === 'keluar') {
+    return {
+      label: 'Stok Keluar',
+      icon: 'arrow-up-circle-outline',
+      color: WARNA.oranye,
+      background: '#FFF0DD',
+      prefix: '-',
+    };
+  }
+
+  if (tipe === 'penyesuaian') {
+    return {
+      label: 'Penyesuaian Stok',
+      icon: 'swap-horizontal-outline',
+      color: WARNA.oranye,
+      background: '#FFF0DD',
+      prefix: '+',
+    };
+  }
+
+  return {
+    label: tipe || 'Mutasi Stok',
+    icon: 'cube-outline',
+    color: WARNA.sekunder,
+    background: '#F1ECE9',
+    prefix: '',
+  };
 };
+
+// =====================================================
+// KOMPONEN UTAMA
+// =====================================================
 
 export default function TabStok({
   stockItems = [],
-  expenses = [],
+  stockMovements = [],
   onUpdateItem,
-  onTerimaStok,
   initialFilterStatus = 'Semua',
 }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 600;
 
   // =========================================
-  // STATE DAFTAR STOK
+  // STATE
   // =========================================
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -124,34 +201,16 @@ export default function TabStok({
   );
 
   const [jenisFilter, setJenisFilter] = useState('Topping');
-  const [activeSection, setActiveSection] = useState('Daftar Stok');
 
-  const [opnameDraft, setOpnameDraft] = useState({});
-  const [opnameNote, setOpnameNote] = useState('');
+  const [activeSection, setActiveSection] =
+    useState('Daftar Stok');
 
   const [isDetailModalVisible, setIsDetailModalVisible] =
     useState(false);
 
   const [selectedItem, setSelectedItem] = useState(null);
+
   const [currentPage, setCurrentPage] = useState(1);
-
-  // =========================================
-  // STATE MODAL PENERIMAAN STOK
-  // =========================================
-
-  const [isReceiveModalVisible, setIsReceiveModalVisible] =
-    useState(false);
-
-  const [selectedExpenseId, setSelectedExpenseId] =
-    useState(null);
-
-  const [jumlahDiterimaInput, setJumlahDiterimaInput] =
-    useState('');
-
-  const [catatanPenerimaan, setCatatanPenerimaan] =
-    useState('');
-  const [isSavingReceive, setIsSavingReceive] = useState(false);
-  const [isSavingOpname, setIsSavingOpname] = useState(false);
 
   useEffect(() => {
     setStatusFilter(initialFilterStatus || 'Semua');
@@ -190,47 +249,6 @@ export default function TabStok({
   ).length;
 
   // =========================================
-  // PEMBELIAN YANG BELUM DITERIMA
-  // =========================================
-
-  const pembelianMenunggu = useMemo(() => {
-    return expenses
-      .map((expense) => {
-        const jumlahBeli = parseAngka(expense.jumlah);
-
-        const nilaiDiterima = parseAngka(
-          expense.jumlahDiterima ?? 0
-        );
-
-        const sudahDiterima = Number.isFinite(nilaiDiterima)
-          ? nilaiDiterima
-          : 0;
-
-        const sisaBelumDiterima =
-          jumlahBeli - sudahDiterima;
-
-        return {
-          ...expense,
-          jumlahBeli,
-          sudahDiterima,
-          sisaBelumDiterima,
-        };
-      })
-      .filter((expense) => {
-        return (
-          Number.isFinite(expense.jumlahBeli) &&
-          expense.jumlahBeli > 0 &&
-          expense.sisaBelumDiterima > 0.000001
-        );
-      });
-  }, [expenses]);
-
-  const selectedExpense = pembelianMenunggu.find(
-    (expense) =>
-      String(expense.id) === String(selectedExpenseId)
-  );
-
-  // =========================================
   // PENCARIAN DAN FILTER
   // =========================================
 
@@ -240,9 +258,17 @@ export default function TabStok({
     return stokJenisAktif.filter((item) => {
       const status = getItemStatus(item);
 
-      const nama = String(item.nama || '').toLowerCase();
-      const kategori = String(item.kategori || '').toLowerCase();
-      const supplier = String(item.supplier || '').toLowerCase();
+      const nama = String(
+        item.nama || item.nama_bahan || ''
+      ).toLowerCase();
+
+      const kategori = String(
+        item.kategori || ''
+      ).toLowerCase();
+
+      const supplier = String(
+        item.supplier || ''
+      ).toLowerCase();
 
       const matchesStatus =
         statusFilter === 'Semua' ||
@@ -257,12 +283,16 @@ export default function TabStok({
       return matchesStatus && matchesSearch;
     });
   }, [stokJenisAktif, statusFilter, searchQuery]);
-    const totalPages = Math.max(
+
+  const totalPages = Math.max(
     1,
     Math.ceil(filteredData.length / ITEMS_PER_PAGE)
   );
 
-  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const safeCurrentPage = Math.min(
+    currentPage,
+    totalPages
+  );
 
   const paginatedData = filteredData.slice(
     (safeCurrentPage - 1) * ITEMS_PER_PAGE,
@@ -278,10 +308,26 @@ export default function TabStok({
   // =========================================
 
   const filterOptions = [
-    { id: 'Semua', label: 'Semua', count: totalBahan },
-    { id: 'Aman', label: 'Aman', count: countAman },
-    { id: 'Menipis', label: 'Menipis', count: countMenipis },
-    { id: 'Habis', label: 'Habis', count: countHabis },
+    {
+      id: 'Semua',
+      label: 'Semua',
+      count: totalBahan,
+    },
+    {
+      id: 'Aman',
+      label: 'Aman',
+      count: countAman,
+    },
+    {
+      id: 'Menipis',
+      label: 'Menipis',
+      count: countMenipis,
+    },
+    {
+      id: 'Habis',
+      label: 'Habis',
+      count: countHabis,
+    },
   ];
 
   // =========================================
@@ -291,105 +337,6 @@ export default function TabStok({
   const handleOpenDetail = (item) => {
     setSelectedItem(item);
     setIsDetailModalVisible(true);
-  };
-
-  // =========================================
-  // TERIMA STOK
-  // =========================================
-
-  const handleTerimaStok = () => {
-    const pembelianPertama =
-      pembelianMenunggu.length > 0
-        ? pembelianMenunggu[0]
-        : null;
-
-    setSelectedExpenseId(
-      pembelianPertama ? pembelianPertama.id : null
-    );
-
-    setJumlahDiterimaInput('');
-    setCatatanPenerimaan('');
-
-    // Modal selalu dibuka, termasuk ketika belum ada pembelian.
-    setIsReceiveModalVisible(true);
-  };
-
-  const handlePilihPembelian = (expense) => {
-    setSelectedExpenseId(expense.id);
-    setJumlahDiterimaInput('');
-    setCatatanPenerimaan('');
-  };
-
-  const handleKonfirmasiPenerimaan = async () => {
-    if (isSavingReceive) return;
-    if (!selectedExpense) {
-      Alert.alert(
-        'Pembelian Tidak Ditemukan',
-        'Silakan pilih pembelian yang masih menunggu penerimaan.'
-      );
-      return;
-    }
-
-    const jumlahMasuk = parseAngka(
-      jumlahDiterimaInput
-    );
-
-    if (
-      !Number.isFinite(jumlahMasuk) ||
-      jumlahMasuk <= 0
-    ) {
-      Alert.alert(
-        'Jumlah Tidak Valid',
-        'Masukkan jumlah stok yang diterima lebih dari 0.'
-      );
-      return;
-    }
-
-    if (
-      jumlahMasuk >
-      selectedExpense.sisaBelumDiterima + 0.000001
-    ) {
-      Alert.alert(
-        'Jumlah Melebihi Pembelian',
-        `Jumlah yang dapat diterima hanya ${selectedExpense.sisaBelumDiterima} ${selectedExpense.satuan || ''}.`
-      );
-      return;
-    }
-
-    if (typeof onTerimaStok !== 'function') {
-      Alert.alert(
-        'Fungsi Belum Tersedia',
-        'Fitur penerimaan stok belum terhubung dengan Dashboard Owner.'
-      );
-      return;
-    }
-
-    try {
-      setIsSavingReceive(true);
-      const berhasil = await onTerimaStok(
-        selectedExpense.id,
-        jumlahMasuk,
-        catatanPenerimaan.trim()
-      );
-
-      if (berhasil !== true) return;
-
-      setIsReceiveModalVisible(false);
-      setSelectedExpenseId(null);
-      setJumlahDiterimaInput('');
-      setCatatanPenerimaan('');
-    } catch (error) {
-      Alert.alert('Penerimaan Gagal', error?.message || 'Gagal menyimpan penerimaan stok.');
-    } finally {
-      setIsSavingReceive(false);
-    }
-  };
-
-  const handleTutupModalPenerimaan = () => {
-    setIsReceiveModalVisible(false);
-    setSelectedExpenseId(null);
-    setJumlahDiterimaInput('');
-    setCatatanPenerimaan('');
   };
 
   // =========================================
@@ -403,123 +350,101 @@ export default function TabStok({
   };
 
   // =========================================
-  // STOK OPNAME
+  // PEMETAAN STOK BERDASARKAN ID
   // =========================================
 
-  const handleSaveOpname = async () => {
-    if (isSavingOpname) return;
-    if (typeof onUpdateItem !== 'function') {
-      Alert.alert(
-        'Fungsi Belum Tersedia',
-        'Hubungkan fungsi penyimpanan stok terlebih dahulu.'
-      );
-      return;
-    }
+  const stockById = useMemo(() => {
+    const map = new Map();
 
-    const itemsDiisi = stokJenisAktif.filter((item) => {
-      const value = opnameDraft[item.id];
-
-      return (
-        value !== undefined &&
-        String(value).trim() !== ''
-      );
+    (stockItems || []).forEach((item) => {
+      if (item?.id !== undefined && item?.id !== null) {
+        map.set(String(item.id), item);
+      }
     });
 
-    if (itemsDiisi.length === 0) {
-      Alert.alert(
-        'Belum Ada Data',
-        'Isi minimal satu jumlah stok fisik sebelum menyimpan.'
-      );
-      return;
-    }
-
-    const dataValid = [];
-    const dataTidakValid = [];
-
-    itemsDiisi.forEach((item) => {
-      const fisik = parseAngka(opnameDraft[item.id]);
-
-      if (!Number.isFinite(fisik) || fisik < 0) {
-        dataTidakValid.push(item.nama);
-        return;
-      }
-
-      const sistem = Number(item.sisa ?? 0);
-      const selisih = Number((fisik - sistem).toFixed(3));
-
-      dataValid.push({
-        item,
-        fisik,
-        sistem,
-        selisih,
-      });
-    });
-
-    if (dataTidakValid.length > 0) {
-      Alert.alert(
-        'Jumlah Stok Tidak Valid',
-        `Periksa kembali jumlah fisik:\n${dataTidakValid.join(', ')}`
-      );
-      return;
-    }
-
-    const sekarang = new Date();
-    const tanggal = sekarang.toLocaleString('id-ID');
-
-    try {
-      setIsSavingOpname(true);
-      for (const { item, fisik } of dataValid) {
-        await onUpdateItem({
-          ...item,
-          sisa: fisik,
-          catatanOpname: opnameNote.trim(),
-        });
-      }
-
-      setOpnameDraft({});
-      setOpnameNote('');
-      Alert.alert(
-        'Stok Opname Berhasil',
-        `${dataValid.length} data stok berhasil diperbarui.`
-      );
-      setActiveSection('Riwayat');
-    } catch (error) {
-      Alert.alert('Stok Opname Gagal', error?.message || 'Sebagian stok gagal diperbarui. Periksa kembali data stok.');
-    } finally {
-      setIsSavingOpname(false);
-    }
-  };
+    return map;
+  }, [stockItems]);
 
   // =========================================
-  // RIWAYAT STOK
+  // RIWAYAT STOK DARI DATABASE
   // =========================================
 
   const historyData = useMemo(() => {
-    return stokJenisAktif
-      .flatMap((item) => [
-        ...(item.riwayatOpname || []).map((record, index) => ({
-          ...record,
-          id: record.id || `${item.id}-opname-${index}`,
-          nama: record.nama || item.nama,
-          satuan: record.satuan || item.satuan,
-          jenis: 'Stock Opname',
-          itemId: item.id,
-        })),
+    return (stockMovements || [])
+      .filter((movement) => {
+        const stok = stockById.get(
+          String(movement.stok_id)
+        );
 
-        ...(item.riwayatRestok || []).map((record, index) => ({
-          ...record,
-          id: record.id || `${item.id}-restok-${index}`,
-          nama: item.nama,
-          satuan: record.satuan || item.satuan,
-          jenis: 'Restok',
-          itemId: item.id,
-        })),
-      ])
+        // Utamakan data bahan dari stok_id.
+        if (stok) {
+          return getJenisStok(stok) === jenisFilter;
+        }
+
+        // Fallback jika movement sudah memiliki kategori.
+        if (movement.kategori || movement.jenisStok) {
+          return getJenisStok(movement) === jenisFilter;
+        }
+
+        return false;
+      })
+      .map((movement, index) => {
+        const stok = stockById.get(
+          String(movement.stok_id)
+        );
+
+        const info = getMovementInfo(movement);
+
+        const jumlah = Number(movement.jumlah || 0);
+
+        return {
+          ...movement,
+
+          id:
+            movement.id ||
+            `${movement.stok_id}-${movement.created_at}-${index}`,
+
+          nama:
+            stok?.nama ||
+            stok?.nama_bahan ||
+            movement.nama_bahan ||
+            movement.nama ||
+            'Bahan tidak ditemukan',
+
+          satuan:
+            stok?.satuan ||
+            movement.satuan ||
+            '',
+
+          jenis: info.label,
+          icon: info.icon,
+          warna: info.color,
+          background: info.background,
+          prefix: info.prefix,
+
+          jumlahTampil: jumlah,
+
+          tanggal:
+            movement.created_at ||
+            movement.tanggal ||
+            movement.timestamp,
+
+          catatan:
+            movement.keterangan ||
+            movement.catatan ||
+            '',
+        };
+      })
       .sort(
         (a, b) =>
-                    getHistoryTimestamp(b) - getHistoryTimestamp(a)
+          getHistoryTimestamp(b) -
+          getHistoryTimestamp(a)
       );
-  }, [stokJenisAktif]);
+  }, [
+    stockMovements,
+    stockById,
+    jenisFilter,
+  ]);
 
   // =========================================
   // KOMPONEN STATUS
@@ -581,8 +506,11 @@ export default function TabStok({
   const renderStockRow = (item) => (
     <View key={item.id} style={styles.stockRow}>
       <View style={styles.stockNameColumn}>
-        <Text style={styles.stockRowName} numberOfLines={1}>
-          {item.nama || 'Tanpa nama'}
+        <Text
+          style={styles.stockRowName}
+          numberOfLines={1}
+        >
+          {item.nama || item.nama_bahan || 'Tanpa nama'}
         </Text>
       </View>
 
@@ -591,11 +519,15 @@ export default function TabStok({
       </Text>
 
       <Text style={styles.stockQuantity}>
-        {Number(item.sisa ?? 0).toLocaleString('id-ID')} {item.satuan || ''}
+        {formatJumlah(item.sisa ?? item.stok ?? 0)}{' '}
+        {item.satuan || ''}
       </Text>
 
       <Text style={styles.stockMinimum}>
-        {Number(item.minimum ?? 0).toLocaleString('id-ID')} {item.satuan || ''}
+        {formatJumlah(
+          item.minimum ?? item.stok_minimum ?? 0
+        )}{' '}
+        {item.satuan || ''}
       </Text>
 
       <View style={styles.stockStatusColumn}>
@@ -628,6 +560,8 @@ export default function TabStok({
 
   const renderDaftarStok = () => (
     <>
+      {/* RINGKASAN STOK */}
+
       <View style={styles.summaryGrid}>
         <TouchableOpacity
           activeOpacity={0.85}
@@ -643,9 +577,17 @@ export default function TabStok({
           </View>
 
           <View style={styles.summaryContent}>
-            <Text style={styles.summaryLabel}>Total Bahan</Text>
-            <Text style={styles.summaryValue}>{totalBahan}</Text>
-            <Text style={styles.summaryCaption}>Jenis bahan</Text>
+            <Text style={styles.summaryLabel}>
+              Total Bahan
+            </Text>
+
+            <Text style={styles.summaryValue}>
+              {totalBahan}
+            </Text>
+
+            <Text style={styles.summaryCaption}>
+              Jenis bahan
+            </Text>
           </View>
 
           <View style={styles.summaryArrowRed}>
@@ -671,7 +613,10 @@ export default function TabStok({
           </View>
 
           <View style={styles.summaryContent}>
-            <Text style={styles.summaryLabel}>Menipis</Text>
+            <Text style={styles.summaryLabel}>
+              Menipis
+            </Text>
+
             <Text
               style={[
                 styles.summaryValue,
@@ -680,7 +625,10 @@ export default function TabStok({
             >
               {countMenipis}
             </Text>
-            <Text style={styles.summaryCaption}>Perlu perhatian</Text>
+
+            <Text style={styles.summaryCaption}>
+              Perlu perhatian
+            </Text>
           </View>
 
           <View style={styles.summaryArrowOrange}>
@@ -706,7 +654,10 @@ export default function TabStok({
           </View>
 
           <View style={styles.summaryContent}>
-            <Text style={styles.summaryLabel}>Habis</Text>
+            <Text style={styles.summaryLabel}>
+              Habis
+            </Text>
+
             <Text
               style={[
                 styles.summaryValue,
@@ -715,7 +666,10 @@ export default function TabStok({
             >
               {countHabis}
             </Text>
-            <Text style={styles.summaryCaption}>Segera restock</Text>
+
+            <Text style={styles.summaryCaption}>
+              Perlu diperhatikan
+            </Text>
           </View>
 
           <View style={styles.summaryArrowRed}>
@@ -727,6 +681,8 @@ export default function TabStok({
           </View>
         </TouchableOpacity>
       </View>
+
+      {/* PENCARIAN DAN FILTER */}
 
       <View style={styles.searchFilterRow}>
         <View style={styles.searchBarWrap}>
@@ -776,7 +732,8 @@ export default function TabStok({
             size={19}
             color={WARNA.merahTua}
           />
-                    <Text style={styles.filterButtonText}>
+
+          <Text style={styles.filterButtonText}>
             {statusFilter === 'Semua'
               ? 'Filter Status'
               : statusFilter}
@@ -789,6 +746,8 @@ export default function TabStok({
           />
         </TouchableOpacity>
       </View>
+
+      {/* FILTER CHIP */}
 
       <View style={styles.filterChipsRow}>
         {filterOptions.map((option) => {
@@ -821,6 +780,8 @@ export default function TabStok({
           );
         })}
       </View>
+
+      {/* TABEL STOK */}
 
       <View style={styles.listContainer}>
         <View style={styles.listHeader}>
@@ -878,19 +839,48 @@ export default function TabStok({
               horizontal
               showsHorizontalScrollIndicator={false}
             >
-              <View style={[styles.tableContent, { width: Math.max(width - (isMobile ? 32 : 240), 760) }]}>
+              <View
+                style={[
+                  styles.tableContent,
+                  {
+                    width: Math.max(
+                      width - (isMobile ? 32 : 240),
+                      760
+                    ),
+                  },
+                ]}
+              >
                 <View style={styles.tableHeading}>
-                  <Text style={styles.headingName}>Nama Bahan</Text>
-                  <Text style={styles.headingCategory}>Kategori</Text>
-                  <Text style={styles.headingQuantity}>Stok Saat Ini</Text>
-                  <Text style={styles.headingMinimum}>Minimum</Text>
-                  <Text style={styles.headingStatus}>Status</Text>
-                  <Text style={styles.headingAction}>Aksi</Text>
+                  <Text style={styles.headingName}>
+                    Nama Bahan
+                  </Text>
+
+                  <Text style={styles.headingCategory}>
+                    Kategori
+                  </Text>
+
+                  <Text style={styles.headingQuantity}>
+                    Stok Saat Ini
+                  </Text>
+
+                  <Text style={styles.headingMinimum}>
+                    Minimum
+                  </Text>
+
+                  <Text style={styles.headingStatus}>
+                    Status
+                  </Text>
+
+                  <Text style={styles.headingAction}>
+                    Aksi
+                  </Text>
                 </View>
 
                 {paginatedData.map(renderStockRow)}
               </View>
             </ScrollView>
+
+            {/* PAGINATION */}
 
             <View style={styles.paginationRow}>
               <Text style={styles.paginationInfo}>
@@ -988,95 +978,6 @@ export default function TabStok({
   );
 
   // =========================================
-  // TAMPILAN STOCK OPNAME
-  // =========================================
-
-  const renderStockOpname = () => (
-    <View style={styles.listContainer}>
-      <View style={styles.listHeader}>
-        <View style={styles.listHeaderLeft}>
-          <Ionicons
-            name="clipboard-outline"
-            size={19}
-            color={WARNA.merahTua}
-          />
-
-          <Text style={styles.listHeaderTitle}>
-            Pemeriksaan Stok Fisik
-          </Text>
-        </View>
-      </View>
-
-      <Text style={styles.sectionDescription}>
-        Masukkan jumlah bahan yang benar-benar tersedia di dapur.
-        Setelah disimpan, stok sistem akan disesuaikan.
-      </Text>
-
-      {stokJenisAktif.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptySubtitle}>
-            Tidak ada bahan yang bisa diperiksa.
-          </Text>
-        </View>
-      ) : (
-        stokJenisAktif.map((item) => (
-          <View key={item.id} style={styles.opnameRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.stockRowName}>
-                {item.nama}
-              </Text>
-
-              <Text style={styles.opnameMeta}>
-                Stok sistem: {item.sisa} {item.satuan}
-              </Text>
-            </View>
-
-            <TextInput
-              keyboardType="decimal-pad"
-              value={opnameDraft[item.id] ?? ''}
-              onChangeText={(value) =>
-                setOpnameDraft((prev) => ({
-                                    ...prev,
-                  [item.id]: value,
-                }))
-              }
-              placeholder={`Fisik (${item.satuan})`}
-              placeholderTextColor="#A89A92"
-              style={styles.opnameInput}
-            />
-          </View>
-        ))
-      )}
-
-      <TextInput
-        value={opnameNote}
-        onChangeText={setOpnameNote}
-        placeholder="Catatan (opsional), misalnya bahan rusak atau terbuang"
-        placeholderTextColor="#A89A92"
-        style={styles.opnameNoteInput}
-        multiline
-      />
-
-      <TouchableOpacity
-        style={styles.saveOpnameBtn}
-        onPress={handleSaveOpname}
-        disabled={isSavingOpname}
-        activeOpacity={0.8}
-      >
-        <Ionicons
-          name="checkmark-circle-outline"
-          size={18}
-          color={WARNA.putih}
-        />
-
-        <Text style={styles.saveOpnameText}>
-          {isSavingOpname ? 'Menyimpan...' : 'Simpan Hasil Stok Opname'}
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  // =========================================
   // TAMPILAN RIWAYAT
   // =========================================
 
@@ -1101,7 +1002,8 @@ export default function TabStok({
       </View>
 
       <Text style={styles.sectionDescription}>
-        Riwayat penerimaan bahan dan penyesuaian stok fisik.
+        Catatan perubahan stok bahan dari transaksi penjualan
+        dan aktivitas mutasi stok lainnya.
       </Text>
 
       {historyData.length === 0 ? (
@@ -1117,56 +1019,58 @@ export default function TabStok({
           </Text>
 
           <Text style={styles.emptySubtitle}>
-            Riwayat perubahan stok akan muncul di sini setelah
-            terdapat aktivitas penerimaan atau stok opname.
+            Riwayat stok {jenisFilter.toLowerCase()} akan muncul
+            di sini setelah ada aktivitas stok masuk atau keluar.
           </Text>
         </View>
       ) : (
         historyData.map((record) => {
-          const isRestok = String(record.jenis || '').includes('Restok') ||
-            String(record.jenis || '').includes('Penerimaan');
-
-          const nilai = isRestok
-            ? `+${record.jumlah ?? 0} ${record.satuan || ''}`
-            : record.jenis === 'Stock Opname'
-              ? `Stok akhir: ${record.jumlah ?? record.fisik ?? 0} ${record.satuan || ''}`
-              : `${record.jumlah ?? 0} ${record.satuan || ''}`;
+          const nilai =
+            `${record.prefix}${formatJumlah(record.jumlahTampil)} ${record.satuan || ''}`;
 
           return (
-            <View key={record.id} style={styles.historyRow}>
+            <View
+              key={record.id}
+              style={styles.historyRow}
+            >
               <View
                 style={[
                   styles.historyIcon,
-                  !isRestok && styles.historyOpnameIcon,
+                  {
+                    backgroundColor: record.background,
+                  },
                 ]}
               >
                 <Ionicons
-                  name={
-                    isRestok
-                      ? 'cart-outline'
-                      : 'clipboard-outline'
-                  }
-                  size={18}
-                  color={
-                    isRestok
-                      ? WARNA.hijau
-                      : WARNA.oranye
-                  }
+                  name={record.icon}
+                  size={19}
+                  color={record.warna}
                 />
               </View>
 
-              <View style={{ flex: 1 }}>
+              <View style={styles.historyContent}>
                 <Text style={styles.stockRowName}>
                   {record.nama}
                 </Text>
 
-                <Text style={styles.opnameMeta}>
+                <Text style={styles.historyDate}>
                   {formatTanggal(record.tanggal)}
                 </Text>
 
-                <Text style={styles.historyType}>
+                <Text
+                  style={[
+                    styles.historyType,
+                    { color: record.warna },
+                  ]}
+                >
                   {record.jenis}
                 </Text>
+
+                {record.nama_pengeluaran ? (
+                  <Text style={styles.historyNote}>
+                    Pengeluaran: {record.nama_pengeluaran}
+                  </Text>
+                ) : null}
 
                 {record.catatan ? (
                   <Text style={styles.historyNote}>
@@ -1178,7 +1082,7 @@ export default function TabStok({
               <Text
                 style={[
                   styles.historyValue,
-                  !isRestok && styles.historyOpnameValue,
+                  { color: record.warna },
                 ]}
               >
                 {nilai}
@@ -1194,12 +1098,14 @@ export default function TabStok({
   // TAMPILAN UTAMA
   // =========================================
 
-return (
+  return (
     <ScrollView
       style={styles.container}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
+      {/* HEADER */}
+
       <View
         style={[
           styles.headerMain,
@@ -1232,33 +1138,11 @@ return (
             isMobile && styles.headerActionsMobile,
           ]}
         >
-          <TouchableOpacity
-            style={styles.receiveButton}
-            onPress={handleTerimaStok}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel="Buka penerimaan stok"
-          >
-            <Ionicons
-              name="cart"
-              size={21}
-              color={WARNA.putih}
-            />
-
-            <Text style={styles.receiveButtonText}>
-              Terima Stok
-            </Text>
-          </TouchableOpacity>
-
           <View style={styles.sectionTabs}>
             {[
               {
                 id: 'Daftar Stok',
                 icon: 'cube-outline',
-              },
-              {
-                id: 'Stok Opname',
-                icon: 'clipboard-outline',
               },
               {
                 id: 'Riwayat',
@@ -1319,7 +1203,7 @@ return (
                 setJenisFilter(jenis);
                 setStatusFilter('Semua');
                 setSearchQuery('');
-                setOpnameDraft({});
+                setCurrentPage(1);
               }}
               activeOpacity={0.85}
             >
@@ -1366,243 +1250,36 @@ return (
 
       {/* ISI BERDASARKAN MENU */}
 
-      {activeSection === 'Daftar Stok' && renderDaftarStok()}
-      {activeSection === 'Stok Opname' && renderStockOpname()}
-      {activeSection === 'Riwayat' && renderRiwayat()}
+      {activeSection === 'Daftar Stok' &&
+        renderDaftarStok()}
 
-      {/* MODAL PENERIMAAN STOK */}
+      {activeSection === 'Riwayat' &&
+        renderRiwayat()}
 
-      <Modal
-        visible={isReceiveModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={handleTutupModalPenerimaan}
-        statusBarTranslucent
-      >
-        <View style={styles.receiveModalOverlay}>
-          <View style={styles.receiveModalContainer}>
-            <View style={styles.receiveModalHeader}>
-              <View style={styles.receiveModalTitleWrap}>
-                <Ionicons
-                  name="cart-outline"
-                  size={23}
-                  color={WARNA.merahTua}
-                />
-
-                <Text style={styles.receiveModalTitle}>
-                  Penerimaan Stok
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                onPress={handleTutupModalPenerimaan}
-                accessibilityRole="button"
-                accessibilityLabel="Tutup modal penerimaan"
-              >
-                <Ionicons
-                  name="close"
-                  size={24}
-                  color={WARNA.sekunder}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.receiveModalDescription}>
-              Pilih pembelian dan masukkan jumlah bahan yang
-              benar-benar diterima.
-            </Text>
-
-            <Text style={styles.receiveFieldLabel}>
-              Daftar Pembelian Menunggu
-            </Text>
-
-            <ScrollView
-              style={styles.purchaseList}
-              nestedScrollEnabled
-              showsVerticalScrollIndicator
-              keyboardShouldPersistTaps="handled"
-            >
-              {pembelianMenunggu.map((expense) => {
-                const selected =
-                  String(selectedExpenseId) === String(expense.id);
-
-                return (
-                  <TouchableOpacity
-                    key={String(expense.id)}
-                    style={[
-                      styles.purchaseOption,
-                      selected && styles.purchaseOptionSelected,
-                    ]}
-                    onPress={() =>
-                      handlePilihPembelian(expense)
-                    }
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.purchaseOptionTop}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.purchaseName}>
-                          {expense.keterangan ||
-                            expense.namaBahan ||
-                            expense.nama ||
-                            'Tanpa nama bahan'}
-                        </Text>
-
-                        <Text style={styles.purchaseMeta}>
-                          {expense.kategori || '-'} •{' '}
-                          {expense.supplier || 'Tanpa supplier'}
-                        </Text>
-
-                        <Text style={styles.purchaseMeta}>
-                          Tanggal:{' '}
-                          {expense.tanggalStr ||
-                            expense.tanggal ||
-                            expense.tanggalPembelian ||
-                            '-'}
-                        </Text>
-                      </View>
-
-                      <Ionicons
-                        name={
-                          selected
-                            ? 'radio-button-on'
-                            : 'radio-button-off'
-                        }
-                        size={21}
-                        color={
-                          selected
-                            ? WARNA.merah
-                            : WARNA.sekunder
-                        }
-                      />
-                    </View>
-
-                    <View style={styles.purchaseQuantityInfo}>
-                      <Text style={styles.purchaseQuantityText}>
-                        Dibeli: {expense.jumlahBeli} {expense.satuan || ''}
-                      </Text>
-
-                      <Text style={styles.purchaseQuantityText}>
-                        Diterima: {expense.sudahDiterima} {expense.satuan || ''}
-                      </Text>
-
-                      <Text style={styles.purchaseRemainingText}>
-                        Belum diterima: {expense.sisaBelumDiterima} {expense.satuan || ''}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-
-              {pembelianMenunggu.length === 0 && (
-                <View style={styles.emptyPurchase}>
-                  <Ionicons
-                    name="checkmark-circle-outline"
-                    size={35}
-                    color={WARNA.hijau}
-                  />
-
-                  <Text style={styles.emptyPurchaseText}>
-                    Tidak ada pembelian yang menunggu penerimaan.
-                  </Text>
-
-                  <Text style={styles.emptyPurchaseText}>
-                    Tambahkan pembelian melalui menu Pengeluaran
-                    terlebih dahulu.
-                  </Text>
-                </View>
-              )}
-            </ScrollView>
-
-            {selectedExpense && (
-              <>
-                <Text style={styles.receiveFieldLabel}>
-                  Jumlah yang Diterima
-                </Text>
-
-                <View style={styles.receiveInputWrap}>
-                  <TextInput
-                    style={styles.receiveInput}
-                    value={jumlahDiterimaInput}
-                    onChangeText={setJumlahDiterimaInput}
-                    placeholder="Masukkan jumlah"
-                    placeholderTextColor="#A89A92"
-                    keyboardType="decimal-pad"
-                  />
-
-                  <Text style={styles.receiveUnit}>
-                    {selectedExpense.satuan || 'Unit'}
-                  </Text>
-                </View>
-
-                <Text style={styles.receiveHint}>
-                  Maksimal penerimaan:{' '}
-                  {selectedExpense.sisaBelumDiterima}{' '}
-                  {selectedExpense.satuan || ''}
-                </Text>
-
-                <Text style={styles.receiveFieldLabel}>
-                  Catatan Penerimaan (Opsional)
-                </Text>
-
-                <TextInput
-                  style={styles.receiveNoteInput}
-                  value={catatanPenerimaan}
-                  onChangeText={setCatatanPenerimaan}
-                  placeholder="Contoh: Bahan diterima dalam kondisi baik"
-                  placeholderTextColor="#A89A92"
-                  multiline
-                />
-              </>
-            )}
-
-            <View style={styles.receiveModalActions}>
-              <TouchableOpacity
-                style={styles.receiveCancelButton}
-                onPress={handleTutupModalPenerimaan}
-              >
-                <Text style={styles.receiveCancelText}>
-                  Batal
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.receiveConfirmButton,
-                  !selectedExpense && { opacity: 0.5 },
-                ]}
-                disabled={!selectedExpense || isSavingReceive}
-                onPress={handleKonfirmasiPenerimaan}
-                accessibilityRole="button"
-              >
-                <Ionicons
-                  name="checkmark-circle-outline"
-                  size={18}
-                  color={WARNA.putih}
-                />
-
-                <Text style={styles.receiveConfirmText}>
-                  {isSavingReceive ? 'Memproses...' : 'Konfirmasi'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MODAL DETAIL */}
+      {/* MODAL DETAIL BAHAN */}
 
       <StockDetailModal
         visible={isDetailModalVisible}
         item={selectedItem}
         onClose={() => setIsDetailModalVisible(false)}
+        onSavePengaturan={async (item, values) => {
+          if (typeof onUpdateItem !== 'function') {
+            return;
+          }
+
+          await onUpdateItem({
+            ...item,
+            ...values,
+          });
+        }}
       />
     </ScrollView>
   );
 }
 
-// =============================================
+// =====================================================
 // STYLING
-// =============================================
+// =====================================================
 
 const styles = StyleSheet.create({
   container: {
@@ -1672,28 +1349,6 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
 
-  receiveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: WARNA.merah,
-    paddingHorizontal: 19,
-    paddingVertical: 9,
-    borderRadius: 11,
-    gap: 9,
-    minWidth: 150,
-    minHeight: 42,
-    position: 'relative',
-    zIndex: 10,
-    elevation: 5,
-  },
-
-  receiveButtonText: {
-    color: WARNA.putih,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-
   // NAVIGASI
 
   sectionTabs: {
@@ -1723,7 +1378,7 @@ const styles = StyleSheet.create({
   },
 
   sectionTabText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
     color: WARNA.merahTua,
   },
@@ -1815,7 +1470,7 @@ const styles = StyleSheet.create({
 
   summaryIconOrange: {
     width: 43,
-        height: 43,
+    height: 43,
     borderRadius: 12,
     backgroundColor: '#FFF0DD',
     alignItems: 'center',
@@ -2076,7 +1731,7 @@ const styles = StyleSheet.create({
     color: WARNA.teks,
     fontSize: 13,
     fontWeight: '800',
-      },
+  },
 
   stockCategory: {
     width: '16%',
@@ -2237,7 +1892,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  // STOCK OPNAME
+  // RIWAYAT
 
   sectionDescription: {
     color: WARNA.sekunder,
@@ -2246,65 +1901,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 12,
   },
-
-  opnameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 11,
-    borderBottomWidth: 1,
-    borderBottomColor: WARNA.garis,
-    gap: 12,
-  },
-
-  opnameMeta: {
-    fontSize: 12,
-    color: WARNA.sekunder,
-    marginTop: 3,
-  },
-
-  opnameInput: {
-    width: 115,
-    height: 38,
-    borderWidth: 1,
-    borderColor: WARNA.garis,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    fontSize: 13,
-    backgroundColor: WARNA.putih,
-    textAlign: 'right',
-    color: WARNA.teks,
-  },
-
-  opnameNoteInput: {
-    borderWidth: 1,
-    borderColor: WARNA.garis,
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 13,
-    backgroundColor: WARNA.putih,
-    height: 70,
-    textAlignVertical: 'top',
-    marginVertical: 14,
-    color: WARNA.teks,
-  },
-
-  saveOpnameBtn: {
-    backgroundColor: WARNA.hijau,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
-    gap: 7,
-  },
-
-  saveOpnameText: {
-    color: WARNA.putih,
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-
-  // RIWAYAT
 
   historyRow: {
     flexDirection: 'row',
@@ -2319,244 +1915,37 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 9,
-    backgroundColor: '#DCFCE7',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  historyOpnameIcon: {
-    backgroundColor: '#FEF3C7',
+  historyContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  historyDate: {
+    fontSize: 11,
+    color: WARNA.sekunder,
+    marginTop: 3,
   },
 
   historyType: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: WARNA.sekunder,
-    marginTop: 3,
+    marginTop: 4,
   },
 
   historyNote: {
-    fontSize: 12,
-    color: WARNA.teks,
+    fontSize: 11,
+    color: WARNA.sekunder,
     marginTop: 3,
   },
 
   historyValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
-    color: WARNA.hijau,
-  },
-
-  historyOpnameValue: {
-    color: WARNA.oranye,
-  },
-
-  // MODAL PENERIMAAN STOK
-
-  receiveModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-
-  receiveModalContainer: {
-    width: '100%',
-    maxWidth: 560,
-    maxHeight: '90%',
-    backgroundColor: WARNA.putih,
-    borderRadius: 15,
-    padding: 18,
-  },
-
-  receiveModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: WARNA.garis,
-  },
-
-  receiveModalTitleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-  },
-
-  receiveModalTitle: {
-    color: WARNA.merahTua,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-
-  receiveModalDescription: {
-    fontSize: 12,
-    color: WARNA.sekunder,
-    lineHeight: 18,
-    marginTop: 10,
-    marginBottom: 14,
-  },
-
-  receiveFieldLabel: {
-    color: WARNA.teks,
-    fontSize: 13,
-    fontWeight: '800',
-    marginBottom: 8,
-    marginTop: 8,
-  },
-
-  purchaseList: {
-    maxHeight: 220,
-    flexGrow: 0,
-  },
-
-  purchaseOption: {
-    borderWidth: 1,
-    borderColor: WARNA.garis,
-    borderRadius: 10,
-    padding: 11,
-    marginBottom: 8,
-    backgroundColor: '#FFFCFA',
-  },
-
-  purchaseOptionSelected: {
-    borderColor: WARNA.merah,
-    backgroundColor: WARNA.merahMuda,
-  },
-
-  purchaseOptionTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-
-  purchaseName: {
-    color: WARNA.teks,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-
-  purchaseMeta: {
-    color: WARNA.sekunder,
-    fontSize: 11,
-    marginTop: 3,
-  },
-
-  purchaseQuantityInfo: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginTop: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: WARNA.garis,
-  },
-
-  purchaseQuantityText: {
-    color: WARNA.sekunder,
-    fontSize: 10,
-  },
-
-  purchaseRemainingText: {
-    color: WARNA.merah,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-
-  emptyPurchase: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 22,
-    gap: 8,
-  },
-
-  emptyPurchaseText: {
-    color: WARNA.sekunder,
-    fontSize: 12,
-    textAlign: 'center',
-  },
-
-  receiveInputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: WARNA.garis,
-    borderRadius: 9,
-    backgroundColor: WARNA.putih,
-    paddingHorizontal: 10,
-  },
-
-  receiveInput: {
-    flex: 1,
-    height: 42,
-    color: WARNA.teks,
-    fontSize: 14,
-    outlineStyle: 'none',
-  },
-
-  receiveUnit: {
-    color: WARNA.sekunder,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-
-  receiveHint: {
-    color: WARNA.oranye,
-    fontSize: 11,
-    marginTop: 5,
-  },
-
-  receiveNoteInput: {
-    minHeight: 65,
-    maxHeight: 100,
-    borderWidth: 1,
-    borderColor: WARNA.garis,
-    borderRadius: 9,
-    padding: 10,
-    color: WARNA.teks,
-    fontSize: 12,
-    textAlignVertical: 'top',
-    backgroundColor: WARNA.putih,
-  },
-
-  receiveModalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 9,
-    marginTop: 18,
-  },
-
-  receiveCancelButton: {
-    paddingHorizontal: 17,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: WARNA.garis,
-    justifyContent: 'center',
-  },
-
-  receiveCancelText: {
-    color: WARNA.sekunder,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-
-  receiveConfirmButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: WARNA.merah,
-    paddingHorizontal: 17,
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 6,
-  },
-
-  receiveConfirmText: {
-    color: WARNA.putih,
-    fontSize: 12,
-    fontWeight: '800',
+    textAlign: 'right',
+    maxWidth: 110,
   },
 });
