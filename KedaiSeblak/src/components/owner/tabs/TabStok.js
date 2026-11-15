@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-﻿
-=======
->>>>>>> ad990f61ed5ff5aeb12ed751827558f9fc286ff1
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
@@ -30,41 +26,21 @@ const WARNA = {
   merahTerang: '#DC2626',
 };
 
-const ITEMS_PER_PAGE = 3;
+const ITEMS_PER_PAGE = 8;
 
 // =====================================================
 // HELPER
 // =====================================================
 
-const parseAngka = (value) => {
-  if (
-    value === null ||
-    value === undefined ||
-    String(value).trim() === ''
-  ) {
-    return NaN;
-  }
-
-  return Number(String(value).trim().replace(',', '.'));
-};
-
 const getJenisStok = (item) => {
-  if (
-    String(item?.jenisStok || '').toLowerCase() === 'bumbu'
-  ) {
+  if (String(item?.jenisStok || '').toLowerCase() === 'bumbu') {
     return 'Bumbu';
   }
 
-  const kategori = String(
-    item?.kategori || ''
-  ).trim().toLowerCase();
+  const kategori = String(item?.kategori || '').trim().toLowerCase();
 
   if (
-    [
-      'bumbu',
-      'bumbu & kuah',
-      'bahan dasar',
-    ].includes(kategori) ||
+    ['bumbu', 'bumbu & kuah', 'bahan dasar'].includes(kategori) ||
     String(item?.id || '').startsWith('STK-BAHAN-')
   ) {
     return 'Bumbu';
@@ -75,9 +51,7 @@ const getJenisStok = (item) => {
 
 const getItemStatus = (item) => {
   const sisa = Number(item?.sisa ?? item?.stok ?? 0);
-  const minimum = Number(
-    item?.minimum ?? item?.stok_minimum ?? 1
-  );
+  const minimum = Number(item?.minimum ?? item?.stok_minimum ?? 1);
 
   if (sisa <= 0) return 'Habis';
   if (sisa <= minimum) return 'Menipis';
@@ -205,11 +179,9 @@ export default function TabStok({
 
   const [jenisFilter, setJenisFilter] = useState('Topping');
 
-  const [activeSection, setActiveSection] =
-    useState('Daftar Stok');
+  const [activeSection, setActiveSection] = useState('Daftar Stok');
 
-  const [isDetailModalVisible, setIsDetailModalVisible] =
-    useState(false);
+  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
 
   const [selectedItem, setSelectedItem] = useState(null);
 
@@ -223,11 +195,17 @@ export default function TabStok({
   // DATA STOK
   // =========================================
 
+  const safeStockItems = Array.isArray(stockItems) ? stockItems : [];
+
+  const safeStockMovements = Array.isArray(stockMovements)
+    ? stockMovements
+    : [];
+
   const stokJenisAktif = useMemo(() => {
-    return stockItems.filter(
+    return safeStockItems.filter(
       (item) => getJenisStok(item) === jenisFilter
     );
-  }, [stockItems, jenisFilter]);
+  }, [safeStockItems, jenisFilter]);
 
   const totalBahan = stokJenisAktif.length;
 
@@ -243,11 +221,11 @@ export default function TabStok({
     (item) => getItemStatus(item) === 'Aman'
   ).length;
 
-  const totalTopping = stockItems.filter(
+  const totalTopping = safeStockItems.filter(
     (item) => getJenisStok(item) === 'Topping'
   ).length;
 
-  const totalBumbu = stockItems.filter(
+  const totalBumbu = safeStockItems.filter(
     (item) => getJenisStok(item) === 'Bumbu'
   ).length;
 
@@ -265,13 +243,9 @@ export default function TabStok({
         item.nama || item.nama_bahan || ''
       ).toLowerCase();
 
-      const kategori = String(
-        item.kategori || ''
-      ).toLowerCase();
+      const kategori = String(item.kategori || '').toLowerCase();
 
-      const supplier = String(
-        item.supplier || ''
-      ).toLowerCase();
+      const supplier = String(item.supplier || '').toLowerCase();
 
       const matchesStatus =
         statusFilter === 'Semua' ||
@@ -292,10 +266,7 @@ export default function TabStok({
     Math.ceil(filteredData.length / ITEMS_PER_PAGE)
   );
 
-  const safeCurrentPage = Math.min(
-    currentPage,
-    totalPages
-  );
+  const safeCurrentPage = Math.min(currentPage, totalPages);
 
   const paginatedData = filteredData.slice(
     (safeCurrentPage - 1) * ITEMS_PER_PAGE,
@@ -359,25 +330,23 @@ export default function TabStok({
   const stockById = useMemo(() => {
     const map = new Map();
 
-    (stockItems || []).forEach((item) => {
+    safeStockItems.forEach((item) => {
       if (item?.id !== undefined && item?.id !== null) {
         map.set(String(item.id), item);
       }
     });
 
     return map;
-  }, [stockItems]);
+  }, [safeStockItems]);
 
   // =========================================
   // RIWAYAT STOK DARI DATABASE
   // =========================================
 
   const historyData = useMemo(() => {
-    return (stockMovements || [])
+    return safeStockMovements
       .filter((movement) => {
-        const stok = stockById.get(
-          String(movement.stok_id)
-        );
+        const stok = stockById.get(String(movement.stok_id));
 
         // Utamakan data bahan dari stok_id.
         if (stok) {
@@ -392,9 +361,7 @@ export default function TabStok({
         return false;
       })
       .map((movement, index) => {
-        const stok = stockById.get(
-          String(movement.stok_id)
-        );
+        const stok = stockById.get(String(movement.stok_id));
 
         const info = getMovementInfo(movement);
 
@@ -414,10 +381,7 @@ export default function TabStok({
             movement.nama ||
             'Bahan tidak ditemukan',
 
-          satuan:
-            stok?.satuan ||
-            movement.satuan ||
-            '',
+          satuan: stok?.satuan || movement.satuan || '',
 
           jenis: info.label,
           icon: info.icon,
@@ -432,22 +396,13 @@ export default function TabStok({
             movement.tanggal ||
             movement.timestamp,
 
-          catatan:
-            movement.keterangan ||
-            movement.catatan ||
-            '',
+          catatan: movement.keterangan || movement.catatan || '',
         };
       })
       .sort(
-        (a, b) =>
-          getHistoryTimestamp(b) -
-          getHistoryTimestamp(a)
+        (a, b) => getHistoryTimestamp(b) - getHistoryTimestamp(a)
       );
-  }, [
-    stockMovements,
-    stockById,
-    jenisFilter,
-  ]);
+  }, [safeStockMovements, stockById, jenisFilter]);
 
   // =========================================
   // KOMPONEN STATUS
@@ -503,23 +458,54 @@ export default function TabStok({
   };
 
   // =========================================
-  // BARIS DAFTAR STOK
+  // BARIS DAFTAR STOK MOBILE
+  // =========================================
+
+  const renderStockRowMobile = (item) => (
+    <TouchableOpacity
+      key={item.id}
+      activeOpacity={0.8}
+      onPress={() => handleOpenDetail(item)}
+      style={styles.mobileStockCard}
+    >
+      <View style={styles.mobileStockHeader}>
+        <Text style={styles.mobileStockName} numberOfLines={1}>
+          {item.nama || item.nama_bahan || 'Tanpa nama'}
+        </Text>
+
+        {renderStatus(item)}
+      </View>
+
+      <View style={styles.mobileStockInfo}>
+        <Text style={styles.mobileStockInfoText}>
+          Stok:{' '}
+          <Text style={styles.mobileStockInfoStrong}>
+            {formatJumlah(item.sisa ?? item.stok ?? 0)}{' '}
+            {item.satuan || ''}
+          </Text>
+        </Text>
+
+        <Text style={styles.mobileStockMinimum}>
+          Min: {formatJumlah(item.minimum ?? item.stok_minimum ?? 0)}{' '}
+          {item.satuan || ''}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  // =========================================
+  // BARIS DAFTAR STOK DESKTOP
   // =========================================
 
   const renderStockRow = (item) => (
     <View key={item.id} style={styles.stockRow}>
       <View style={styles.stockNameColumn}>
-        <Text
-          style={styles.stockRowName}
-          numberOfLines={1}
-        >
+        <Text style={styles.stockRowName} numberOfLines={1}>
           {item.nama || item.nama_bahan || 'Tanpa nama'}
         </Text>
       </View>
 
-      <Text style={styles.stockCategory}>
-        {jenisFilter}
-      </Text>
+      <Text style={styles.stockCategory}>{jenisFilter}</Text>
 
       <Text style={styles.stockQuantity}>
         {formatJumlah(item.sisa ?? item.stok ?? 0)}{' '}
@@ -527,9 +513,7 @@ export default function TabStok({
       </Text>
 
       <Text style={styles.stockMinimum}>
-        {formatJumlah(
-          item.minimum ?? item.stok_minimum ?? 0
-        )}{' '}
+        {formatJumlah(item.minimum ?? item.stok_minimum ?? 0)}{' '}
         {item.satuan || ''}
       </Text>
 
@@ -549,9 +533,7 @@ export default function TabStok({
             color={WARNA.putih}
           />
 
-          <Text style={styles.detailButtonText}>
-            Detail
-          </Text>
+          <Text style={styles.detailButtonText}>Detail</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -565,10 +547,18 @@ export default function TabStok({
     <>
       {/* RINGKASAN STOK */}
 
-      <View style={styles.summaryGrid}>
+      <View
+        style={[
+          styles.summaryGrid,
+          isMobile && styles.summaryGridMobile,
+        ]}
+      >
         <TouchableOpacity
           activeOpacity={0.85}
-          style={styles.summaryCard}
+          style={[
+            styles.summaryCard,
+            isMobile && styles.summaryCardMobile,
+          ]}
           onPress={() => setStatusFilter('Semua')}
         >
           <View style={styles.summaryIconRed}>
@@ -580,17 +570,9 @@ export default function TabStok({
           </View>
 
           <View style={styles.summaryContent}>
-            <Text style={styles.summaryLabel}>
-              Total Bahan
-            </Text>
-
-            <Text style={styles.summaryValue}>
-              {totalBahan}
-            </Text>
-
-            <Text style={styles.summaryCaption}>
-              Jenis bahan
-            </Text>
+            <Text style={styles.summaryLabel}>Total Bahan</Text>
+            <Text style={styles.summaryValue}>{totalBahan}</Text>
+            <Text style={styles.summaryCaption}>Jenis bahan</Text>
           </View>
 
           <View style={styles.summaryArrowRed}>
@@ -604,7 +586,10 @@ export default function TabStok({
 
         <TouchableOpacity
           activeOpacity={0.85}
-          style={styles.summaryCard}
+          style={[
+            styles.summaryCard,
+            isMobile && styles.summaryCardMobile,
+          ]}
           onPress={() => setStatusFilter('Menipis')}
         >
           <View style={styles.summaryIconOrange}>
@@ -616,9 +601,7 @@ export default function TabStok({
           </View>
 
           <View style={styles.summaryContent}>
-            <Text style={styles.summaryLabel}>
-              Menipis
-            </Text>
+            <Text style={styles.summaryLabel}>Menipis</Text>
 
             <Text
               style={[
@@ -645,7 +628,10 @@ export default function TabStok({
 
         <TouchableOpacity
           activeOpacity={0.85}
-          style={styles.summaryCard}
+          style={[
+            styles.summaryCard,
+            isMobile && styles.summaryCardMobile,
+          ]}
           onPress={() => setStatusFilter('Habis')}
         >
           <View style={styles.summaryIconRed}>
@@ -657,9 +643,7 @@ export default function TabStok({
           </View>
 
           <View style={styles.summaryContent}>
-            <Text style={styles.summaryLabel}>
-              Habis
-            </Text>
+            <Text style={styles.summaryLabel}>Habis</Text>
 
             <Text
               style={[
@@ -687,7 +671,12 @@ export default function TabStok({
 
       {/* PENCARIAN DAN FILTER */}
 
-      <View style={styles.searchFilterRow}>
+      <View
+        style={[
+          styles.searchFilterRow,
+          isMobile && styles.searchFilterRowMobile,
+        ]}
+      >
         <View style={styles.searchBarWrap}>
           <Ionicons
             name="search-outline"
@@ -704,9 +693,7 @@ export default function TabStok({
           />
 
           {searchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearchQuery('')}
-            >
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
               <Ionicons
                 name="close-circle"
                 size={18}
@@ -721,11 +708,11 @@ export default function TabStok({
           activeOpacity={0.8}
           onPress={() => {
             const nextIndex =
-              (
-                filterOptions.findIndex(
-                  (item) => item.id === statusFilter
-                ) + 1
-              ) % filterOptions.length;
+              (filterOptions.findIndex(
+                (item) => item.id === statusFilter
+              ) +
+                1) %
+              filterOptions.length;
 
             setStatusFilter(filterOptions[nextIndex].id);
           }}
@@ -760,10 +747,10 @@ export default function TabStok({
             option.id === 'Aman'
               ? styles.filterChipAman
               : option.id === 'Menipis'
-              ? styles.filterChipMenipis
-              : option.id === 'Habis'
-              ? styles.filterChipHabis
-              : styles.filterChipSemua;
+                ? styles.filterChipMenipis
+                : option.id === 'Habis'
+                  ? styles.filterChipHabis
+                  : styles.filterChipSemua;
 
           return (
             <TouchableOpacity
@@ -814,13 +801,13 @@ export default function TabStok({
             />
 
             <Text style={styles.emptyTitle}>
-              {stockItems.length === 0
+              {safeStockItems.length === 0
                 ? 'Belum Ada Data Bahan'
                 : 'Tidak Ada Bahan yang Cocok'}
             </Text>
 
             <Text style={styles.emptySubtitle}>
-              {stockItems.length === 0
+              {safeStockItems.length === 0
                 ? 'Data bahan akan ditampilkan setelah ditambahkan.'
                 : 'Coba ubah kata kunci pencarian atau filter status.'}
             </Text>
@@ -838,9 +825,17 @@ export default function TabStok({
           </View>
         ) : (
           <>
+            {isMobile && (
+              <View style={styles.mobileStockList}>
+                {paginatedData.map(renderStockRowMobile)}
+              </View>
+            )}
+
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ flexGrow: 1 }}
+              style={isMobile ? { display: 'none' } : undefined}
             >
               <View
                 style={[
@@ -874,9 +869,7 @@ export default function TabStok({
                     Status
                   </Text>
 
-                  <Text style={styles.headingAction}>
-                    Aksi
-                  </Text>
+                  <Text style={styles.headingAction}>Aksi</Text>
                 </View>
 
                 {paginatedData.map(renderStockRow)}
@@ -905,7 +898,7 @@ export default function TabStok({
                   style={[
                     styles.pageButton,
                     safeCurrentPage === 1 &&
-                      styles.pageButtonDisabled,
+                    styles.pageButtonDisabled,
                   ]}
                   disabled={safeCurrentPage === 1}
                   onPress={() =>
@@ -937,7 +930,7 @@ export default function TabStok({
                       style={[
                         styles.pageButton,
                         safeCurrentPage === page &&
-                          styles.pageButtonActive,
+                        styles.pageButtonActive,
                       ]}
                       onPress={() => setCurrentPage(page)}
                     >
@@ -945,7 +938,7 @@ export default function TabStok({
                         style={[
                           styles.pageButtonText,
                           safeCurrentPage === page &&
-                            styles.pageButtonTextActive,
+                          styles.pageButtonTextActive,
                         ]}
                       >
                         {page}
@@ -957,7 +950,7 @@ export default function TabStok({
                   style={[
                     styles.pageButton,
                     safeCurrentPage === totalPages &&
-                      styles.pageButtonDisabled,
+                    styles.pageButtonDisabled,
                   ]}
                   disabled={safeCurrentPage === totalPages}
                   onPress={() =>
@@ -1032,16 +1025,11 @@ export default function TabStok({
             `${record.prefix}${formatJumlah(record.jumlahTampil)} ${record.satuan || ''}`;
 
           return (
-            <View
-              key={record.id}
-              style={styles.historyRow}
-            >
+            <View key={record.id} style={styles.historyRow}>
               <View
                 style={[
                   styles.historyIcon,
-                  {
-                    backgroundColor: record.background,
-                  },
+                  { backgroundColor: record.background },
                 ]}
               >
                 <Ionicons
@@ -1125,9 +1113,7 @@ export default function TabStok({
           </View>
 
           <View style={styles.headerTitles}>
-            <Text style={styles.pageTitle}>
-              Stok Bahan
-            </Text>
+            <Text style={styles.pageTitle}>Stok Bahan</Text>
 
             <Text style={styles.pageSubtitle}>
               Pantau persediaan bahan Kedai Seblak
@@ -1168,9 +1154,7 @@ export default function TabStok({
                     name={tab.icon}
                     size={15}
                     color={
-                      active
-                        ? WARNA.putih
-                        : WARNA.merahTua
+                      active ? WARNA.putih : WARNA.merahTua
                     }
                   />
 
@@ -1211,17 +1195,9 @@ export default function TabStok({
               activeOpacity={0.85}
             >
               <Ionicons
-                name={
-                  jenis === 'Topping'
-                    ? 'restaurant'
-                    : 'leaf'
-                }
+                name={jenis === 'Topping' ? 'restaurant' : 'leaf'}
                 size={23}
-                color={
-                  active
-                    ? WARNA.putih
-                    : WARNA.merahTua
-                }
+                color={active ? WARNA.putih : WARNA.merahTua}
               />
 
               <View style={styles.stockTypeTextWrap}>
@@ -1240,9 +1216,7 @@ export default function TabStok({
                     active && styles.stockTypeCountActive,
                   ]}
                 >
-                  {jenis === 'Topping'
-                    ? totalTopping
-                    : totalBumbu}{' '}
+                  {jenis === 'Topping' ? totalTopping : totalBumbu}{' '}
                   bahan
                 </Text>
               </View>
@@ -1253,11 +1227,9 @@ export default function TabStok({
 
       {/* ISI BERDASARKAN MENU */}
 
-      {activeSection === 'Daftar Stok' &&
-        renderDaftarStok()}
+      {activeSection === 'Daftar Stok' && renderDaftarStok()}
 
-      {activeSection === 'Riwayat' &&
-        renderRiwayat()}
+      {activeSection === 'Riwayat' && renderRiwayat()}
 
       {/* MODAL DETAIL BAHAN */}
 
@@ -1448,6 +1420,20 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
+  summaryGridMobile: {
+    flexDirection: 'column',
+    gap: 8,
+    flexShrink: 0,
+  },
+
+  summaryCardMobile: {
+    flex: 0,
+    flexShrink: 0,
+    width: '100%',
+    height: 76,
+    minHeight: 76,
+  },
+
   summaryCard: {
     flex: 1,
     minWidth: 0,
@@ -1529,6 +1515,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     marginBottom: 9,
+  },
+
+  searchFilterRowMobile: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 8,
   },
 
   searchBarWrap: {
@@ -1656,7 +1648,7 @@ const styles = StyleSheet.create({
 
   tableContent: {
     minWidth: 760,
-    alignSelf: 'flex-start',
+    flexGrow: 1,
   },
 
   tableHeading: {
@@ -1670,14 +1662,14 @@ const styles = StyleSheet.create({
   },
 
   headingName: {
-    width: '22%',
+    flex: 22,
     fontSize: 12,
     fontWeight: '800',
     color: WARNA.teks,
   },
 
   headingCategory: {
-    width: '16%',
+    flex: 16,
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '800',
@@ -1685,7 +1677,7 @@ const styles = StyleSheet.create({
   },
 
   headingQuantity: {
-    width: '17%',
+    flex: 17,
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '800',
@@ -1693,7 +1685,7 @@ const styles = StyleSheet.create({
   },
 
   headingMinimum: {
-    width: '17%',
+    flex: 17,
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '800',
@@ -1701,7 +1693,7 @@ const styles = StyleSheet.create({
   },
 
   headingStatus: {
-    width: '15%',
+    flex: 15,
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '800',
@@ -1709,7 +1701,7 @@ const styles = StyleSheet.create({
   },
 
   headingAction: {
-    width: '13%',
+    flex: 13,
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '800',
@@ -1726,7 +1718,7 @@ const styles = StyleSheet.create({
   },
 
   stockNameColumn: {
-    width: '22%',
+    flex: 22,
     paddingRight: 5,
   },
 
@@ -1737,7 +1729,7 @@ const styles = StyleSheet.create({
   },
 
   stockCategory: {
-    width: '16%',
+    flex: 16,
     textAlign: 'center',
     color: WARNA.merah,
     fontSize: 11,
@@ -1745,7 +1737,7 @@ const styles = StyleSheet.create({
   },
 
   stockQuantity: {
-    width: '17%',
+    flex: 17,
     textAlign: 'center',
     color: WARNA.merahTua,
     fontSize: 12,
@@ -1753,7 +1745,7 @@ const styles = StyleSheet.create({
   },
 
   stockMinimum: {
-    width: '17%',
+    flex: 17,
     textAlign: 'center',
     color: WARNA.merahTua,
     fontSize: 12,
@@ -1761,12 +1753,12 @@ const styles = StyleSheet.create({
   },
 
   stockStatusColumn: {
-    width: '15%',
+    flex: 15,
     alignItems: 'center',
   },
 
   stockActionColumn: {
-    width: '13%',
+    flex: 13,
     alignItems: 'center',
   },
 
@@ -1810,6 +1802,56 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
+  // TAMPILAN MOBILE
+
+  mobileStockList: {
+    padding: 10,
+  },
+
+  mobileStockCard: {
+    backgroundColor: WARNA.putih,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EFE7E2',
+    padding: 12,
+    marginBottom: 8,
+  },
+
+  mobileStockHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  mobileStockName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '800',
+    color: WARNA.merahTua,
+  },
+
+  mobileStockInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+
+  mobileStockInfoText: {
+    fontSize: 12,
+    color: '#6F5C53',
+  },
+
+  mobileStockInfoStrong: {
+    fontWeight: '800',
+    color: WARNA.teks,
+  },
+
+  mobileStockMinimum: {
+    fontSize: 12,
+    color: '#8D7B70',
+  },
+
   // PAGINATION
 
   paginationRow: {
@@ -1817,6 +1859,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
+    flexWrap: 'wrap',
+    paddingHorizontal: 12,
+    paddingBottom: 12,
     paddingTop: 10,
   },
 

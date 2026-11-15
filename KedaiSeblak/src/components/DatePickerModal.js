@@ -45,6 +45,34 @@ const HARI_HEADER = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 // Warna tema login / tombol utama selaras dengan tema aplikasi
 const WARNA_PRIMARY = '#C62828';
 
+export function getWeeksForMonth(year, month) {
+  const monthName = NAMA_BULAN[month];
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  // Blok 7 hari: 1-7, 8-14, 15-21, 22-28, 29-akhir (bila ada)
+  const weeks = [];
+  for (let start = 1, i = 0; start <= totalDays; start += 7, i += 1) {
+    let end = Math.min(start + 6, totalDays);
+    if (totalDays - end < 3 && end < totalDays) end = totalDays; // sisa 1-2 hari digabung
+    weeks.push({ id: i, label: `${start} ${monthName} ${year} – ${end} ${monthName} ${year}`, desc: `Minggu ${i + 1}`, start, end });
+    if (end === totalDays) break;
+    start = end - 6;
+  }
+  return weeks;
+}
+
+// Minggu yang memuat tanggal hari ini (label sesuai pemilih tanggal)
+export function mingguHariIni(d = new Date()) {
+  const weeks = getWeeksForMonth(d.getFullYear(), d.getMonth());
+  const day = d.getDate();
+  const idx = Math.max(0, weeks.findIndex((w) => day >= w.start && day <= w.end));
+  return { label: weeks[idx].label, index: idx };
+}
+
+export function bulanHariIni(d = new Date()) {
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  return `1 ${NAMA_BULAN[d.getMonth()]} ${d.getFullYear()} – ${last} ${NAMA_BULAN[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 export default function DatePickerModal({
   visible,
   onClose,
@@ -53,32 +81,33 @@ export default function DatePickerModal({
   onSelectDate,
 }) {
   // Calendar state: default to Oktober 2026 (index 9)
-  const [selectedYear, setSelectedYear] = useState(2026);
-  const [selectedMonth, setSelectedMonth] = useState(9); // 0-indexed (9 = Oktober)
-  const [selectedDay, setSelectedDay] = useState(16);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); // 0-indexed
+  const [selectedDay, setSelectedDay] = useState(new Date().getDate());
 
   // Mingguan state: preset week
   // Default: '13 Oktober 2026 – 16 Oktober 2026'
-  const [selectedWeekIndex, setSelectedWeekIndex] = useState(2); // Week 3 (13-16 Okt)
+  const [selectedWeekIndex, setSelectedWeekIndex] = useState(mingguHariIni().index);
 
   // Bulanan state: month & year
-  const [selectedBulananMonth, setSelectedBulananMonth] = useState(9); // 9 = Oktober
-  const [selectedBulananYear, setSelectedBulananYear] = useState(2026);
+  const [selectedBulananMonth, setSelectedBulananMonth] = useState(new Date().getMonth());
+  const [selectedBulananYear, setSelectedBulananYear] = useState(new Date().getFullYear());
 
   // Sync state whenever modal opens or mode changes
   useEffect(() => {
     if (visible) {
+      const now = new Date();
       if (mode === 'harian') {
-        setSelectedYear(2026);
-        setSelectedMonth(9);
-        setSelectedDay(16);
+        setSelectedYear(now.getFullYear());
+        setSelectedMonth(now.getMonth());
+        setSelectedDay(now.getDate());
       } else if (mode === 'mingguan') {
-        setSelectedYear(2026);
-        setSelectedMonth(9);
-        setSelectedWeekIndex(2);
+        setSelectedYear(now.getFullYear());
+        setSelectedMonth(now.getMonth());
+        setSelectedWeekIndex(mingguHariIni(now).index);
       } else if (mode === 'bulanan') {
-        setSelectedBulananYear(2026);
-        setSelectedBulananMonth(9);
+        setSelectedBulananYear(now.getFullYear());
+        setSelectedBulananMonth(now.getMonth());
       }
     }
   }, [visible, mode]);
@@ -156,83 +185,23 @@ export default function DatePickerModal({
 
   // Reset ke Default
   const handleResetDefault = () => {
+    const now = new Date();
     if (mode === 'harian') {
-      setSelectedYear(2026);
-      setSelectedMonth(9);
-      setSelectedDay(16);
-      onSelectDate('16 Oktober 2026', true);
+      setSelectedYear(now.getFullYear());
+      setSelectedMonth(now.getMonth());
+      setSelectedDay(now.getDate());
+      onSelectDate(`${now.getDate()} ${NAMA_BULAN[now.getMonth()]} ${now.getFullYear()}`, true);
     } else if (mode === 'mingguan') {
-      setSelectedYear(2026);
-      setSelectedMonth(9);
-      setSelectedWeekIndex(2);
-      onSelectDate('13 Oktober 2026 – 19 Oktober 2026', true);
+      setSelectedYear(now.getFullYear());
+      setSelectedMonth(now.getMonth());
+      setSelectedWeekIndex(mingguHariIni(now).index);
+      onSelectDate(mingguHariIni(now).label, true);
     } else if (mode === 'bulanan') {
-      setSelectedBulananYear(2026);
-      setSelectedBulananMonth(9);
-      onSelectDate('1 Oktober 2026 – 31 Oktober 2026', true);
+      setSelectedBulananYear(now.getFullYear());
+      setSelectedBulananMonth(now.getMonth());
+      onSelectDate(bulanHariIni(now), true);
     }
     onClose();
-  };
-
-  // Helper untuk daftar minggu pada bulan yang dipilih
-  const getWeeksForMonth = (year, month) => {
-    const monthName = NAMA_BULAN[month];
-    const totalDays = getDaysInMonth(year, month);
-
-    // Khusus Oktober 2026, sediakan opsi default persis sesuai spesifikasi
-    if (year === 2026 && month === 9) {
-      return [
-        {
-          id: 0,
-          label: `1 ${monthName} ${year} – 5 ${monthName} ${year}`,
-          desc: 'Minggu 1',
-        },
-        {
-          id: 1,
-          label: `6 ${monthName} ${year} – 12 ${monthName} ${year}`,
-          desc: 'Minggu 2',
-        },
-        {
-          id: 2,
-          label: `13 ${monthName} ${year} – 19 ${monthName} ${year}`,
-          desc: 'Minggu 3',
-        },
-        {
-          id: 3,
-          label: `20 ${monthName} ${year} – 26 ${monthName} ${year}`,
-          desc: 'Minggu 4',
-        },
-        {
-          id: 4,
-          label: `27 ${monthName} ${year} – 31 ${monthName} ${year}`,
-          desc: 'Minggu 5',
-        },
-      ];
-    }
-
-    // Bulan lainnya
-    return [
-      {
-        id: 0,
-        label: `1 ${monthName} ${year} – 7 ${monthName} ${year}`,
-        desc: 'Minggu 1',
-      },
-      {
-        id: 1,
-        label: `8 ${monthName} ${year} – 14 ${monthName} ${year}`,
-        desc: 'Minggu 2',
-      },
-      {
-        id: 2,
-        label: `15 ${monthName} ${year} – 21 ${monthName} ${year}`,
-        desc: 'Minggu 3',
-      },
-      {
-        id: 3,
-        label: `22 ${monthName} ${year} – ${totalDays} ${monthName} ${year}`,
-        desc: 'Minggu 4',
-      },
-    ];
   };
 
   // Render Grid Hari untuk Mode Harian
@@ -424,8 +393,8 @@ export default function DatePickerModal({
     mode === 'harian'
       ? 'Pilih Tanggal Transaksi'
       : mode === 'mingguan'
-      ? 'Pilih Periode Mingguan'
-      : 'Pilih Periode Bulanan';
+        ? 'Pilih Periode Mingguan'
+        : 'Pilih Periode Bulanan';
 
   return (
     <Modal

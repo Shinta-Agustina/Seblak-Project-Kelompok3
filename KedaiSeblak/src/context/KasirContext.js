@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase';
 
 import {
   signIn,
+  signInWithGoogle,
   signOut,
   getCurrentSession,
 } from '../services/Authservice';
@@ -20,8 +21,12 @@ import { getCashiers } from '../services/kasirService';
 import {
   createTransaction,
   getTransactions,
-  updateOrderStatus as updateOrderStatusService,
+  updateOrderProgress,
 } from '../services/transaksiService';
+
+// =====================================================
+// CONTEXT DAN KONSTANTA
+// =====================================================
 
 const KasirContext = createContext(null);
 
@@ -29,40 +34,103 @@ const DEFAULT_KUAH = 'Original';
 const DEFAULT_LEVEL = 3;
 const DEFAULT_ORDER_TYPE = 'Dine In';
 
-// Semua status pesanan yang boleh ditampilkan
-// di halaman Pesanan Aktif, termasuk yang sudah selesai.
 const ORDER_LIST_STATUSES = [
   'Menunggu',
   'Diproses',
   'Selesai',
 ];
 
-// Normalisasi status lama agar konsisten.
-const normalizeOrderStatus = (status) => {
-  if (!status) return 'Menunggu';
+// =====================================================
+// HELPER TANGGAL DAN WAKTU
+// =====================================================
 
-  if (status === 'Proses') return 'Diproses';
-
-  if (status === 'Siap Bayar') return 'Menunggu';
-
-  return status;
+const pad2 = (number) => {
+  return String(number).padStart(2, '0');
 };
 
-// Mengubah data transaksi dari Supabase
-// menjadi format yang digunakan aplikasi.
+// Mengambil tanggal berdasarkan zona waktu perangkat.
+const tanggalLokal = (value) => {
+  if (!value) return '';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return [
+    date.getFullYear(),
+    pad2(date.getMonth() + 1),
+    pad2(date.getDate()),
+  ].join('-');
+};
+
+// Mengambil jam berdasarkan zona waktu perangkat.
+const jamLokal = (value) => {
+  if (!value) return '';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+};
+
+// =====================================================
+// NORMALISASI STATUS PESANAN
+// =====================================================
+
+const normalizeOrderStatus = (status) => {
+  if (!status) {
+    return 'Menunggu';
+  }
+
+  const normalized = String(status).trim();
+
+  if (normalized === 'Proses') {
+    return 'Diproses';
+  }
+
+  if (normalized === 'Siap Bayar') {
+    return 'Menunggu';
+  }
+
+  return normalized;
+};
+
+// =====================================================
+// PEMETAAN DATA KASIR
+// =====================================================
+
+const mapCashier = (cashier) => ({
+  ...cashier,
+  id: cashier.id,
+  name: cashier.nama || cashier.name || '',
+  email: cashier.username || cashier.email || '',
+  phone: cashier.no_telepon || cashier.phone || '',
+  status: cashier.status,
+});
+
+// =====================================================
+// PEMETAAN DATA TRANSAKSI DARI SUPABASE
+// =====================================================
+
 const mapTransaction = (row) => {
   const items = (row.detail_transaksi || []).map((detail) => ({
     id: detail.menu_id,
     nama: detail.nama_menu,
     name: detail.nama_menu,
     kategori: detail.menu_topping?.kategori || 'Topping',
-    harga: Number(detail.harga_satuan),
-    price: Number(detail.harga_satuan),
-    qty: Number(detail.jumlah),
-    subtotal: Number(detail.subtotal),
+    harga: Number(detail.harga_satuan || 0),
+    price: Number(detail.harga_satuan || 0),
+    qty: Number(detail.jumlah || 0),
+    subtotal: Number(detail.subtotal || 0),
   }));
 
-  const paymentStatus = row.status;
+  // Status pembayaran dan status pesanan dipisahkan.
+  const paymentStatus = row.status || 'Belum Bayar';
 
   const orderStatus = normalizeOrderStatus(
     row.status_pesanan
@@ -74,9 +142,10 @@ const mapTransaction = (row) => {
     orderNo: row.nomor_transaksi,
     no: row.nomor_transaksi,
 
-    date: row.created_at?.slice(0, 10),
-    waktu: row.created_at,
-    time: row.created_at,
+    date: tanggalLokal(row.created_at),
+    waktu: jamLokal(row.created_at),
+    time: jamLokal(row.created_at),
+    createdAt: row.created_at,
 
     table: row.tipe_pesanan,
     tableNo: row.tipe_pesanan,
@@ -89,13 +158,13 @@ const mapTransaction = (row) => {
       .map((item) => `${item.qty}x ${item.nama}`)
       .join(', '),
 
-    total: Number(row.total),
+    total: Number(row.total || 0),
 
     metode: row.metode_pembayaran,
     method: row.metode_pembayaran,
 
-    cashPaid: Number(row.uang_diterima),
-    change: Number(row.kembalian),
+    cashPaid: Number(row.uang_diterima || 0),
+    change: Number(row.kembalian || 0),
 
     kasir: row.nama_kasir,
 
@@ -103,50 +172,69 @@ const mapTransaction = (row) => {
     pedas: row.level_pedas,
     catatan: row.catatan,
 
-    // Status pembayaran dan pesanan dipisahkan.
+    // Status pembayaran.
     paymentStatus,
+
+    // Status progres pesanan.
     orderStatus,
     statusPesanan: orderStatus,
     status_pesanan: orderStatus,
 
-    // Alias untuk tampilan lama.
+    // Alias untuk kompatibilitas tampilan lama.
     status: orderStatus,
   };
 };
 
+// =====================================================
+// PROVIDER
+// =====================================================
+
 export function KasirProvider({ children }) {
+  // =========================================
+  // STATE USER DAN NAVIGASI
+  // =========================================
+
   const [user, setUser] = useState(null);
 
   const [activeTab, setActiveTab] = useState('Kasir');
 
-  const [cashiers, setCashiers] = useState([]);
-  const [menuItems, setMenuItems] = useState([]);
-
-  const [cart, setCart] = useState([]);
-
-  const [selectedKuah, setSelectedKuah] =
-    useState(DEFAULT_KUAH);
-
-  const [selectedLevel, setSelectedLevel] =
-    useState(DEFAULT_LEVEL);
-
-  const [selectedOrderType, setSelectedOrderType] =
-    useState(DEFAULT_ORDER_TYPE);
-
-  const [catatan, setCatatan] = useState('');
-
-  const [activeCategory, setActiveCategory] =
-    useState('Semua');
-
-  const [orders, setOrders] = useState([]);
-
-  const [transactions, setTransactions] = useState([]);
-
   const [initializing, setInitializing] = useState(true);
 
   // =========================================
-  // LOAD DATA REFERENSI
+  // STATE DATA
   // =========================================
+
+  const [cashiers, setCashiers] = useState([]);
+  const [menuItems, setMenuItems] = useState([]);
+
+  const [orders, setOrders] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+
+  // =========================================
+  // STATE KERANJANG
+  // =========================================
+
+  const [cart, setCart] = useState([]);
+
+  const [selectedKuah, setSelectedKuah] = useState(
+    DEFAULT_KUAH
+  );
+
+  const [selectedLevel, setSelectedLevel] = useState(
+    DEFAULT_LEVEL
+  );
+
+  const [selectedOrderType, setSelectedOrderType] = useState(
+    DEFAULT_ORDER_TYPE
+  );
+
+  const [catatan, setCatatan] = useState('');
+
+  const [activeCategory, setActiveCategory] = useState('Semua');
+
+  // =====================================================
+  // MEMUAT DATA REFERENSI
+  // =====================================================
 
   const loadReferenceData = async () => {
     const [menus, staff, sales] = await Promise.all([
@@ -155,43 +243,39 @@ export function KasirProvider({ children }) {
       getTransactions({ limit: 200 }),
     ]);
 
-    setMenuItems(menus);
+    // Data menu.
+    setMenuItems(Array.isArray(menus) ? menus : []);
 
-    setCashiers(
-      staff.map((cashier) => ({
-        ...cashier,
+    // Data kasir.
+    const mappedCashiers = (Array.isArray(staff) ? staff : [])
+      .map(mapCashier);
 
-        id: cashier.id,
+    setCashiers(mappedCashiers);
 
-        name: cashier.nama,
-        email: cashier.username,
-        phone: cashier.no_telepon,
-
-        status: cashier.status,
-      }))
-    );
-
-    const mappedTransactions = sales.map(mapTransaction);
+    // Data transaksi.
+    const mappedTransactions = (
+      Array.isArray(sales) ? sales : []
+    ).map(mapTransaction);
 
     setTransactions(mappedTransactions);
 
-    // PERBAIKAN:
     // Pesanan Menunggu, Diproses, dan Selesai
-    // semuanya tetap masuk ke daftar orders.
-    setOrders(
-      mappedTransactions.filter((transaction) =>
+    // tetap ditampilkan pada daftar pesanan.
+    const mappedOrders = mappedTransactions.filter(
+      (transaction) =>
         ORDER_LIST_STATUSES.includes(
           transaction.orderStatus
         )
-      )
     );
+
+    setOrders(mappedOrders);
 
     return mappedTransactions;
   };
 
-  // =========================================
+  // =====================================================
   // MENERAPKAN SESSION LOGIN
-  // =========================================
+  // =====================================================
 
   const applySession = async (sessionData) => {
     if (!sessionData) {
@@ -199,97 +283,73 @@ export function KasirProvider({ children }) {
       return;
     }
 
-    const {
-      user: authUser,
-      profile,
-    } = sessionData;
-
-    if (!authUser || !profile) {
-      throw new Error(
-        'Data profil pengguna tidak ditemukan.'
-      );
-    }
+    const { user: authUser, profile } = sessionData;
 
     const normalizedRole =
-      profile.role === 'owner'
-        ? 'Owner'
-        : 'Kasir';
+      profile.role === 'owner' ? 'Owner' : 'Kasir';
 
     setUser({
       id: authUser.id,
-
       email: authUser.email,
-
       name: profile.nama,
       nama: profile.nama,
-
       role: normalizedRole,
     });
 
     setActiveTab(
-      normalizedRole === 'Owner'
-        ? 'dashboard'
-        : 'Kasir'
+      normalizedRole === 'Owner' ? 'dashboard' : 'Kasir'
     );
 
     await loadReferenceData();
   };
 
-  // =========================================
-  // RESTORE SESSION
-  // =========================================
+  // =====================================================
+  // PEMULIHAN SESSION DAN AUTH LISTENER
+  // =====================================================
 
   useEffect(() => {
     let mounted = true;
 
-    const restoreSession = async () => {
-      try {
-        const session = await getCurrentSession();
-
+    getCurrentSession()
+      .then(async (session) => {
         if (mounted && session) {
           await applySession(session);
         }
-      } catch (error) {
+      })
+      .catch((error) => {
         console.warn(
           'Pemulihan sesi Supabase gagal:',
           error.message
         );
-      } finally {
+      })
+      .finally(() => {
         if (mounted) {
           setInitializing(false);
         }
-      }
-    };
+      });
 
-    restoreSession();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (!session && mounted) {
-          setUser(null);
-
-          setMenuItems([]);
-          setCashiers([]);
-
-          setOrders([]);
-          setTransactions([]);
-
-          setCart([]);
+    const { data: listener } =
+      supabase.auth.onAuthStateChange(
+        (_event, session) => {
+          if (!session && mounted) {
+            setUser(null);
+            setMenuItems([]);
+            setCashiers([]);
+            setOrders([]);
+            setTransactions([]);
+          }
         }
-      }
-    );
+      );
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      listener.subscription.unsubscribe();
     };
   }, []);
 
-  // =========================================
+  // =====================================================
   // LOGIN
-  // =========================================
+  // =====================================================
 
   const login = async (email, password) => {
     const result = await signIn(email, password);
@@ -299,54 +359,69 @@ export function KasirProvider({ children }) {
     return result.profile;
   };
 
-  // =========================================
+  // =====================================================
+  // LOGIN GOOGLE
+  // =====================================================
+
+  const loginGoogle = async () => {
+    const result = await signInWithGoogle();
+
+    // Pada web, halaman dapat dialihkan ke Google.
+    if (!result) {
+      return null;
+    }
+
+    await applySession(result);
+
+    return result.profile;
+  };
+
+  // =====================================================
   // LOGOUT
-  // =========================================
+  // =====================================================
 
   const logout = async () => {
     await signOut();
 
     setUser(null);
-
     setCart([]);
-
-    setMenuItems([]);
-    setCashiers([]);
-
     setOrders([]);
     setTransactions([]);
+    setMenuItems([]);
+    setCashiers([]);
 
     setActiveTab('Kasir');
   };
 
-  // =========================================
+  // =====================================================
   // MENAMBAHKAN ITEM KE KERANJANG
-  // =========================================
+  // =====================================================
 
   const addToCart = (item) => {
-    if (!item?.id) return;
+    if (!item?.id) {
+      return;
+    }
 
     const price = Number(
       item.harga ?? item.price
     );
 
-    if (!Number.isFinite(price) || price <= 0) {
+    if (!Number.isFinite(price) || price < 0) {
       return;
     }
 
     setCart((previousCart) => {
-      const existingItem = previousCart.find(
+      const found = previousCart.find(
         (cartItem) => cartItem.id === item.id
       );
 
-      if (existingItem) {
+      if (found) {
         return previousCart.map((cartItem) =>
           cartItem.id === item.id
             ? {
-                ...cartItem,
-                qty:
-                  Number(cartItem.qty || 1) + 1,
-              }
+              ...cartItem,
+              qty: Number(cartItem.qty || 1) + 1,
+            }
             : cartItem
         );
       }
@@ -362,9 +437,9 @@ export function KasirProvider({ children }) {
     });
   };
 
-  // =========================================
+  // =====================================================
   // UPDATE JUMLAH ITEM KERANJANG
-  // =========================================
+  // =====================================================
 
   const updateCartQty = (id, delta) => {
     setCart((previousCart) =>
@@ -372,20 +447,20 @@ export function KasirProvider({ children }) {
         .map((item) =>
           item.id === id
             ? {
-                ...item,
-                qty:
-                  Number(item.qty || 1) +
-                  Number(delta),
-              }
+              ...item,
+              qty:
+                Number(item.qty || 1) +
+                Number(delta),
+            }
             : item
         )
         .filter((item) => item.qty > 0)
     );
   };
 
-  // =========================================
+  // =====================================================
   // HAPUS ITEM KERANJANG
-  // =========================================
+  // =====================================================
 
   const removeFromCart = (id) => {
     setCart((previousCart) =>
@@ -395,41 +470,37 @@ export function KasirProvider({ children }) {
     );
   };
 
-  // =========================================
+  // =====================================================
   // RESET KERANJANG
-  // =========================================
+  // =====================================================
 
   const resetCart = () => {
     setCart([]);
 
     setSelectedKuah(DEFAULT_KUAH);
-
     setSelectedLevel(DEFAULT_LEVEL);
-
     setSelectedOrderType(DEFAULT_ORDER_TYPE);
 
     setCatatan('');
   };
 
-  // =========================================
+  // =====================================================
   // TOTAL HARGA KERANJANG
-  // =========================================
+  // =====================================================
 
   const getTotalPrice = () => {
     return cart.reduce(
       (sum, item) =>
         sum +
-        Number(
-          item.harga ?? item.price ?? 0
-        ) *
-          Number(item.qty || 1),
+        Number(item.harga ?? item.price ?? 0) *
+        Number(item.qty || 1),
       0
     );
   };
 
-  // =========================================
+  // =====================================================
   // TOTAL JUMLAH ITEM
-  // =========================================
+  // =====================================================
 
   const getTotalItemsCount = () => {
     return cart.reduce(
@@ -439,9 +510,9 @@ export function KasirProvider({ children }) {
     );
   };
 
-  // =========================================
+  // =====================================================
   // CHECKOUT PESANAN
-  // =========================================
+  // =====================================================
 
   const checkoutOrder = async (
     paymentMethod,
@@ -456,23 +527,19 @@ export function KasirProvider({ children }) {
 
     const sourceItems =
       Array.isArray(customData?.items) &&
-      customData.items.length
+        customData.items.length > 0
         ? customData.items
         : cart;
 
     if (!sourceItems.length) {
-      throw new Error(
-        'Keranjang masih kosong.'
-      );
+      throw new Error('Keranjang masih kosong.');
     }
 
     const total = sourceItems.reduce(
       (sum, item) =>
         sum +
-        Number(
-          item.harga ?? item.price ?? 0
-        ) *
-          Number(item.qty || 1),
+        Number(item.harga ?? item.price ?? 0) *
+        Number(item.qty || 1),
       0
     );
 
@@ -491,62 +558,63 @@ export function KasirProvider({ children }) {
 
     const isCashier = user.role === 'Kasir';
 
-    const savedTransaction =
-      await createTransaction(
-        {
-          items: sourceItems,
+    // Simpan transaksi ke Supabase.
+    const savedTransaction = await createTransaction(
+      {
+        items: sourceItems,
 
-          nomor_transaksi: customData?.orderNo,
+        nomor_transaksi: customData?.orderNo,
 
-          tipe_pesanan:
-            customData?.orderType ||
-            selectedOrderType,
+        tipe_pesanan:
+          customData?.orderType ||
+          selectedOrderType,
 
-          kuah:
-            customData?.kuah ?? selectedKuah,
+        kuah:
+          customData?.kuah ?? selectedKuah,
 
-          level_pedas:
-            customData?.pedas ?? selectedLevel,
+        level_pedas:
+          customData?.pedas ?? selectedLevel,
 
-          catatan:
-            customData?.catatan ?? catatan,
+        catatan:
+          customData?.catatan ?? catatan,
 
-          metode_pembayaran: paymentMethod,
+        metode_pembayaran: paymentMethod,
 
-          uang_diterima: isCash
-            ? Number(cashAmount)
-            : total,
-        },
+        uang_diterima: isCash
+          ? Number(cashAmount)
+          : total,
+      },
 
-        isCashier ? user.id : null,
+      isCashier ? user.id : null,
 
-        user.name
-      );
+      user.name
+    );
 
-    const mappedTransaction =
-      mapTransaction(savedTransaction);
+    const mappedTransaction = mapTransaction(
+      savedTransaction
+    );
 
-    setTransactions((previous) => [
+    // Perbarui daftar transaksi.
+    setTransactions((previousTransactions) => [
       mappedTransaction,
 
-      ...previous.filter(
-        (item) =>
-          item.id !== mappedTransaction.id
+      ...previousTransactions.filter(
+        (item) => item.id !== mappedTransaction.id
       ),
     ]);
 
-    // Pesanan baru tetap masuk ke daftar.
+    // Tambahkan pesanan jika statusnya termasuk
+    // status yang ditampilkan pada daftar pesanan.
     if (
       ORDER_LIST_STATUSES.includes(
         mappedTransaction.orderStatus
       )
     ) {
-      setOrders((previous) => [
+      setOrders((previousOrders) => [
         mappedTransaction,
 
-        ...previous.filter(
-          (item) =>
-            item.id !== mappedTransaction.id
+        ...previousOrders.filter(
+          (item) => item.id !== mappedTransaction.id
         ),
       ]);
     }
@@ -556,152 +624,139 @@ export function KasirProvider({ children }) {
     return mappedTransaction;
   };
 
-  // =========================================
+  // =====================================================
   // UPDATE STATUS PESANAN
-  // =========================================
+  // =====================================================
 
   const updateOrderStatus = async (id, status) => {
     if (!id) {
-      throw new Error('ID pesanan tidak ditemukan.');
-    }
-
-    const allowedStatuses = [
-      'Menunggu',
-      'Diproses',
-      'Selesai',
-    ];
-
-    if (!allowedStatuses.includes(status)) {
-      throw new Error('Status pesanan tidak valid.');
-    }
-
-    // Simpan status baru ke Supabase.
-    const updatedRow =
-      await updateOrderStatusService(id, status);
-
-    if (!updatedRow) {
       throw new Error(
-        'Data pesanan setelah diperbarui tidak ditemukan.'
+        'ID pesanan tidak ditemukan.'
       );
     }
 
-    const mappedTransaction =
-      mapTransaction(updatedRow);
+    const normalizedStatus = normalizeOrderStatus(status);
 
-    // Perbarui data transaksi.
-    setTransactions((previous) => {
-      const exists = previous.some(
-        (item) => item.id === id
+    if (
+      !ORDER_LIST_STATUSES.includes(normalizedStatus)
+    ) {
+      throw new Error(
+        'Status pesanan tidak valid.'
       );
+    }
 
-      if (!exists) {
-        return [
-          mappedTransaction,
-          ...previous,
-        ];
-      }
+    // Simpan progres pesanan ke Supabase.
+    // Fungsi ini memperbarui kolom status_pesanan,
+    // bukan status pembayaran.
+    await updateOrderProgress(id, normalizedStatus);
 
-      return previous.map((item) =>
+    // Perbarui data transaksi di state.
+    setTransactions((previousTransactions) =>
+      previousTransactions.map((item) =>
         item.id === id
-          ? mappedTransaction
+          ? {
+            ...item,
+            orderStatus: normalizedStatus,
+            statusPesanan: normalizedStatus,
+            status_pesanan: normalizedStatus,
+            status: normalizedStatus,
+          }
           : item
-      );
-    });
+      )
+    );
 
-    // PERBAIKAN UTAMA:
-    // Jangan menghapus pesanan ketika status Selesai.
-    // Semua status tetap disimpan di orders.
-    setOrders((previous) => {
-      const exists = previous.some(
+    // Perbarui data pesanan di state.
+    // Pesanan berstatus Selesai tetap ditampilkan.
+    setOrders((previousOrders) => {
+      const exists = previousOrders.some(
         (item) => item.id === id
       );
 
       if (exists) {
-        return previous.map((item) =>
+        return previousOrders.map((item) =>
           item.id === id
-            ? mappedTransaction
+            ? {
+              ...item,
+              orderStatus: normalizedStatus,
+              statusPesanan: normalizedStatus,
+              status_pesanan: normalizedStatus,
+              status: normalizedStatus,
+            }
             : item
         );
       }
 
+      const transaction = transactions.find(
+        (item) => item.id === id
+      );
+
+      if (!transaction) {
+        return previousOrders;
+      }
+
       return [
-        mappedTransaction,
-        ...previous,
+        {
+          ...transaction,
+          orderStatus: normalizedStatus,
+          statusPesanan: normalizedStatus,
+          status_pesanan: normalizedStatus,
+          status: normalizedStatus,
+        },
+        ...previousOrders,
       ];
     });
 
-    return mappedTransaction;
+    return {
+      id,
+      status: normalizedStatus,
+    };
   };
 
-  // =========================================
+  // =====================================================
   // REFRESH DATA
-  // =========================================
+  // =====================================================
 
   const refreshData = loadReferenceData;
 
-  // =========================================
+  // =====================================================
   // TAMBAH KASIR
-  // =========================================
+  // =====================================================
 
   const addCashier = async (values) => {
-    const {
-      createCashierAccount,
-    } = await import(
+    const { createCashierAccount } = await import(
       '../services/kasirService'
     );
 
     const row = await createCashierAccount(values);
 
-    setCashiers((previous) => [
-      ...previous.filter(
-        (item) =>
-          String(item.id) !== String(row.id)
+    setCashiers((previousCashiers) => [
+      ...previousCashiers.filter(
+        (item) => String(item.id) !== String(row.id)
       ),
-
-      {
-        ...row,
-
-        id: row.id,
-
-        name: row.nama,
-        email: row.username,
-        phone: row.no_telepon,
-
-        status: row.status,
-      },
+      mapCashier(row),
     ]);
 
     return row;
   };
 
-  // =========================================
+  // =====================================================
   // EDIT KASIR
-  // =========================================
+  // =====================================================
 
   const updateCashier = async (id, values) => {
-    const {
-      updateCashier: update,
-    } = await import(
+    const { updateCashier: update } = await import(
       '../services/kasirService'
     );
 
     const row = await update(id, values);
 
-    setCashiers((previous) =>
-      previous.map((item) =>
+    setCashiers((previousCashiers) =>
+      previousCashiers.map((item) =>
         String(item.id) === String(id)
           ? {
-              ...item,
-              ...row,
-
-              id: row.id,
-
-              name: row.nama,
-              email: row.username,
-              phone: row.no_telepon,
-
-              status: row.status,
-            }
+            ...item,
+            ...mapCashier(row),
+          }
           : item
       )
     );
@@ -709,26 +764,24 @@ export function KasirProvider({ children }) {
     return row;
   };
 
-  // =========================================
+  // =====================================================
   // HAPUS / NONAKTIFKAN KASIR
-  // =========================================
+  // =====================================================
 
   const deleteCashier = async (id) => {
-    const {
-      deleteCashier: remove,
-    } = await import(
+    const { deleteCashier: remove } = await import(
       '../services/kasirService'
     );
 
     await remove(id);
 
-    setCashiers((previous) =>
-      previous.map((item) =>
+    setCashiers((previousCashiers) =>
+      previousCashiers.map((item) =>
         String(item.id) === String(id)
           ? {
-              ...item,
-              status: 'nonaktif',
-            }
+            ...item,
+            status: 'nonaktif',
+          }
           : item
       )
     );
@@ -736,45 +789,47 @@ export function KasirProvider({ children }) {
     return true;
   };
 
-  // =========================================
+  // =====================================================
   // VALUE CONTEXT
-  // =========================================
+  // =====================================================
 
   const value = useMemo(
     () => ({
+      // User dan autentikasi.
       user,
       login,
+      loginGoogle,
       logout,
       initializing,
 
+      // Refresh.
       refreshData,
 
+      // Navigasi.
       activeTab,
       setActiveTab,
 
-      // Data kasir
+      // Data kasir.
       cashiers,
       addCashier,
       updateCashier,
       deleteCashier,
 
-      // Data menu
+      // Data menu.
       menuItems,
       setMenuItems,
 
-      // Keranjang
+      // Keranjang.
       cart,
       setCart,
-
       addToCart,
       updateCartQty,
       removeFromCart,
       resetCart,
-
       getTotalPrice,
       getTotalItemsCount,
 
-      // Pengaturan pesanan
+      // Pengaturan pesanan.
       selectedKuah,
       setSelectedKuah,
 
@@ -790,14 +845,15 @@ export function KasirProvider({ children }) {
       activeCategory,
       setActiveCategory,
 
-      // Pesanan
+      // Pesanan.
       orders,
       setOrders,
 
-      // Transaksi
+      // Transaksi.
       transactions,
       setTransactions,
 
+      // Proses transaksi.
       checkoutOrder,
       updateOrderStatus,
     }),
@@ -806,27 +862,22 @@ export function KasirProvider({ children }) {
       user,
       initializing,
       activeTab,
-
       cashiers,
       menuItems,
-
       cart,
-
       selectedKuah,
       selectedLevel,
       selectedOrderType,
-
       catatan,
       activeCategory,
-
       orders,
       transactions,
     ]
   );
 
-  // =========================================
+  // =====================================================
   // PROVIDER
-  // =========================================
+  // =====================================================
 
   return (
     <KasirContext.Provider value={value}>
@@ -835,9 +886,9 @@ export function KasirProvider({ children }) {
   );
 }
 
-// =========================================
+// =====================================================
 // CUSTOM HOOK
-// =========================================
+// =====================================================
 
 export function useKasir() {
   const context = useContext(KasirContext);

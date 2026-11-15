@@ -188,6 +188,22 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
     // Menampilkan tipe pesanan (Dine In / Takeaway)
     const orderTypeLabel = trx.orderType || trx.tableNo || trx.meja || 'Dine In';
 
+    if (isMobile) {
+      return (
+        <TouchableOpacity activeOpacity={0.8} onPress={() => openReceipt(trx)}
+          style={{ backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#EFE7E2', padding: 12, marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <Text style={{ flex: 1, fontSize: 12, fontWeight: '800', color: '#52141D' }} numberOfLines={1}>{trx.no}</Text>
+            <Text style={{ fontSize: 14, fontWeight: '800', color: '#C62828' }}>{formatCurrency(Number(trx.total || 0))}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+            <Text style={{ fontSize: 11, color: '#8D7B70' }}>{trx.waktu || '-'} · {orderTypeLabel}</Text>
+            <Text style={{ fontSize: 11, color: '#4A3028', fontWeight: '600' }}>{getPaymentMethod(trx) || '-'}</Text>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
     return (
       <View
         style={[
@@ -400,13 +416,13 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         })}
       </View>
 
-      <View style={styles.tableCard}>
+      <View style={[styles.tableCard, isMobile && { backgroundColor: 'transparent', borderWidth: 0, elevation: 0, shadowOpacity: 0 }]}>
         <ScrollView
-          horizontal={isMobile}
+          horizontal={false}
           showsHorizontalScrollIndicator={true}
         >
-          <View style={[styles.tableInner, isMobile && { width: 640 }]}>
-            <View style={styles.tableHead}>
+          <View style={[styles.tableInner]}>
+            {!isMobile && <View style={styles.tableHead}>
               <Text style={[styles.th, { width: 60 }]}>No</Text>
               <Text style={[styles.th, { width: 70 }]}>Waktu</Text>
               {/* Kolom Meja diubah menjadi Tipe Pesanan */}
@@ -435,7 +451,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
               >
                 Aksi
               </Text>
-            </View>
+            </View>}
 
             <FlatList
               data={paginatedItems}
@@ -470,30 +486,21 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
           />
         </TouchableOpacity>
 
-        {Array.from({ length: totalPages }).map((_, index) => {
-          const pageNumber = index + 1;
-          const isActive = safeCurrentPage === pageNumber;
-
-          return (
-            <TouchableOpacity
-              key={pageNumber}
-              style={[
-                styles.pageBtn,
-                isActive && styles.pageBtnActive,
-              ]}
-              onPress={() => setCurrentPage(pageNumber)}
-            >
-              <Text
-                style={[
-                  styles.pageBtnText,
-                  isActive && styles.pageBtnTextActive,
-                ]}
-              >
-                {pageNumber}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+        {(() => {
+          const set = new Set([1, totalPages, safeCurrentPage - 1, safeCurrentPage, safeCurrentPage + 1]);
+          const nums = [...set].filter((n) => n >= 1 && n <= totalPages).sort((x, y) => x - y);
+          const out = [];
+          nums.forEach((n, i) => { if (i && n - nums[i - 1] > 1) out.push('gap' + n); out.push(n); });
+          return out.map((n) => {
+            if (typeof n === 'string') return <Text key={n} style={{ color: '#8D7B70', paddingHorizontal: 2 }}>…</Text>;
+            const isActive = safeCurrentPage === n;
+            return (
+              <TouchableOpacity key={n} style={[styles.pageBtn, isActive && styles.pageBtnActive]} onPress={() => setCurrentPage(n)}>
+                <Text style={[styles.pageBtnText, isActive && styles.pageBtnTextActive]}>{n}</Text>
+              </TouchableOpacity>
+            );
+          });
+        })()}
 
         <TouchableOpacity
           style={[
@@ -935,9 +942,10 @@ const styles = StyleSheet.create({
   },
   paginationRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
+    flexWrap: "wrap",
     marginTop: 16,
   },
   pageBtn: {
