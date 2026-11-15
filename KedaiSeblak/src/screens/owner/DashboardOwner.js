@@ -22,6 +22,7 @@ import { useKasir } from '../../context/KasirContext';
 
 import {
   getStocks,
+  getStockMovements,
   updateStock,
 } from '../../services/stokService';
 
@@ -50,6 +51,8 @@ export default function DashboardOwnerScreen() {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   const [stockItems, setStockItems] = useState([]);
+  const [stockMovements, setStockMovements] = useState([]);
+
   const [stockPresetFilter, setStockPresetFilter] = useState('Semua');
   const [expenses, setExpenses] = useState([]);
 
@@ -58,10 +61,19 @@ export default function DashboardOwnerScreen() {
   // =====================================================
 
   const refreshOwnerData = useCallback(async () => {
-    const [stocksResult, expensesResult] = await Promise.allSettled([
+    const [
+      stocksResult,
+      movementsResult,
+      expensesResult,
+    ] = await Promise.allSettled([
       getStocks(),
+      getStockMovements(),
       getExpenses(),
     ]);
+
+    // -----------------------------------------
+    // DATA STOK BAHAN BAKU
+    // -----------------------------------------
 
     if (stocksResult.status === 'fulfilled') {
       setStockItems(
@@ -74,6 +86,10 @@ export default function DashboardOwnerScreen() {
           satuan: r.satuan,
           hargaBeli: Number(r.harga_satuan),
           hargaJual: Number(r.harga_jual || 0),
+          jumlahPerPorsi:
+            r.jumlah_per_porsi != null
+              ? Number(r.jumlah_per_porsi)
+              : null,
         }))
       );
     } else {
@@ -83,6 +99,23 @@ export default function DashboardOwnerScreen() {
       );
     }
 
+    // -----------------------------------------
+    // RIWAYAT MUTASI STOK
+    // -----------------------------------------
+
+    if (movementsResult.status === 'fulfilled') {
+      setStockMovements(movementsResult.value || []);
+    } else {
+      console.warn(
+        'Gagal memuat riwayat mutasi stok:',
+        movementsResult.reason?.message
+      );
+    }
+
+    // -----------------------------------------
+    // DATA PENGELUARAN
+    // -----------------------------------------
+
     if (expensesResult.status === 'fulfilled') {
       setExpenses(
         expensesResult.value.map((r) => ({
@@ -91,15 +124,20 @@ export default function DashboardOwnerScreen() {
           nama: r.nama_pengeluaran,
           total: Number(
             r.total ??
-              (Number(r.jumlah || 0) * Number(r.harga_satuan || 0))
+              (Number(r.jumlah || 0) *
+                Number(r.harga_satuan || 0))
           ),
           nominal: Number(
             r.total ??
-              (Number(r.jumlah || 0) * Number(r.harga_satuan || 0))
+              (Number(r.jumlah || 0) *
+                Number(r.harga_satuan || 0))
           ),
           jumlah: Number(r.jumlah || 0),
           tanggalStr: r.tanggal,
-          satuan: r.bahan_satuan || r.stok_bahan?.satuan || 'pcs',
+          satuan:
+            r.bahan_satuan ||
+            r.stok_bahan?.satuan ||
+            'pcs',
           supplier: r.supplier || '-',
           fotoItem: r.foto_item || null,
           fotoStruk: r.foto_struk || null,
@@ -114,12 +152,19 @@ export default function DashboardOwnerScreen() {
     }
   }, []);
 
+  // =====================================================
+  // REFRESH SAAT HALAMAN OWNER DIBUKA
+  // =====================================================
+
   useFocusEffect(
     useCallback(() => {
       refreshOwnerData();
 
       refreshData().catch((e) =>
-        console.warn('Gagal memuat transaksi:', e.message)
+        console.warn(
+          'Gagal memuat transaksi:',
+          e.message
+        )
       );
     }, [refreshOwnerData, refreshData])
   );
@@ -167,8 +212,7 @@ export default function DashboardOwnerScreen() {
             0
         ),
 
-        // Nilai ini disimpan ke resep_menu.jumlah_per_porsi.
-        // Untuk bahan kg, 50 gram harus dikirim sebagai 0.05 kg.
+        // Untuk bahan kg, 50 gram = 0.05 kg.
         jumlah_per_porsi: Number(
           updatedItem.jumlahPerPorsi ??
             updatedItem.jumlah_per_porsi
@@ -212,7 +256,11 @@ export default function DashboardOwnerScreen() {
 
       await refreshOwnerData();
     } catch (e) {
-      console.error('Gagal menyimpan pengeluaran:', e.message);
+      console.error(
+        'Gagal menyimpan pengeluaran:',
+        e.message
+      );
+
       throw e;
     }
   };
@@ -241,7 +289,11 @@ export default function DashboardOwnerScreen() {
 
       await refreshOwnerData();
     } catch (e) {
-      console.error('Gagal memperbarui pengeluaran:', e.message);
+      console.error(
+        'Gagal memperbarui pengeluaran:',
+        e.message
+      );
+
       throw e;
     }
   };
@@ -255,7 +307,11 @@ export default function DashboardOwnerScreen() {
       await deleteExpense(expenseId);
       await refreshOwnerData();
     } catch (e) {
-      console.error('Gagal menghapus pengeluaran:', e.message);
+      console.error(
+        'Gagal menghapus pengeluaran:',
+        e.message
+      );
+
       throw e;
     }
   };
@@ -373,6 +429,7 @@ export default function DashboardOwnerScreen() {
             {activeTab === 'stok' && (
               <TabStok
                 stockItems={stockItems}
+                stockMovements={stockMovements}
                 expenses={expenses}
                 onUpdateItem={handleUpdateItem}
                 initialFilterStatus={stockPresetFilter}

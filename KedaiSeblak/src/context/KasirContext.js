@@ -29,11 +29,24 @@ const DEFAULT_KUAH = 'Original';
 const DEFAULT_LEVEL = 3;
 const DEFAULT_ORDER_TYPE = 'Dine In';
 
-const ACTIVE_ORDER_STATUSES = [
+// Semua status pesanan yang boleh ditampilkan
+// di halaman Pesanan Aktif, termasuk yang sudah selesai.
+const ORDER_LIST_STATUSES = [
   'Menunggu',
   'Diproses',
-  'Siap',
+  'Selesai',
 ];
+
+// Normalisasi status lama agar konsisten.
+const normalizeOrderStatus = (status) => {
+  if (!status) return 'Menunggu';
+
+  if (status === 'Proses') return 'Diproses';
+
+  if (status === 'Siap Bayar') return 'Menunggu';
+
+  return status;
+};
 
 // Mengubah data transaksi dari Supabase
 // menjadi format yang digunakan aplikasi.
@@ -50,7 +63,10 @@ const mapTransaction = (row) => {
   }));
 
   const paymentStatus = row.status;
-  const orderStatus = row.status_pesanan || 'Menunggu';
+
+  const orderStatus = normalizeOrderStatus(
+    row.status_pesanan
+  );
 
   return {
     id: row.id,
@@ -91,6 +107,7 @@ const mapTransaction = (row) => {
     paymentStatus,
     orderStatus,
     statusPesanan: orderStatus,
+    status_pesanan: orderStatus,
 
     // Alias untuk tampilan lama.
     status: orderStatus,
@@ -140,8 +157,6 @@ export function KasirProvider({ children }) {
 
     setMenuItems(menus);
 
-    // Data kasir dari database
-    // Tetap menyimpan seluruh kolom asli.
     setCashiers(
       staff.map((cashier) => ({
         ...cashier,
@@ -160,9 +175,12 @@ export function KasirProvider({ children }) {
 
     setTransactions(mappedTransactions);
 
+    // PERBAIKAN:
+    // Pesanan Menunggu, Diproses, dan Selesai
+    // semuanya tetap masuk ke daftar orders.
     setOrders(
       mappedTransactions.filter((transaction) =>
-        ACTIVE_ORDER_STATUSES.includes(
+        ORDER_LIST_STATUSES.includes(
           transaction.orderStatus
         )
       )
@@ -517,8 +535,9 @@ export function KasirProvider({ children }) {
       ),
     ]);
 
+    // Pesanan baru tetap masuk ke daftar.
     if (
-      ACTIVE_ORDER_STATUSES.includes(
+      ORDER_LIST_STATUSES.includes(
         mappedTransaction.orderStatus
       )
     ) {
@@ -542,32 +561,57 @@ export function KasirProvider({ children }) {
   // =========================================
 
   const updateOrderStatus = async (id, status) => {
+    if (!id) {
+      throw new Error('ID pesanan tidak ditemukan.');
+    }
+
+    const allowedStatuses = [
+      'Menunggu',
+      'Diproses',
+      'Selesai',
+    ];
+
+    if (!allowedStatuses.includes(status)) {
+      throw new Error('Status pesanan tidak valid.');
+    }
+
+    // Simpan status baru ke Supabase.
     const updatedRow =
       await updateOrderStatusService(id, status);
+
+    if (!updatedRow) {
+      throw new Error(
+        'Data pesanan setelah diperbarui tidak ditemukan.'
+      );
+    }
 
     const mappedTransaction =
       mapTransaction(updatedRow);
 
-    setTransactions((previous) =>
-      previous.map((item) =>
+    // Perbarui data transaksi.
+    setTransactions((previous) => {
+      const exists = previous.some(
+        (item) => item.id === id
+      );
+
+      if (!exists) {
+        return [
+          mappedTransaction,
+          ...previous,
+        ];
+      }
+
+      return previous.map((item) =>
         item.id === id
           ? mappedTransaction
           : item
-      )
-    );
+      );
+    });
 
+    // PERBAIKAN UTAMA:
+    // Jangan menghapus pesanan ketika status Selesai.
+    // Semua status tetap disimpan di orders.
     setOrders((previous) => {
-      const stillActive =
-        ACTIVE_ORDER_STATUSES.includes(
-          mappedTransaction.orderStatus
-        );
-
-      if (!stillActive) {
-        return previous.filter(
-          (item) => item.id !== id
-        );
-      }
-
       const exists = previous.some(
         (item) => item.id === id
       );
@@ -606,11 +650,8 @@ export function KasirProvider({ children }) {
       '../services/kasirService'
     );
 
-    // Simpan ke Supabase
     const row = await createCashierAccount(values);
 
-    // Langsung perbarui state lokal.
-    // Tidak perlu memuat ulang menu dan transaksi.
     setCashiers((previous) => [
       ...previous.filter(
         (item) =>
@@ -644,10 +685,8 @@ export function KasirProvider({ children }) {
       '../services/kasirService'
     );
 
-    // Update data di Supabase
     const row = await update(id, values);
 
-    // Perbarui data kasir di state lokal
     setCashiers((previous) =>
       previous.map((item) =>
         String(item.id) === String(id)
@@ -681,10 +720,8 @@ export function KasirProvider({ children }) {
       '../services/kasirService'
     );
 
-    // Nonaktifkan akun di Supabase
     await remove(id);
 
-    // Perbarui status di tampilan
     setCashiers((previous) =>
       previous.map((item) =>
         String(item.id) === String(id)

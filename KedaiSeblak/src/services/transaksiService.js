@@ -1,4 +1,3 @@
-
 import { supabase } from '../../lib/supabase';
 
 // Mengambil transaksi beserta detail dan kategori menu.
@@ -44,7 +43,7 @@ export async function getTransactions({ limit = 200 } = {}) {
   return data || [];
 }
 
-// Membuat transaksi baru
+// Membuat transaksi baru sekaligus mengurangi stok bahan.
 export async function createTransaction(
   payload,
   kasirId,
@@ -82,19 +81,23 @@ export async function createTransaction(
       nama_menu: item.nama ?? item.name,
       harga_satuan: harga,
       jumlah,
-      subtotal: harga * jumlah,
     };
   });
 
   // Menghitung total
   const subtotal = items.reduce(
-    (total, item) => total + item.subtotal,
+    (total, item) =>
+      total + item.harga_satuan * item.jumlah,
     0
   );
 
   const diskon = Number(payload.diskon || 0);
 
-  if (!Number.isFinite(diskon) || diskon < 0 || diskon > subtotal) {
+  if (
+    !Number.isFinite(diskon) ||
+    diskon < 0 ||
+    diskon > subtotal
+  ) {
     throw new Error('Nominal diskon tidak valid.');
   }
 
@@ -104,7 +107,10 @@ export async function createTransaction(
     payload.uang_diterima ?? total
   );
 
-  if (!Number.isFinite(uangDiterima) || uangDiterima < total) {
+  if (
+    !Number.isFinite(uangDiterima) ||
+    uangDiterima < total
+  ) {
     throw new Error('Uang pembayaran tidak mencukupi.');
   }
 
@@ -126,9 +132,11 @@ export async function createTransaction(
 
   if (
     levelPedas !== null &&
-    (!Number.isInteger(Number(levelPedas)) ||
+    (
+      !Number.isInteger(Number(levelPedas)) ||
       Number(levelPedas) < 0 ||
-      Number(levelPedas) > 10)
+      Number(levelPedas) > 10
+    )
   ) {
     throw new Error('Level pedas harus antara 0 sampai 10.');
   }
@@ -136,69 +144,44 @@ export async function createTransaction(
   const nomorTransaksi =
     payload.nomor_transaksi || buatNomorTransaksi();
 
-  // 1. Simpan transaksi utama
-  const { data: trx, error: trxError } = await supabase
-    .from('transaksi')
-    .insert({
-      nomor_transaksi: nomorTransaksi,
-      kasir_id: kasirId || null,
-      nama_kasir: namaKasir || 'Owner',
-      tipe_pesanan: tipePesanan,
-      kuah: payload.kuah ?? null,
-      level_pedas: levelPedas === null ? null : Number(levelPedas),
-      catatan: payload.catatan || null,
-      subtotal,
-      diskon,
-      total,
-      metode_pembayaran: metodePembayaran,
-      uang_diterima: uangDiterima,
-      kembalian: uangDiterima - total,
-      status: 'Lunas',
-      status_pesanan: 'Diproses',
-    })
-    .select('id')
-    .single();
+  // Data transaksi untuk RPC
+  const transaksiData = {
+    nomor_transaksi: nomorTransaksi,
+    kasir_id: kasirId || null,
+    nama_kasir: namaKasir || 'Owner',
+    tipe_pesanan: tipePesanan,
+    kuah: payload.kuah ?? null,
+    level_pedas:
+      levelPedas === null ? null : Number(levelPedas),
+    catatan: payload.catatan || null,
+    diskon,
+    uang_diterima: uangDiterima,
+    metode_pembayaran: metodePembayaran,
+  };
 
-  if (trxError) throw trxError;
+  // Simpan transaksi, detail, dan mutasi stok
+  // dalam satu proses database.
+  const { data: transaksiId, error: rpcError } =
+    await supabase.rpc('simpan_transaksi', {
+      p_transaksi: transaksiData,
+      p_items: items,
+    });
 
-  // 2. Simpan detail transaksi
-  const detailRows = items.map((item) => ({
-    transaksi_id: trx.id,
-    menu_id: item.menu_id,
-    nama_menu: item.nama_menu,
-    harga_satuan: item.harga_satuan,
-    jumlah: item.jumlah,
-    subtotal: item.subtotal,
-  }));
-
-  const { error: detailError } = await supabase
-    .from('detail_transaksi')
-    .insert(detailRows);
-
-  if (detailError) {
-    // Hapus transaksi utama jika detail gagal.
-    const { error: rollbackError } = await supabase
-      .from('transaksi')
-      .delete()
-      .eq('id', trx.id);
-
-    if (rollbackError) {
-      throw new Error(
-        `Detail transaksi gagal disimpan: ${detailError.message}. ` +
-        `Penghapusan transaksi utama juga gagal: ${rollbackError.message}`
-      );
-    }
-
+  if (rpcError) {
     throw new Error(
-      `Detail transaksi gagal disimpan: ${detailError.message}`
+      rpcError.message || 'Gagal menyimpan transaksi.'
     );
   }
 
-  // 3. Ambil kembali transaksi beserta detailnya
+  if (!transaksiId) {
+    throw new Error('ID transaksi tidak berhasil dibuat.');
+  }
+
+  // Ambil kembali transaksi beserta detailnya
   const { data, error: readError } = await supabase
     .from('transaksi')
     .select(SELECT)
-    .eq('id', trx.id)
+    .eq('id', transaksiId)
     .single();
 
   if (readError) {
