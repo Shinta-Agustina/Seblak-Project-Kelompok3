@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -28,7 +28,7 @@ const WARNA = {
   merahTerang: '#DC2626',
 };
 
-const ITEMS_PER_PAGE = 8;
+const ITEMS_PER_PAGE = 3;
 
 const parseAngka = (value) => {
   if (
@@ -150,6 +150,8 @@ export default function TabStok({
 
   const [catatanPenerimaan, setCatatanPenerimaan] =
     useState('');
+  const [isSavingReceive, setIsSavingReceive] = useState(false);
+  const [isSavingOpname, setIsSavingOpname] = useState(false);
 
   useEffect(() => {
     setStatusFilter(initialFilterStatus || 'Semua');
@@ -255,8 +257,7 @@ export default function TabStok({
       return matchesStatus && matchesSearch;
     });
   }, [stokJenisAktif, statusFilter, searchQuery]);
-
-  const totalPages = Math.max(
+    const totalPages = Math.max(
     1,
     Math.ceil(filteredData.length / ITEMS_PER_PAGE)
   );
@@ -319,7 +320,8 @@ export default function TabStok({
     setCatatanPenerimaan('');
   };
 
-  const handleKonfirmasiPenerimaan = () => {
+  const handleKonfirmasiPenerimaan = async () => {
+    if (isSavingReceive) return;
     if (!selectedExpense) {
       Alert.alert(
         'Pembelian Tidak Ditemukan',
@@ -362,21 +364,25 @@ export default function TabStok({
       return;
     }
 
-    const berhasil = onTerimaStok(
-      selectedExpense.id,
-      jumlahMasuk,
-      catatanPenerimaan.trim()
-    );
+    try {
+      setIsSavingReceive(true);
+      const berhasil = await onTerimaStok(
+        selectedExpense.id,
+        jumlahMasuk,
+        catatanPenerimaan.trim()
+      );
 
-    // Modal tidak ditutup jika proses penerimaan gagal.
-    if (berhasil !== true) {
-      return;
+      if (berhasil !== true) return;
+
+      setIsReceiveModalVisible(false);
+      setSelectedExpenseId(null);
+      setJumlahDiterimaInput('');
+      setCatatanPenerimaan('');
+    } catch (error) {
+      Alert.alert('Penerimaan Gagal', error?.message || 'Gagal menyimpan penerimaan stok.');
+    } finally {
+      setIsSavingReceive(false);
     }
-
-    setIsReceiveModalVisible(false);
-    setSelectedExpenseId(null);
-    setJumlahDiterimaInput('');
-    setCatatanPenerimaan('');
   };
 
   const handleTutupModalPenerimaan = () => {
@@ -400,7 +406,8 @@ export default function TabStok({
   // STOK OPNAME
   // =========================================
 
-  const handleSaveOpname = () => {
+  const handleSaveOpname = async () => {
+    if (isSavingOpname) return;
     if (typeof onUpdateItem !== 'function') {
       Alert.alert(
         'Fungsi Belum Tersedia',
@@ -459,39 +466,28 @@ export default function TabStok({
     const sekarang = new Date();
     const tanggal = sekarang.toLocaleString('id-ID');
 
-    dataValid.forEach(({ item, fisik, sistem, selisih }, index) => {
-      const record = {
-        id: `OPNAME-${sekarang.getTime()}-${index}`,
-        nama: item.nama,
-        satuan: item.satuan || 'pcs',
-        sistem,
-        fisik,
-        selisih,
-        tanggal,
-        timestamp: sekarang.toISOString(),
-        jenis: 'Stock Opname',
-        catatan: opnameNote.trim(),
-      };
+    try {
+      setIsSavingOpname(true);
+      for (const { item, fisik } of dataValid) {
+        await onUpdateItem({
+          ...item,
+          sisa: fisik,
+          catatanOpname: opnameNote.trim(),
+        });
+      }
 
-      onUpdateItem({
-        ...item,
-        sisa: fisik,
-        riwayatOpname: [
-          record,
-          ...(item.riwayatOpname || []),
-        ],
-      });
-    });
-
-    setOpnameDraft({});
-    setOpnameNote('');
-
-    Alert.alert(
-      'Stok Opname Berhasil',
-      `${dataValid.length} data stok berhasil diperbarui.`
-    );
-
-    setActiveSection('Riwayat');
+      setOpnameDraft({});
+      setOpnameNote('');
+      Alert.alert(
+        'Stok Opname Berhasil',
+        `${dataValid.length} data stok berhasil diperbarui.`
+      );
+      setActiveSection('Riwayat');
+    } catch (error) {
+      Alert.alert('Stok Opname Gagal', error?.message || 'Sebagian stok gagal diperbarui. Periksa kembali data stok.');
+    } finally {
+      setIsSavingOpname(false);
+    }
   };
 
   // =========================================
@@ -521,7 +517,7 @@ export default function TabStok({
       ])
       .sort(
         (a, b) =>
-          getHistoryTimestamp(b) - getHistoryTimestamp(a)
+                    getHistoryTimestamp(b) - getHistoryTimestamp(a)
       );
   }, [stokJenisAktif]);
 
@@ -632,10 +628,10 @@ export default function TabStok({
 
   const renderDaftarStok = () => (
     <>
-      <View style={[styles.summaryGrid, isMobile && styles.summaryGridMobile]}>
+      <View style={styles.summaryGrid}>
         <TouchableOpacity
           activeOpacity={0.85}
-          style={[styles.summaryCard, isMobile && styles.summaryCardMobile]}
+          style={styles.summaryCard}
           onPress={() => setStatusFilter('Semua')}
         >
           <View style={styles.summaryIconRed}>
@@ -663,7 +659,7 @@ export default function TabStok({
 
         <TouchableOpacity
           activeOpacity={0.85}
-          style={[styles.summaryCard, isMobile && styles.summaryCardMobile]}
+          style={styles.summaryCard}
           onPress={() => setStatusFilter('Menipis')}
         >
           <View style={styles.summaryIconOrange}>
@@ -698,7 +694,7 @@ export default function TabStok({
 
         <TouchableOpacity
           activeOpacity={0.85}
-          style={[styles.summaryCard, isMobile && styles.summaryCardMobile]}
+          style={styles.summaryCard}
           onPress={() => setStatusFilter('Habis')}
         >
           <View style={styles.summaryIconRed}>
@@ -780,8 +776,7 @@ export default function TabStok({
             size={19}
             color={WARNA.merahTua}
           />
-
-          <Text style={styles.filterButtonText}>
+                    <Text style={styles.filterButtonText}>
             {statusFilter === 'Semua'
               ? 'Filter Status'
               : statusFilter}
@@ -803,10 +798,10 @@ export default function TabStok({
             option.id === 'Aman'
               ? styles.filterChipAman
               : option.id === 'Menipis'
-                ? styles.filterChipMenipis
-                : option.id === 'Habis'
-                  ? styles.filterChipHabis
-                  : styles.filterChipSemua;
+              ? styles.filterChipMenipis
+              : option.id === 'Habis'
+              ? styles.filterChipHabis
+              : styles.filterChipSemua;
 
           return (
             <TouchableOpacity
@@ -882,9 +877,8 @@ export default function TabStok({
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ flexGrow: 1 }}
             >
-              <View style={styles.tableContent}>
+              <View style={[styles.tableContent, { width: Math.max(width - (isMobile ? 32 : 240), 760) }]}>
                 <View style={styles.tableHeading}>
                   <Text style={styles.headingName}>Nama Bahan</Text>
                   <Text style={styles.headingCategory}>Kategori</Text>
@@ -918,7 +912,7 @@ export default function TabStok({
                   style={[
                     styles.pageButton,
                     safeCurrentPage === 1 &&
-                    styles.pageButtonDisabled,
+                      styles.pageButtonDisabled,
                   ]}
                   disabled={safeCurrentPage === 1}
                   onPress={() =>
@@ -950,7 +944,7 @@ export default function TabStok({
                       style={[
                         styles.pageButton,
                         safeCurrentPage === page &&
-                        styles.pageButtonActive,
+                          styles.pageButtonActive,
                       ]}
                       onPress={() => setCurrentPage(page)}
                     >
@@ -958,7 +952,7 @@ export default function TabStok({
                         style={[
                           styles.pageButtonText,
                           safeCurrentPage === page &&
-                          styles.pageButtonTextActive,
+                            styles.pageButtonTextActive,
                         ]}
                       >
                         {page}
@@ -970,7 +964,7 @@ export default function TabStok({
                   style={[
                     styles.pageButton,
                     safeCurrentPage === totalPages &&
-                    styles.pageButtonDisabled,
+                      styles.pageButtonDisabled,
                   ]}
                   disabled={safeCurrentPage === totalPages}
                   onPress={() =>
@@ -1042,7 +1036,7 @@ export default function TabStok({
               value={opnameDraft[item.id] ?? ''}
               onChangeText={(value) =>
                 setOpnameDraft((prev) => ({
-                  ...prev,
+                                    ...prev,
                   [item.id]: value,
                 }))
               }
@@ -1066,6 +1060,7 @@ export default function TabStok({
       <TouchableOpacity
         style={styles.saveOpnameBtn}
         onPress={handleSaveOpname}
+        disabled={isSavingOpname}
         activeOpacity={0.8}
       >
         <Ionicons
@@ -1075,7 +1070,7 @@ export default function TabStok({
         />
 
         <Text style={styles.saveOpnameText}>
-          Simpan Hasil Stok Opname
+          {isSavingOpname ? 'Menyimpan...' : 'Simpan Hasil Stok Opname'}
         </Text>
       </TouchableOpacity>
     </View>
@@ -1133,7 +1128,9 @@ export default function TabStok({
 
           const nilai = isRestok
             ? `+${record.jumlah ?? 0} ${record.satuan || ''}`
-            : `${Number(record.selisih) > 0 ? '+' : ''}${record.selisih ?? 0} ${record.satuan || ''}`;
+            : record.jenis === 'Stock Opname'
+              ? `Stok akhir: ${record.jumlah ?? record.fisik ?? 0} ${record.satuan || ''}`
+              : `${record.jumlah ?? 0} ${record.satuan || ''}`;
 
           return (
             <View key={record.id} style={styles.historyRow}>
@@ -1197,7 +1194,7 @@ export default function TabStok({
   // TAMPILAN UTAMA
   // =========================================
 
-  return (
+return (
     <ScrollView
       style={styles.container}
       showsVerticalScrollIndicator={false}
@@ -1573,7 +1570,7 @@ export default function TabStok({
                   styles.receiveConfirmButton,
                   !selectedExpense && { opacity: 0.5 },
                 ]}
-                disabled={!selectedExpense}
+                disabled={!selectedExpense || isSavingReceive}
                 onPress={handleKonfirmasiPenerimaan}
                 accessibilityRole="button"
               >
@@ -1584,7 +1581,7 @@ export default function TabStok({
                 />
 
                 <Text style={styles.receiveConfirmText}>
-                  Konfirmasi
+                  {isSavingReceive ? 'Memproses...' : 'Konfirmasi'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1793,8 +1790,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  summaryGridMobile: { flexDirection: 'column', gap: 8, flexShrink: 0 },
-  summaryCardMobile: { flex: 0, flexShrink: 0, width: '100%', height: 76, minHeight: 76 },
   summaryCard: {
     flex: 1,
     minWidth: 0,
@@ -1820,7 +1815,7 @@ const styles = StyleSheet.create({
 
   summaryIconOrange: {
     width: 43,
-    height: 43,
+        height: 43,
     borderRadius: 12,
     backgroundColor: '#FFF0DD',
     alignItems: 'center',
@@ -2003,7 +1998,7 @@ const styles = StyleSheet.create({
 
   tableContent: {
     minWidth: 760,
-    flexGrow: 1,
+    alignSelf: 'flex-start',
   },
 
   tableHeading: {
@@ -2017,14 +2012,14 @@ const styles = StyleSheet.create({
   },
 
   headingName: {
-    flex: 22,
+    width: '22%',
     fontSize: 12,
     fontWeight: '800',
     color: WARNA.teks,
   },
 
   headingCategory: {
-    flex: 16,
+    width: '16%',
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '800',
@@ -2032,7 +2027,7 @@ const styles = StyleSheet.create({
   },
 
   headingQuantity: {
-    flex: 17,
+    width: '17%',
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '800',
@@ -2040,7 +2035,7 @@ const styles = StyleSheet.create({
   },
 
   headingMinimum: {
-    flex: 17,
+    width: '17%',
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '800',
@@ -2048,7 +2043,7 @@ const styles = StyleSheet.create({
   },
 
   headingStatus: {
-    flex: 15,
+    width: '15%',
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '800',
@@ -2056,7 +2051,7 @@ const styles = StyleSheet.create({
   },
 
   headingAction: {
-    flex: 13,
+    width: '13%',
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '800',
@@ -2073,7 +2068,7 @@ const styles = StyleSheet.create({
   },
 
   stockNameColumn: {
-    flex: 22,
+    width: '22%',
     paddingRight: 5,
   },
 
@@ -2081,10 +2076,10 @@ const styles = StyleSheet.create({
     color: WARNA.teks,
     fontSize: 13,
     fontWeight: '800',
-  },
+      },
 
   stockCategory: {
-    flex: 16,
+    width: '16%',
     textAlign: 'center',
     color: WARNA.merah,
     fontSize: 11,
@@ -2092,7 +2087,7 @@ const styles = StyleSheet.create({
   },
 
   stockQuantity: {
-    flex: 17,
+    width: '17%',
     textAlign: 'center',
     color: WARNA.merahTua,
     fontSize: 12,
@@ -2100,7 +2095,7 @@ const styles = StyleSheet.create({
   },
 
   stockMinimum: {
-    flex: 17,
+    width: '17%',
     textAlign: 'center',
     color: WARNA.merahTua,
     fontSize: 12,
@@ -2108,12 +2103,12 @@ const styles = StyleSheet.create({
   },
 
   stockStatusColumn: {
-    flex: 15,
+    width: '15%',
     alignItems: 'center',
   },
 
   stockActionColumn: {
-    flex: 13,
+    width: '13%',
     alignItems: 'center',
   },
 

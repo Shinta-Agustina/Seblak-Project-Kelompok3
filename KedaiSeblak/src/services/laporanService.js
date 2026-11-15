@@ -1,37 +1,129 @@
+
 import { supabase } from '../../lib/supabase';
-import { getExpenses } from './pengeluaranService';
 
-// Laporan Keuangan = murni BACA (Read). Omzet = transaksi berstatus Lunas,
-// pengeluaran = tabel pengeluaran, laba bersih = omzet - pengeluaran.
-const UKURAN_HALAMAN = 500;
-const MAKS_BARIS = 20000;
-const KOLOM = 'id, nomor_transaksi, nama_kasir, total, metode_pembayaran, status, created_at';
+const formatTanggal = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
 
-async function bacaTransaksi({ from, to }) {
-  const rows = [];
-  for (let start = 0; start < MAKS_BARIS; start += UKURAN_HALAMAN) {
-    let q = supabase.from('transaksi').select(KOLOM).eq('status', 'Lunas');
-    if (from) q = q.gte('created_at', `${from}T00:00:00+07:00`);
-    if (to) q = q.lte('created_at', `${to}T23:59:59.999+07:00`);
-    const { data, error } = await q
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: true })
-      .range(start, start + UKURAN_HALAMAN - 1);
-    if (error) throw error;
-    rows.push(...(data || []));
-    if (!data || data.length < UKURAN_HALAMAN) break;
+  return `${year}-${month}-${day}`;
+};
+
+const rupiah = (value) => Number(value || 0);
+
+export async function getFinancialReport(options = {}) {
+  const now = new Date();
+
+  const startDate =
+    options.startDate ||
+    formatTanggal(new Date(now.getFullYear(), now.getMonth(), 1));
+
+  const endDate =
+    options.endDate ||
+    formatTanggal(now);
+
+  if (startDate > endDate) {
+    throw new Error('Tanggal awal tidak boleh melebihi tanggal akhir.');
   }
-  return rows;
-}
 
-// from/to berformat 'YYYY-MM-DD' (WIB). Kosong = semua data.
-export async function getFinancialReport({ from, to } = {}) {
-  const [transaksi, semuaPengeluaran] = await Promise.all([bacaTransaksi({ from, to }), getExpenses()]);
-  const pengeluaran = semuaPengeluaran.filter((r) => {
-    const t = String(r.tanggal || '').slice(0, 10);
-    return (!from || t >= from) && (!to || t <= to);
+  const [
+    { data: transactions, error: transactionError },
+    { data: expenses, error: expenseError },
+  ] = await Promise.all([
+    supabase
+      .from('transaksi')
+      .select('id, nomor_transaksi, total, status, created_at, metode_pembayaran')
+      .eq('status', 'Lunas')
+      .gte('created_at', `${startDate}T00:00:00`)
+      .lt('created_at', `${endDate}T23:59:59.999`)
+      .order('created_at', { ascending: true }),
+
+    supabase
+      .from('pengeluaran')
+      .select('id, nama_pengeluaran, total, tanggal, kategori')
+      .gte('tanggal', startDate)
+      .lte('tanggal', endDate)
+      .order('tanggal', { ascending: true }),
+  ]);
+
+  if (transactionError) throw transactionError;
+  if (expenseError) throw expenseError;
+
+  const sales = transactions || [];
+  const expenseRows = expenses || [];
+
+  const totalPemasukan = sales.reduce(
+    (sum, item) => sum + rupiah(item.total),
+    0
+  );
+
+  const totalPengeluaran = expenseRows.reduce(
+    (sum, item) => sum + rupiah(item.total),
+    0
+  );
+
+  const keuntunganBersih = totalPemasukan - totalPengeluaran;
+
+  const rekapTanggal = {};
+
+  const getDaily = (date) => {
+    if (!rekapTanggal[date]) {
+      rekapTanggal[date] = {
+        tanggal: date,
+        pemasukan: 0,
+        pengeluaran: 0,
+        keuntungan: 0,
+        jumlah_transaksi: 0,
+      };
+    }
+
+    return rekapTanggal[date];
+  };
+
+  sales.forEach((item) => {
+    const date = formatTanggal(new Date(item.created_at));
+    const daily = getDaily(date);
+
+    daily.pemasukan += rupiah(item.total);
+    daily.jumlah_transaksi += 1;
   });
-  const totalOmzet = transaksi.reduce((s, r) => s + Number(r.total || 0), 0);
-  const totalPengeluaran = pengeluaran.reduce((s, r) => s + Number(r.nominal || 0), 0);
-  return { transaksi, pengeluaran, totalOmzet, totalPengeluaran, labaBersih: totalOmzet - totalPengeluaran };
+
+  expenseRows.forEach((item) => {
+    const daily = getDaily(item.tanggal);
+
+    daily.pengeluaran += rupiah(item.total);
+  });
+
+  const dailyReport = Object.values(rekapTanggal)
+    .sort((a, b) => a.tanggal.localeCompare(b.tanggal))
+    .map((item) => ({
+      ...item,
+      keuntungan: item.pemasukan - item.pengeluaran,
+    }));
+
+  const metodePembayaran = {};
+
+  sales.forEach((item) => {
+    const method = item.metode_pembayaran || 'Lainnya';
+
+    metodePembayaran[method] =
+      (metodePembayaran[method] || 0) + rupiah(item.total);
+  });
+
+  return {
+    startDate,
+    endDate,
+
+    totalPemasukan,
+    totalPengeluaran,
+    keuntunganBersih,
+
+    jumlahTransaksi: sales.length,
+
+    transaksi: sales,
+    pengeluaran: expenseRows,
+
+    dailyReport,
+    metodePembayaran,
+  };
 }

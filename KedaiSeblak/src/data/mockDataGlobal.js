@@ -37,4 +37,3 @@ export const MOCK_SHIFT_MONITORING = [
 // --- C. REUTILISASI DATA STOK & EXPENSE (Dari modul sebelumnya) ---
 // Pastikan Anda mengimpor data stok dan pengeluaran yang sudah disinkronisasi
 // (Lihat kode pada jawaban sebelumnya untuk struktur INITIAL_STOCK_ITEMS dan INITIAL_EXPENSES)
-export { INITIAL_STOCK_ITEMS, INITIAL_EXPENSES, DUMMY_SALES_ALL_OCT_2026 } from './mockDataOwner';

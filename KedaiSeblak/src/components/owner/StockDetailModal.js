@@ -1,4 +1,5 @@
-﻿import React from 'react';
+﻿
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   View,
@@ -7,6 +8,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import StatusBadge from './StatusBadge';
@@ -79,12 +82,42 @@ export default function StockDetailModal({
   visible,
   item,
   onClose,
+  onSavePengaturan,
 }) {
+  const [hargaJual, setHargaJual] = useState('');
+  const [pemakaian, setPemakaian] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const satuan = String(item?.satuan || 'pcs').toLowerCase();
+  const menggunakanKg = satuan === 'kg';
+
+  useEffect(() => {
+    if (!visible || !item) return;
+
+    setHargaJual(
+      item.hargaJual != null
+        ? String(item.hargaJual)
+        : ''
+    );
+
+    setPemakaian(
+      item.jumlahPerPorsi != null
+        ? menggunakanKg
+          ? String(Number(item.jumlahPerPorsi) * 1000)
+          : String(item.jumlahPerPorsi)
+        : ''
+    );
+  }, [
+    visible,
+    item?.id,
+    item?.hargaJual,
+    item?.jumlahPerPorsi,
+  ]);
+
   if (!item) return null;
 
   const sisa = Math.max(0, toNumber(item.sisa));
   const minimum = Math.max(0, toNumber(item.minimum, 1));
-  const satuan = item.satuan || 'unit';
   const stokAwal = Math.max(0, toNumber(item.stokAwal, sisa));
   const hargaBeli = Math.max(0, toNumber(item.hargaBeli));
   const nilaiPersediaan = sisa * hargaBeli;
@@ -93,8 +126,8 @@ export default function StockDetailModal({
     sisa <= 0
       ? 'Habis'
       : sisa <= minimum
-      ? 'Menipis'
-      : 'Aman';
+        ? 'Menipis'
+        : 'Aman';
 
   const jenisStok = getJenisStok(item);
   const imageSource = getImageSource(item.foto || item.image);
@@ -125,6 +158,18 @@ export default function StockDetailModal({
     })),
   ].sort((a, b) => b.timestampUrut - a.timestampUrut);
 
+  const nilaiPemakaian = toNumber(pemakaian);
+  const hargaJualNumber = toNumber(hargaJual, NaN);
+
+  const pemakaianDalamSatuanStok = menggunakanKg
+    ? nilaiPemakaian / 1000
+    : nilaiPemakaian;
+
+  const estimasiPcs =
+    pemakaianDalamSatuanStok > 0
+      ? Math.floor(sisa / pemakaianDalamSatuanStok)
+      : 0;
+
   const renderHistoryIcon = (jenis, jumlah) => {
     if (jenis === 'Stok Masuk') {
       return {
@@ -147,6 +192,56 @@ export default function StockDetailModal({
       color: '#95651B',
       background: '#FFF5DE',
     };
+  };
+
+  const handleSavePengaturan = async () => {
+    if (typeof onSavePengaturan !== 'function') {
+      Alert.alert(
+        'Belum terhubung',
+        'Penyimpanan belum dihubungkan ke halaman Stok Bahan.'
+      );
+      return;
+    }
+
+    if (!Number.isFinite(hargaJualNumber) || hargaJualNumber <= 0) {
+      Alert.alert(
+        'Validasi',
+        'Harga jual harus lebih dari 0.'
+      );
+      return;
+    }
+
+    if (
+      !Number.isFinite(nilaiPemakaian) ||
+      nilaiPemakaian <= 0
+    ) {
+      Alert.alert(
+        'Validasi',
+        'Pemakaian per pcs harus lebih dari 0.'
+      );
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await onSavePengaturan(item, {
+        hargaJual: Number(hargaJual),
+        jumlahPerPorsi: Number(jumlahPerPorsi),
+      });
+
+      Alert.alert(
+        'Berhasil',
+        'Pengaturan topping berhasil disimpan.'
+      );
+    } catch (error) {
+      Alert.alert(
+        'Gagal menyimpan',
+        error?.message || 'Pengaturan topping gagal disimpan.'
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -281,8 +376,8 @@ export default function StockDetailModal({
                   {status === 'Habis'
                     ? 'Stok bahan sudah habis. Segera lakukan pembelian.'
                     : status === 'Menipis'
-                    ? 'Stok sudah mencapai batas minimum. Pertimbangkan untuk restok.'
-                    : 'Jumlah stok masih berada di atas batas minimum.'}
+                      ? 'Stok sudah mencapai batas minimum. Pertimbangkan untuk restok.'
+                      : 'Jumlah stok masih berada di atas batas minimum.'}
                 </Text>
               </View>
 
@@ -380,6 +475,77 @@ export default function StockDetailModal({
               </View>
             </View>
 
+            {/* Pengaturan penjualan */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                Pengaturan Penjualan
+              </Text>
+
+              <View style={styles.infoCard}>
+                <Text style={styles.inputLabel}>
+                  Harga jual per pcs (Rp)
+                </Text>
+
+                <TextInput
+                  style={styles.input}
+                  value={hargaJual}
+                  onChangeText={setHargaJual}
+                  keyboardType="numeric"
+                  placeholder="Contoh: 2000"
+                  placeholderTextColor="#A89A92"
+                />
+
+                <Text style={styles.inputLabel}>
+                  Pemakaian bahan per pcs ({menggunakanKg ? 'gram' : 'pcs'})
+                </Text>
+
+                <TextInput
+                  style={styles.input}
+                  value={pemakaian}
+                  onChangeText={setPemakaian}
+                  keyboardType="decimal-pad"
+                  placeholder={menggunakanKg ? 'Contoh: 50' : 'Contoh: 1'}
+                  placeholderTextColor="#A89A92"
+                />
+
+                <Text style={styles.stockHint}>
+                  {menggunakanKg
+                    ? 'Masukkan berat dalam gram. Sistem akan mengonversinya ke kg untuk pencatatan stok.'
+                    : 'Masukkan jumlah pcs yang digunakan untuk satu porsi.'}
+                </Text>
+
+                <View style={styles.estimateBox}>
+                  <Text style={styles.estimateLabel}>
+                    Estimasi topping yang dapat dijual
+                  </Text>
+
+                  <Text style={styles.estimateValue}>
+                    {formatJumlah(estimasiPcs)} pcs
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[
+                    styles.saveButton,
+                    saving && { opacity: 0.6 },
+                  ]}
+                  onPress={handleSavePengaturan}
+                  disabled={saving}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="save-outline"
+                    size={17}
+                    color="#FFFFFF"
+                  />
+
+                  <Text style={styles.saveButtonText}>
+                    {saving ? 'Menyimpan...' : 'Simpan Pengaturan'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             {/* Riwayat pergerakan stok */}
             <View style={styles.section}>
               <View style={styles.historyHeading}>
@@ -460,8 +626,8 @@ export default function StockDetailModal({
                             color: isRestok
                               ? '#168653'
                               : isPositive
-                              ? '#168653'
-                              : '#C62828',
+                                ? '#168653'
+                                : '#C62828',
                           },
                         ]}
                       >
@@ -711,6 +877,7 @@ const styles = StyleSheet.create({
     borderColor: '#EFE7E2',
     borderRadius: 12,
     paddingHorizontal: 12,
+    paddingVertical: 10,
     marginTop: 9,
     backgroundColor: '#FFFFFF',
   },
@@ -748,6 +915,61 @@ const styles = StyleSheet.create({
   infoDivider: {
     height: 1,
     backgroundColor: '#F0E7E1',
+  },
+
+  inputLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#52141D',
+    marginTop: 12,
+    marginBottom: 6,
+  },
+
+  input: {
+    borderWidth: 1,
+    borderColor: '#E8DAD3',
+    borderRadius: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    color: '#2C1810',
+    backgroundColor: '#FFFFFF',
+  },
+
+  estimateBox: {
+    backgroundColor: '#EAF6EE',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 14,
+  },
+
+  estimateLabel: {
+    fontSize: 10,
+    color: '#47765A',
+  },
+
+  estimateValue: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#168653',
+    marginTop: 4,
+  },
+
+  saveButton: {
+    backgroundColor: '#8D3D2E',
+    borderRadius: 10,
+    padding: 13,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 14,
+  },
+
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
 
   historyHeading: {

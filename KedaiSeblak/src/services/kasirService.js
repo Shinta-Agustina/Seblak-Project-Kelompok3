@@ -1,95 +1,296 @@
-import { createClient } from '@supabase/supabase-js';
+
 import { supabase } from '../../lib/supabase';
 import { toEmail } from './Authservice';
 
-const normalizeStatus = (s) => (String(s || 'aktif').toLowerCase() === 'nonaktif' ? 'nonaktif' : 'aktif');
+// =========================================
+// NORMALISASI DAN VALIDASI
+// =========================================
 
-// Dipakai KasirContext.loadReferenceData -> baris tabel kasir
+const normalizeStatus = (status) => {
+  return String(status || 'aktif').toLowerCase() === 'nonaktif'
+    ? 'nonaktif'
+    : 'aktif';
+};
+
+const validatePhone = (phone) => {
+  if (!phone) return true;
+
+  return /^[0-9+\-\s]{8,20}$/.test(String(phone).trim());
+};
+
+const cashierSelect =
+  'id, kode_kasir, nama, username, no_telepon, status, created_at, updated_at';
+
+// =========================================
+// MEMANGGIL EDGE FUNCTION
+// =========================================
+
+async function invokeManageCashier(payload) {
+  const { data, error } = await supabase.functions.invoke(
+    'manage-cashier',
+    {
+      body: payload,
+    }
+  );
+
+  if (error) {
+    let message = error.message || 'Permintaan ke server gagal.';
+
+    try {
+      const response = error.context;
+
+      if (response && typeof response.json === 'function') {
+        const responseData = await response.json();
+
+        message =
+          responseData?.error ||
+          responseData?.message ||
+          message;
+      }
+    } catch {
+      // Gunakan pesan error awal.
+    }
+
+    throw new Error(message);
+  }
+
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+
+  return data;
+}
+
+// =========================================
+// MENGAMBIL SELURUH DATA KASIR
+// =========================================
+
 export async function getCashiers() {
   const { data, error } = await supabase
     .from('kasir')
-    .select('id, kode_kasir, nama, username, no_telepon, status')
+    .select(cashierSelect)
     .order('kode_kasir', { ascending: true });
-  if (error) throw error;
+
+  if (error) {
+    throw new Error(
+      `Gagal mengambil data kasir: ${error.message}`
+    );
+  }
+
   return data || [];
 }
 
-async function nextKodeKasir() {
-  const { data, error } = await supabase.from('kasir').select('kode_kasir');
-  if (error) throw error;
-  const max = (data || []).reduce((m, r) => {
-    const n = parseInt(String(r.kode_kasir || '').replace(/\D/g, ''), 10);
-    return Number.isFinite(n) && n > m ? n : m;
-  }, 0);
-  return `KSR-${String(max + 1).padStart(3, '0')}`;
-}
+// =========================================
+// MENAMBAHKAN AKUN KASIR
+// =========================================
 
-// Membuat akun login + profil + data kasir.
-// Memakai klien terpisah (tanpa menyimpan sesi) supaya sesi owner tidak tertimpa.
-export async function createCashierAccount(values) {
-  const nama = String(values.nama ?? values.name ?? '').trim();
-  const username = String(values.username ?? values.email ?? '').trim().toLowerCase();
+export async function createCashierAccount(values = {}) {
+  const nama = String(
+    values.nama ?? values.name ?? ''
+  ).trim();
+
+  const usernameInput = String(
+    values.username ?? values.email ?? ''
+  ).trim().toLowerCase();
+
   const password = String(values.password ?? '');
-  if (!nama || !username) throw new Error('Nama dan username/email wajib diisi.');
-  if (password.length < 6) throw new Error('Password minimal 6 karakter.');
+
+  const no_telepon = String(
+    values.no_telepon ?? values.phone ?? ''
+  ).trim();
+
   const status = normalizeStatus(values.status);
 
-  const signUpClient = createClient(
-    process.env.EXPO_PUBLIC_SUPABASE_URL,
-    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-    { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
-  );
-  const { data: signUp, error: signUpError } = await signUpClient.auth.signUp({
-    email: toEmail(username),
+  if (!nama) {
+    throw new Error('Nama kasir wajib diisi.');
+  }
+
+  if (!usernameInput) {
+    throw new Error('Email atau username wajib diisi.');
+  }
+
+  if (password.length < 6) {
+    throw new Error('Password minimal 6 karakter.');
+  }
+
+  if (!validatePhone(no_telepon)) {
+    throw new Error(
+      'Nomor telepon harus terdiri dari 8–20 karakter angka.'
+    );
+  }
+
+  let email;
+
+  try {
+    email = toEmail(usernameInput);
+  } catch (error) {
+    throw new Error(error.message);
+  }
+
+  const result = await invokeManageCashier({
+    action: 'create',
+    nama,
+    username: usernameInput,
+    email,
+    no_telepon: no_telepon || null,
     password,
-    options: { data: { nama } },
+    status,
   });
-  if (signUpError) throw new Error(signUpError.message);
-  const id = signUp.user?.id;
-  if (!id) throw new Error('Akun gagal dibuat.');
 
-  const { error: profileError } = await supabase
-    .from('profiles').insert({ id, nama, role: 'kasir', status });
-  if (profileError) throw profileError;
+  if (!result?.cashier?.id) {
+    throw new Error(
+      'Akun berhasil diproses, tetapi data kasir tidak diterima dari server.'
+    );
+  }
 
-  const kode_kasir = await nextKodeKasir();
-  const { data, error } = await supabase
-    .from('kasir')
-    .insert({ id, kode_kasir, nama, username, no_telepon: values.no_telepon ?? values.phone ?? null, status })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  return result.cashier;
 }
 
-export async function updateCashier(id, values) {
-  const patch = { updated_at: new Date().toISOString() };
+// =========================================
+// MENGUBAH DATA KASIR
+// Nama, nomor telepon, status, dan email.
+// =========================================
+
+export async function updateCashier(id, values = {}) {
+  if (!id) {
+    throw new Error('ID kasir tidak ditemukan.');
+  }
+
+  const payload = {
+    action: 'update',
+    cashierId: id,
+  };
+
   const nama = values.nama ?? values.name;
-  if (nama !== undefined) patch.nama = String(nama).trim();
-  const username = values.username ?? values.email;
-  if (username !== undefined) patch.username = String(username).trim().toLowerCase();
+
+  if (nama !== undefined) {
+    const newName = String(nama).trim();
+
+    if (!newName) {
+      throw new Error('Nama kasir wajib diisi.');
+    }
+
+    payload.nama = newName;
+  }
+
   const phone = values.no_telepon ?? values.phone;
-  if (phone !== undefined) patch.no_telepon = phone || null;
-  if (values.status !== undefined) patch.status = normalizeStatus(values.status);
 
-  const { data, error } = await supabase.from('kasir').update(patch).eq('id', id).select().single();
-  if (error) throw error;
+  if (phone !== undefined) {
+    const newPhone = String(phone).trim();
 
-  const profilePatch = { updated_at: patch.updated_at };
-  if (patch.nama !== undefined) profilePatch.nama = patch.nama;
-  if (patch.status !== undefined) profilePatch.status = patch.status;
-  const { error: profileError } = await supabase.from('profiles').update(profilePatch).eq('id', id);
-  if (profileError) throw profileError;
-  return data;
+    if (!validatePhone(newPhone)) {
+      throw new Error(
+        'Nomor telepon harus terdiri dari 8–20 karakter angka.'
+      );
+    }
+
+    payload.no_telepon = newPhone || null;
+  }
+
+  if (values.email !== undefined || values.username !== undefined) {
+    const emailInput = String(
+      values.email ?? values.username ?? ''
+    ).trim().toLowerCase();
+
+    if (!emailInput) {
+      throw new Error('Email kasir wajib diisi.');
+    }
+
+    try {
+      payload.email = toEmail(emailInput);
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  }
+
+  if (values.status !== undefined) {
+    payload.status = normalizeStatus(values.status);
+  }
+
+  if (Object.keys(payload).length === 2) {
+    throw new Error('Tidak ada perubahan data yang disimpan.');
+  }
+
+  const result = await invokeManageCashier(payload);
+
+  if (!result?.cashier?.id) {
+    throw new Error(
+      'Server tidak mengembalikan data kasir setelah diperbarui.'
+    );
+  }
+
+  return result.cashier;
 }
 
-// Kasir yang sudah punya transaksi tidak boleh dihapus (relasi), jadi dinonaktifkan.
-// Akun nonaktif otomatis ditolak saat login (lihat authService).
+// =========================================
+// MENGGANTI PASSWORD KASIR
+// Tanpa tautan reset password.
+// =========================================
+
+export async function updateCashierPassword(
+  cashierId,
+  newPassword
+) {
+  if (!cashierId) {
+    throw new Error('ID kasir tidak ditemukan.');
+  }
+
+  const password = String(newPassword || '');
+
+  if (password.length < 6) {
+    throw new Error('Password minimal 6 karakter.');
+  }
+
+  const result = await invokeManageCashier({
+    action: 'update_password',
+    cashierId,
+    password,
+  });
+
+  if (!result?.success) {
+    throw new Error(
+      'Server belum berhasil memperbarui password kasir.'
+    );
+  }
+
+  return true;
+}
+
+// =========================================
+// MENGAKTIFKAN / MENONAKTIFKAN KASIR
+// =========================================
+
+export async function setCashierStatus(id, status) {
+  if (!id) {
+    throw new Error('ID kasir tidak ditemukan.');
+  }
+
+  const result = await invokeManageCashier({
+    action: 'update',
+    cashierId: id,
+    status: normalizeStatus(status),
+  });
+
+  if (!result?.cashier?.id) {
+    throw new Error(
+      'Gagal memperbarui status kasir.'
+    );
+  }
+
+  return result.cashier;
+}
+
+// =========================================
+// MENONAKTIFKAN AKUN KASIR
+// Soft delete, bukan menghapus akun permanen.
+// =========================================
+
 export async function deleteCashier(id) {
-  const now = new Date().toISOString();
-  const { error } = await supabase.from('kasir').update({ status: 'nonaktif', updated_at: now }).eq('id', id);
-  if (error) throw error;
-  const { error: profileError } = await supabase
-    .from('profiles').update({ status: 'nonaktif', updated_at: now }).eq('id', id);
-  if (profileError) throw profileError;
+  if (!id) {
+    throw new Error('ID kasir tidak ditemukan.');
+  }
+
+  const result = await setCashierStatus(id, 'nonaktif');
+
+  return Boolean(result?.id);
 }
