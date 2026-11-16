@@ -152,10 +152,6 @@ export default function PesananAktifScreen({ onOpenDetail }) {
       label: `Semua (${safeOrders.length})`,
     },
     {
-      id: 'Menunggu',
-      label: `Menunggu (${countMenunggu})`,
-    },
-    {
       id: 'Diproses',
       label: `Diproses (${countDiproses})`,
     },

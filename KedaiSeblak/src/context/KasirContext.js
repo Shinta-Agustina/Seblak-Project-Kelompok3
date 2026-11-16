@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useContext,
@@ -48,7 +49,6 @@ const pad2 = (number) => {
   return String(number).padStart(2, '0');
 };
 
-// Mengambil tanggal berdasarkan zona waktu perangkat.
 const tanggalLokal = (value) => {
   if (!value) return '';
 
@@ -65,7 +65,6 @@ const tanggalLokal = (value) => {
   ].join('-');
 };
 
-// Mengambil jam berdasarkan zona waktu perangkat.
 const jamLokal = (value) => {
   if (!value) return '';
 
@@ -129,7 +128,6 @@ const mapTransaction = (row) => {
     subtotal: Number(detail.subtotal || 0),
   }));
 
-  // Status pembayaran dan status pesanan dipisahkan.
   const paymentStatus = row.status || 'Belum Bayar';
 
   const orderStatus = normalizeOrderStatus(
@@ -172,15 +170,12 @@ const mapTransaction = (row) => {
     pedas: row.level_pedas,
     catatan: row.catatan,
 
-    // Status pembayaran.
     paymentStatus,
 
-    // Status progres pesanan.
     orderStatus,
     statusPesanan: orderStatus,
     status_pesanan: orderStatus,
 
-    // Alias untuk kompatibilitas tampilan lama.
     status: orderStatus,
   };
 };
@@ -243,24 +238,19 @@ export function KasirProvider({ children }) {
       getTransactions({ limit: 200 }),
     ]);
 
-    // Data menu.
     setMenuItems(Array.isArray(menus) ? menus : []);
 
-    // Data kasir.
     const mappedCashiers = (Array.isArray(staff) ? staff : [])
       .map(mapCashier);
 
     setCashiers(mappedCashiers);
 
-    // Data transaksi.
     const mappedTransactions = (
       Array.isArray(sales) ? sales : []
     ).map(mapTransaction);
 
     setTransactions(mappedTransactions);
 
-    // Pesanan Menunggu, Diproses, dan Selesai
-    // tetap ditampilkan pada daftar pesanan.
     const mappedOrders = mappedTransactions.filter(
       (transaction) =>
         ORDER_LIST_STATUSES.includes(
@@ -270,7 +260,12 @@ export function KasirProvider({ children }) {
 
     setOrders(mappedOrders);
 
-    return mappedTransactions;
+    // Data ini dikembalikan agar bisa digunakan
+    // untuk mencari ID kasir saat login.
+    return {
+      transactions: mappedTransactions,
+      cashiers: mappedCashiers,
+    };
   };
 
   // =====================================================
@@ -288,8 +283,42 @@ export function KasirProvider({ children }) {
     const normalizedRole =
       profile.role === 'owner' ? 'Owner' : 'Kasir';
 
+    // Muat data referensi terlebih dahulu.
+    const referenceData = await loadReferenceData();
+
+    // Email akun kasir dibuat dengan format:
+    // username@kedaiseblak.com
+    const emailUsername = String(authUser.email || '')
+      .trim()
+      .toLowerCase()
+      .split('@')[0];
+
+    // Cari ID kasir dari tabel public.kasir.
+    const cashierRecord = normalizedRole === 'Kasir'
+      ? (referenceData?.cashiers || []).find((cashier) => {
+          const username = String(
+            cashier.username || cashier.email || ''
+          )
+            .trim()
+            .toLowerCase();
+
+          return (
+            username === emailUsername ||
+            username === String(authUser.email || '')
+              .trim()
+              .toLowerCase()
+          );
+        })
+      : null;
+
     setUser({
+      // ID akun Supabase Auth.
       id: authUser.id,
+
+      // ID dari tabel kasir.
+      // Ini yang digunakan untuk kolom transaksi.kasir_id.
+      kasirId: cashierRecord?.id || null,
+
       email: authUser.email,
       name: profile.nama,
       nama: profile.nama,
@@ -299,8 +328,6 @@ export function KasirProvider({ children }) {
     setActiveTab(
       normalizedRole === 'Owner' ? 'dashboard' : 'Kasir'
     );
-
-    await loadReferenceData();
   };
 
   // =====================================================
@@ -366,7 +393,6 @@ export function KasirProvider({ children }) {
   const loginGoogle = async () => {
     const result = await signInWithGoogle();
 
-    // Pada web, halaman dapat dialihkan ke Google.
     if (!result) {
       return null;
     }
@@ -419,9 +445,9 @@ export function KasirProvider({ children }) {
         return previousCart.map((cartItem) =>
           cartItem.id === item.id
             ? {
-              ...cartItem,
-              qty: Number(cartItem.qty || 1) + 1,
-            }
+                ...cartItem,
+                qty: Number(cartItem.qty || 1) + 1,
+              }
             : cartItem
         );
       }
@@ -447,11 +473,11 @@ export function KasirProvider({ children }) {
         .map((item) =>
           item.id === id
             ? {
-              ...item,
-              qty:
-                Number(item.qty || 1) +
-                Number(delta),
-            }
+                ...item,
+                qty:
+                  Number(item.qty || 1) +
+                  Number(delta),
+              }
             : item
         )
         .filter((item) => item.qty > 0)
@@ -493,7 +519,7 @@ export function KasirProvider({ children }) {
       (sum, item) =>
         sum +
         Number(item.harga ?? item.price ?? 0) *
-        Number(item.qty || 1),
+          Number(item.qty || 1),
       0
     );
   };
@@ -527,7 +553,7 @@ export function KasirProvider({ children }) {
 
     const sourceItems =
       Array.isArray(customData?.items) &&
-        customData.items.length > 0
+      customData.items.length > 0
         ? customData.items
         : cart;
 
@@ -539,7 +565,7 @@ export function KasirProvider({ children }) {
       (sum, item) =>
         sum +
         Number(item.harga ?? item.price ?? 0) *
-        Number(item.qty || 1),
+          Number(item.qty || 1),
       0
     );
 
@@ -557,6 +583,14 @@ export function KasirProvider({ children }) {
     }
 
     const isCashier = user.role === 'Kasir';
+
+    // Pastikan ID kasir benar-benar ditemukan.
+    // Jangan mengirim ID Supabase Auth sebagai kasir_id.
+    if (isCashier && !user.kasirId) {
+      throw new Error(
+        'Data akun kasir tidak ditemukan. Pastikan username login sama dengan username pada data kasir, lalu login ulang.'
+      );
+    }
 
     // Simpan transaksi ke Supabase.
     const savedTransaction = await createTransaction(
@@ -585,10 +619,17 @@ export function KasirProvider({ children }) {
           : total,
       },
 
-      isCashier ? user.id : null,
+      // Gunakan ID dari tabel kasir.
+      isCashier ? user.kasirId : null,
 
       user.name
     );
+
+    if (!savedTransaction?.id) {
+      throw new Error(
+        'Transaksi tidak berhasil disimpan. Data transaksi dari server tidak ditemukan.'
+      );
+    }
 
     const mappedTransaction = mapTransaction(
       savedTransaction
@@ -603,8 +644,7 @@ export function KasirProvider({ children }) {
       ),
     ]);
 
-    // Tambahkan pesanan jika statusnya termasuk
-    // status yang ditampilkan pada daftar pesanan.
+    // Tambahkan pesanan ke Pesanan Aktif.
     if (
       ORDER_LIST_STATUSES.includes(
         mappedTransaction.orderStatus
@@ -645,28 +685,22 @@ export function KasirProvider({ children }) {
       );
     }
 
-    // Simpan progres pesanan ke Supabase.
-    // Fungsi ini memperbarui kolom status_pesanan,
-    // bukan status pembayaran.
     await updateOrderProgress(id, normalizedStatus);
 
-    // Perbarui data transaksi di state.
     setTransactions((previousTransactions) =>
       previousTransactions.map((item) =>
         item.id === id
           ? {
-            ...item,
-            orderStatus: normalizedStatus,
-            statusPesanan: normalizedStatus,
-            status_pesanan: normalizedStatus,
-            status: normalizedStatus,
-          }
+              ...item,
+              orderStatus: normalizedStatus,
+              statusPesanan: normalizedStatus,
+              status_pesanan: normalizedStatus,
+              status: normalizedStatus,
+            }
           : item
       )
     );
 
-    // Perbarui data pesanan di state.
-    // Pesanan berstatus Selesai tetap ditampilkan.
     setOrders((previousOrders) => {
       const exists = previousOrders.some(
         (item) => item.id === id
@@ -676,12 +710,12 @@ export function KasirProvider({ children }) {
         return previousOrders.map((item) =>
           item.id === id
             ? {
-              ...item,
-              orderStatus: normalizedStatus,
-              statusPesanan: normalizedStatus,
-              status_pesanan: normalizedStatus,
-              status: normalizedStatus,
-            }
+                ...item,
+                orderStatus: normalizedStatus,
+                statusPesanan: normalizedStatus,
+                status_pesanan: normalizedStatus,
+                status: normalizedStatus,
+              }
             : item
         );
       }
@@ -754,9 +788,9 @@ export function KasirProvider({ children }) {
       previousCashiers.map((item) =>
         String(item.id) === String(id)
           ? {
-            ...item,
-            ...mapCashier(row),
-          }
+              ...item,
+              ...mapCashier(row),
+            }
           : item
       )
     );
@@ -779,9 +813,9 @@ export function KasirProvider({ children }) {
       previousCashiers.map((item) =>
         String(item.id) === String(id)
           ? {
-            ...item,
-            status: 'nonaktif',
-          }
+              ...item,
+              status: 'nonaktif',
+            }
           : item
       )
     );
@@ -795,31 +829,25 @@ export function KasirProvider({ children }) {
 
   const value = useMemo(
     () => ({
-      // User dan autentikasi.
       user,
       login,
       loginGoogle,
       logout,
       initializing,
 
-      // Refresh.
       refreshData,
 
-      // Navigasi.
       activeTab,
       setActiveTab,
 
-      // Data kasir.
       cashiers,
       addCashier,
       updateCashier,
       deleteCashier,
 
-      // Data menu.
       menuItems,
       setMenuItems,
 
-      // Keranjang.
       cart,
       setCart,
       addToCart,
@@ -829,7 +857,6 @@ export function KasirProvider({ children }) {
       getTotalPrice,
       getTotalItemsCount,
 
-      // Pengaturan pesanan.
       selectedKuah,
       setSelectedKuah,
 
@@ -845,15 +872,12 @@ export function KasirProvider({ children }) {
       activeCategory,
       setActiveCategory,
 
-      // Pesanan.
       orders,
       setOrders,
 
-      // Transaksi.
       transactions,
       setTransactions,
 
-      // Proses transaksi.
       checkoutOrder,
       updateOrderStatus,
     }),
