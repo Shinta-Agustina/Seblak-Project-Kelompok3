@@ -25,7 +25,7 @@
 ![alt text](iPhone-14-PRO-localhost-__4hg9xof1qxul.gif)
 
 ### Uji 3: Delete Pengeluaran ###
-
+![alt text](<WhatsApp Video 2026-11-16 at 19.24.45.gif>)
 
 ### Uji 4: Update Stok Bahan ###
 ![alt text](iPhone-14-PRO-localhost-__4hg9xof1qxul-1.gif)
@@ -165,7 +165,8 @@ create policy pengeluaran_owner_all on public.pengeluaran for all to authenticat
 
 #### A.2 Tabel `menu_topping` di Table Editor Supabase
 <div align="center">
-  ![alt text](image-6.png)
+  <img src="Cuplikan layar 2026-11-16 191330.png" width="75%" alt="Tabel menu_topping Supabase">
+</div>
 </div>
 
 #### A.3 Tampilan Menu pada Halaman Kasir
@@ -175,7 +176,7 @@ create policy pengeluaran_owner_all on public.pengeluaran for all to authenticat
 
 #### A.4 Tabel `kasir` di Table Editor Supabase
 <div align="center">
-  <img src="bukti-tabel-kasir.png" width="75%" alt="Tabel Kasir Supabase">
+  <img src="Cuplikan layar 2026-11-16 195419.png" width="75%" alt="Tabel Kasir Supabase">
 </div>
 
 #### A.5 Tampilan Data Kasir pada Manajemen Kasir Owner
@@ -185,7 +186,7 @@ create policy pengeluaran_owner_all on public.pengeluaran for all to authenticat
 
 #### A.6 Tambah, Ubah, dan Hapus Data Kasir
 <div align="center">
-  <img src="bukti-crud-kasir.gif" width="30%" alt="CRUD Kasir">
+  <img src="WhatsApp Video 2026-11-16 at 19.24.45.gif" width="30%" alt="CRUD Kasir">
 </div>
 
 ---
@@ -194,7 +195,10 @@ create policy pengeluaran_owner_all on public.pengeluaran for all to authenticat
 
 #### B.1 Tabel `transaksi` & `detail_transaksi` di Supabase
 <div align="center">
-  <img src="bukti-tabel-transaksi.png" width="75%" alt="Tabel Transaksi Supabase">
+  <img src="Cuplikan layar 2026-11-16 200237.png" width="75%" alt="Tabel Transaksi Supabase"
+
+  <img src="![alt text](<Cuplikan layar 2026-11-16 200254.png>)" width="75%" alt="Tabel Transaksi Supabase"
+  
 </div>
 
 #### B.2 Penyimpanan Transaksi Setelah Pembayaran
