@@ -1,4 +1,3 @@
-
 import { supabase } from '../../lib/supabase';
 import { toEmail } from './Authservice';
 
@@ -290,7 +289,15 @@ export async function deleteCashier(id) {
     throw new Error('ID kasir tidak ditemukan.');
   }
 
-  const result = await setCashierStatus(id, 'nonaktif');
+  // Coba hapus permanen (hanya berhasil bila kasir belum punya riwayat).
+  try {
+    await invokeManageCashier({ action: 'delete', cashierId: id });
+    return 'dihapus';
+  } catch (error) {
+    if (!/riwayat|nonaktifkan/i.test(String(error.message))) throw error;
+  }
 
-  return Boolean(result?.id);
+  // Sudah punya riwayat -> nonaktifkan (akun tidak bisa login lagi).
+  const result = await setCashierStatus(id, 'nonaktif');
+  return result?.id ? 'nonaktif' : 'nonaktif';
 }

@@ -1,4 +1,5 @@
 ﻿
+import { Alert } from '../../utils/dialog';
 import React, { useEffect, useState } from 'react';
 import {
   Modal,
@@ -9,7 +10,6 @@ import {
   StyleSheet,
   ScrollView,
   TextInput,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import StatusBadge from './StatusBadge';

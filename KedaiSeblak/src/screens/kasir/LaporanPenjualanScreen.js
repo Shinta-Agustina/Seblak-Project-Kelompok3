@@ -1,3 +1,4 @@
+import { Alert } from '../../utils/dialog';
 import React from 'react';
 import {
     View,
@@ -6,7 +7,6 @@ import {
     ScrollView,
     useWindowDimensions,
     TouchableOpacity,
-    Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useKasir } from '../../context/KasirContext';

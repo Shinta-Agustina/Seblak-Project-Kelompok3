@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -115,50 +116,141 @@ export function tanggalIndoKeISO(str) {
   return '';
 }
 
+
 // =====================================================
 // UPLOAD FOTO PENGELUARAN
+// Mendukung foto dari Android, iOS, Web, dan URL Supabase.
 // =====================================================
+
+function base64ToArrayBuffer(base64) {
+  const chars =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+  const clean = base64.replace(/[^A-Za-z0-9+/]/g, '');
+  const bytes = new Uint8Array(
+    Math.floor((clean.length * 3) / 4)
+  );
+
+  let buffer = 0;
+  let bits = 0;
+  let index = 0;
+
+  for (let i = 0; i < clean.length; i++) {
+    const value = chars.indexOf(clean[i]);
+
+    if (value === -1) continue;
+
+    buffer = (buffer << 6) | value;
+    bits += 6;
+
+    if (bits >= 8) {
+      bits -= 8;
+      bytes[index++] = (buffer >> bits) & 0xff;
+    }
+  }
+
+  return bytes.slice(0, index).buffer;
+}
 
 async function unggahFoto(sumber, folder) {
   if (!sumber) return null;
 
+  // Jika sudah berupa URL publik, tidak perlu upload ulang.
   if (
     typeof sumber === 'string' &&
-    /^https?:\/\//i.test(sumber) &&
-    !sumber.startsWith('blob:')
+    /^https?:\/\//i.test(sumber)
   ) {
     return sumber;
   }
 
-  const res = await fetch(sumber);
+  let fileData;
+  let contentType = 'image/jpeg';
 
-  if (!res.ok) {
-    throw new Error('Gagal membaca foto yang akan diunggah.');
+  try {
+    // WEB: foto biasanya berupa Data URL atau Blob URL.
+    if (
+      typeof sumber === 'string' &&
+      (/^data:image\//i.test(sumber) ||
+        /^blob:/i.test(sumber))
+    ) {
+      const response = await fetch(sumber);
+
+      if (!response.ok) {
+        throw new Error('Tidak dapat membaca foto dari browser.');
+      }
+
+      const blob = await response.blob();
+
+      fileData = blob;
+      contentType = blob.type || 'image/jpeg';
+    } else {
+      // ANDROID / IOS: baca URI lokal menggunakan FileSystem.
+      const info = await FileSystem.getInfoAsync(sumber);
+
+      if (!info.exists) {
+        throw new Error('File foto tidak ditemukan di perangkat.');
+      }
+
+      const base64 = await FileSystem.readAsStringAsync(sumber, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      if (!base64) {
+        throw new Error('File foto kosong atau gagal dibaca.');
+      }
+
+      fileData = base64ToArrayBuffer(base64);
+
+      const extension = sumber
+        .split('?')[0]
+        .split('#')[0]
+        .split('.')
+        .pop()
+        .toLowerCase();
+
+      const mimeTypes = {
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png',
+        webp: 'image/webp',
+        gif: 'image/gif',
+      };
+
+      contentType = mimeTypes[extension] || 'image/jpeg';
+    }
+  } catch (error) {
+    console.error('Gagal membaca foto:', error);
+
+    throw new Error(
+      `Gagal membaca foto yang akan diunggah: ${error.message}`
+    );
   }
 
-  const blob = await res.blob();
-
-  const ext =
-    (blob.type && blob.type.split('/')[1]) || 'jpg';
+  const extension =
+    contentType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
 
   const path = `${folder}/${Date.now()}-${Math.random()
     .toString(36)
-    .slice(2, 8)}.${ext.replace('jpeg', 'jpg')}`;
+    .slice(2, 8)}.${extension}`;
 
   const { error } = await supabase.storage
     .from('pengeluaran')
-    .upload(path, blob, {
-      contentType: blob.type || 'image/jpeg',
+    .upload(path, fileData, {
+      contentType,
+      upsert: false,
     });
 
   if (error) {
     throw new Error(`Gagal mengunggah foto: ${error.message}`);
   }
 
-  return supabase.storage
+  const { data } = supabase.storage
     .from('pengeluaran')
-    .getPublicUrl(path).data.publicUrl;
+    .getPublicUrl(path);
+
+  return data.publicUrl;
 }
+
 
 // =====================================================
 // KOLOM TAMBAHAN

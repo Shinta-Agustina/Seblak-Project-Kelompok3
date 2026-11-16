@@ -1,4 +1,4 @@
-
+import DialogHost from '../components/DialogHost';
 import React, {
   createContext,
   useContext,
@@ -296,19 +296,19 @@ export function KasirProvider({ children }) {
     // Cari ID kasir dari tabel public.kasir.
     const cashierRecord = normalizedRole === 'Kasir'
       ? (referenceData?.cashiers || []).find((cashier) => {
-          const username = String(
-            cashier.username || cashier.email || ''
-          )
-            .trim()
-            .toLowerCase();
+        const username = String(
+          cashier.username || cashier.email || ''
+        )
+          .trim()
+          .toLowerCase();
 
-          return (
-            username === emailUsername ||
-            username === String(authUser.email || '')
-              .trim()
-              .toLowerCase()
-          );
-        })
+        return (
+          username === emailUsername ||
+          username === String(authUser.email || '')
+            .trim()
+            .toLowerCase()
+        );
+      })
       : null;
 
     setUser({
@@ -445,9 +445,9 @@ export function KasirProvider({ children }) {
         return previousCart.map((cartItem) =>
           cartItem.id === item.id
             ? {
-                ...cartItem,
-                qty: Number(cartItem.qty || 1) + 1,
-              }
+              ...cartItem,
+              qty: Number(cartItem.qty || 1) + 1,
+            }
             : cartItem
         );
       }
@@ -473,11 +473,11 @@ export function KasirProvider({ children }) {
         .map((item) =>
           item.id === id
             ? {
-                ...item,
-                qty:
-                  Number(item.qty || 1) +
-                  Number(delta),
-              }
+              ...item,
+              qty:
+                Number(item.qty || 1) +
+                Number(delta),
+            }
             : item
         )
         .filter((item) => item.qty > 0)
@@ -519,7 +519,7 @@ export function KasirProvider({ children }) {
       (sum, item) =>
         sum +
         Number(item.harga ?? item.price ?? 0) *
-          Number(item.qty || 1),
+        Number(item.qty || 1),
       0
     );
   };
@@ -553,7 +553,7 @@ export function KasirProvider({ children }) {
 
     const sourceItems =
       Array.isArray(customData?.items) &&
-      customData.items.length > 0
+        customData.items.length > 0
         ? customData.items
         : cart;
 
@@ -565,7 +565,7 @@ export function KasirProvider({ children }) {
       (sum, item) =>
         sum +
         Number(item.harga ?? item.price ?? 0) *
-          Number(item.qty || 1),
+        Number(item.qty || 1),
       0
     );
 
@@ -691,12 +691,12 @@ export function KasirProvider({ children }) {
       previousTransactions.map((item) =>
         item.id === id
           ? {
-              ...item,
-              orderStatus: normalizedStatus,
-              statusPesanan: normalizedStatus,
-              status_pesanan: normalizedStatus,
-              status: normalizedStatus,
-            }
+            ...item,
+            orderStatus: normalizedStatus,
+            statusPesanan: normalizedStatus,
+            status_pesanan: normalizedStatus,
+            status: normalizedStatus,
+          }
           : item
       )
     );
@@ -710,12 +710,12 @@ export function KasirProvider({ children }) {
         return previousOrders.map((item) =>
           item.id === id
             ? {
-                ...item,
-                orderStatus: normalizedStatus,
-                statusPesanan: normalizedStatus,
-                status_pesanan: normalizedStatus,
-                status: normalizedStatus,
-              }
+              ...item,
+              orderStatus: normalizedStatus,
+              statusPesanan: normalizedStatus,
+              status_pesanan: normalizedStatus,
+              status: normalizedStatus,
+            }
             : item
         );
       }
@@ -788,9 +788,9 @@ export function KasirProvider({ children }) {
       previousCashiers.map((item) =>
         String(item.id) === String(id)
           ? {
-              ...item,
-              ...mapCashier(row),
-            }
+            ...item,
+            ...mapCashier(row),
+          }
           : item
       )
     );
@@ -807,20 +807,17 @@ export function KasirProvider({ children }) {
       '../services/kasirService'
     );
 
-    await remove(id);
+    const hasil = await remove(id); // 'dihapus' | 'nonaktif'
 
     setCashiers((previousCashiers) =>
-      previousCashiers.map((item) =>
-        String(item.id) === String(id)
-          ? {
-              ...item,
-              status: 'nonaktif',
-            }
-          : item
-      )
+      hasil === 'dihapus'
+        ? previousCashiers.filter((item) => String(item.id) !== String(id))
+        : previousCashiers.map((item) =>
+          String(item.id) === String(id) ? { ...item, status: 'nonaktif' } : item
+        )
     );
 
-    return true;
+    return hasil;
   };
 
   // =====================================================
@@ -905,7 +902,7 @@ export function KasirProvider({ children }) {
 
   return (
     <KasirContext.Provider value={value}>
-      {children}
+      {children}<DialogHost />
     </KasirContext.Provider>
   );
 }

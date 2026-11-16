@@ -18,123 +18,33 @@
   3. **Dewi Ikrimah:** Dashboard dan Stok — Dashboard Owner, Tampilan Penjualan, Stok Bahan Baku, Penambahan Stok, & Riwayat Stok
   4. **Faija Kulla Azmina:** Pengeluaran dan Laporan Keuangan — CRUD Pengeluaran dengan Foto Item & Foto Struk (Cloud Storage), Laporan Keuangan Owner, & Integrasi Pengeluaran dengan Terima Stok
 
----
-## Video Flow Semua CRUD
-Drive :
+### Uji 1: Catat Pengeluaran ###
+![alt text](iPhone-14-PRO-localhost-3wlcj446br3xpq.gif)
 
-https://drive.google.com/drive/folders/1NkY0BnC75SzdP0Lm1H3p5_4QSzryTnOM?usp=sharing
+### Uji 2: Read dan Update Pengeluaran ###
+![alt text](iPhone-14-PRO-localhost-__4hg9xof1qxul.gif)
 
-Youtube :
-[SESUAIKAN: tempel tautan YouTube]
+### Uji 3: Delete Pengeluaran ###
 
----
 
-## 1. Tujuan dan Capaian Praktikum
+### Uji 4: Update Stok Bahan ###
+![alt text](iPhone-14-PRO-localhost-__4hg9xof1qxul-1.gif)
 
-Praktikum ini bertujuan memigrasikan penyimpanan data lokal (data dummy `mockData`) ke backend cloud berbasis **Supabase** (PostgreSQL Database, Supabase Auth, dan Cloud Storage) pada aplikasi Kedai Seblak:
-1. Membangun project Supabase terintegrasi, skema relasional, tabel dengan constraint (`check`, `foreign key`, kolom `generated`), bucket Cloud Storage, serta kebijakan keamanan *Row Level Security* (RLS) berbasis peran (owner dan kasir).
-2. Menghubungkan aplikasi React Native (Expo) dengan Supabase melalui klien terpusat (`src/lib/supabase.js`, `@supabase/supabase-js`) dan lapisan *service* per entitas.
-3. Memindahkan entitas inti (Menu, Akun Kasir, Transaksi, Detail Transaksi, Pengeluaran, Stok Bahan, dan Mutasi Stok) ke cloud database.
-4. Menerapkan autentikasi Supabase Auth dengan dua peran, yaitu **Owner** dan **Kasir**.
-5. Menerapkan manajemen file foto pengeluaran (foto item dan foto struk) di Supabase Storage bucket `pengeluaran`, termasuk URL publik untuk menampilkan foto di aplikasi.
-6. Menghubungkan pencatatan pengeluaran dengan stok bahan, sehingga pembelian bahan tercatat sebagai mutasi stok masuk.
-7. Menyajikan laporan keuangan owner (omzet, pengeluaran, dan laba bersih) dari data cloud.
-8. Memastikan data tetap tersimpan permanen (persisten) di cloud dan akses data dibatasi sesuai peran melalui RLS.
+### Uji 5: Create Transaksi Pembelian ###
+![alt text](iPhone-14-PRO-localhost-hwaoli_55ja158.gif)
 
----
+### Uji 6: Read Pesanan Aktif ###
+![alt text](iPhone-14-PRO-localhost-rnnh-9p2ljjhc_.gif)
 
-## 2. Arsitektur Basis Data Cloud (Supabase)
+### Uji 7: Read Riwayat Transaksi ###
 
-Seluruh tabel dilindungi *Row Level Security* (RLS). Hak akses dibedakan berdasarkan peran melalui fungsi `is_owner()` dan akun pada tabel `profiles`. Berkas SQL tersimpan di `KedaiSeblak/supabase/sql-editor/`.
 
-### 2.1 Tabel `menu_topping` (Modul Menu Kasir — Shinta)
-```sql
-create table public.menu_topping (
-  id uuid primary key default gen_random_uuid(),
-  nama text not null check (length(trim(nama)) >= 2),
-  kategori text not null,
-  harga numeric(12,2) not null check (harga > 0),
-  stok integer not null default 0 check (stok >= 0),
-  berat text not null default '1 pcs',
-  status text not null default 'Aktif' check (status in ('Aktif','Nonaktif')),
-  emoji text default '🍲',
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-```
+### Uji 8: Create Kasir ###
 
-### 2.2 Tabel `kasir` (Modul Manajemen Kasir — Shinta)
-```sql
-create table public.kasir (
-  id uuid primary key references auth.users(id) on delete cascade,
-  kode_kasir text unique,
-  nama text not null,
-  username text unique not null,
-  no_telepon text,
-  status text not null default 'aktif' check (status in ('aktif','nonaktif')),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-```
 
-### 2.3 Tabel `transaksi` & `detail_transaksi` (Modul Transaksi dan Riwayat — Maya)
-```sql
-create table public.transaksi (
-  id uuid primary key default gen_random_uuid(),
-  nomor_transaksi text not null unique,
-  kasir_id uuid references public.kasir(id) on delete set null,
-  nama_kasir text not null,
-  tipe_pesanan text not null default 'Dine In' check (tipe_pesanan in ('Dine In','Takeaway')),
-  kuah text,
-  level_pedas integer check (level_pedas between 0 and 10),
-  catatan text,
-  subtotal numeric(12,2) not null check (subtotal >= 0),
-  diskon numeric(12,2) not null default 0 check (diskon >= 0),
-  total numeric(12,2) not null check (total >= 0),
-  metode_pembayaran text not null,
-  uang_diterima numeric(12,2) not null default 0,
-  kembalian numeric(12,2) not null default 0,
-  status text not null default 'Lunas' check (status in ('Menunggu','Lunas','Dibatalkan','Refund')),
-  created_at timestamptz not null default now()
-);
+### Uji 9: Update Kasir ###
 
-create table public.detail_transaksi (
-  id uuid primary key default gen_random_uuid(),
-  transaksi_id uuid not null references public.transaksi(id) on delete cascade,
-  menu_id uuid references public.menu_topping(id) on delete set null,
-  nama_menu text not null,
-  harga_satuan numeric(12,2) not null check (harga_satuan >= 0),
-  jumlah integer not null check (jumlah > 0),
-  subtotal numeric(12,2) not null check (subtotal >= 0),
-  created_at timestamptz not null default now()
-);
-```
-
-### 2.4 Tabel `stok_bahan` & `mutasi_stok` (Modul Dashboard dan Stok — Dewi)
-```sql
-create table public.stok_bahan (
-  id uuid primary key default gen_random_uuid(),
-  nama_bahan text not null unique,
-  kategori text not null,
-  satuan text not null default 'pcs',
-  stok numeric(12,2) not null default 0 check (stok >= 0),
-  stok_minimum numeric(12,2) not null default 0 check (stok_minimum >= 0),
-  harga_satuan numeric(12,2) not null default 0 check (harga_satuan >= 0),
-  updated_at timestamptz not null default now(),
-  created_at timestamptz not null default now()
-);
-
-create table public.mutasi_stok (
-  id uuid primary key default gen_random_uuid(),
-  stok_id uuid not null references public.stok_bahan(id) on delete cascade,
-  tipe text not null check (tipe in ('masuk','keluar','penyesuaian')),
-  jumlah numeric(12,2) not null check (jumlah > 0),
-  keterangan text,
-  pengeluaran_id uuid references public.pengeluaran(id) on delete set null,
-  dibuat_oleh uuid references public.profiles(id) on delete set null,
-  created_at timestamptz not null default now()
-);
-```
+### Uji 10: Delete Kasir ###
 
 ### 2.5 Tabel `pengeluaran` (Modul Pengeluaran dan Laporan Keuangan — Faija)
 ```sql
@@ -255,7 +165,7 @@ create policy pengeluaran_owner_all on public.pengeluaran for all to authenticat
 
 #### A.2 Tabel `menu_topping` di Table Editor Supabase
 <div align="center">
-  <img src="bukti-tabel-menu-topping.png" width="75%" alt="Tabel Menu Topping Supabase">
+  ![alt text](image-6.png)
 </div>
 
 #### A.3 Tampilan Menu pada Halaman Kasir
@@ -270,7 +180,7 @@ create policy pengeluaran_owner_all on public.pengeluaran for all to authenticat
 
 #### A.5 Tampilan Data Kasir pada Manajemen Kasir Owner
 <div align="center">
-  <img src="bukti-data-kasir.png" width="30%" alt="Data Kasir Owner">
+  <img src="Screenrecording_20261116_130528.gif" width="30%" alt="Manajemen Kasir Owner">
 </div>
 
 #### A.6 Tambah, Ubah, dan Hapus Data Kasir

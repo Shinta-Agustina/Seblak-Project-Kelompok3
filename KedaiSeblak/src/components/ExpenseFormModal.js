@@ -1,3 +1,4 @@
+import { Alert } from '../utils/dialog';
 import React, { useState, useEffect } from 'react';
 import {
   Modal,
@@ -11,7 +12,6 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Image,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';

@@ -1,3 +1,4 @@
+import { Alert } from '../../utils/dialog';
 import React, { useState } from 'react';
 import {
   View,
@@ -7,7 +8,6 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   TextInput,
-  Alert,
   Platform,
 } from 'react-native';
 import { useKasir } from '../../context/KasirContext';

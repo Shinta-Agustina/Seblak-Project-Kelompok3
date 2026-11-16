@@ -1,4 +1,4 @@
-
+import { Alert } from '../../utils/dialog';
 import React, {
   useState,
   useMemo,
@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
-  Alert,
   ScrollView,
   useWindowDimensions,
   KeyboardAvoidingView,
@@ -271,27 +270,29 @@ export default function KelolaKasirScreen() {
   const handleDeleteCashier = (id, cashierName) => {
     Alert.alert(
       'Konfirmasi',
-      `Apakah Anda yakin ingin menonaktifkan akun ${cashierName}?`,
+      `Hapus akun ${cashierName}?\n\nJika kasir sudah punya riwayat shift/transaksi, akun akan dinonaktifkan (tidak bisa login) dan datanya tetap tersimpan.`,
       [
         {
           text: 'Batal',
           style: 'cancel',
         },
         {
-          text: 'Nonaktifkan',
+          text: 'Hapus',
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteCashier(id);
+              const hasil = await deleteCashier(id);
 
               Alert.alert(
                 'Berhasil',
-                `Akun kasir ${cashierName} berhasil dinonaktifkan.`
+                hasil === 'dihapus'
+                  ? `Akun kasir ${cashierName} berhasil dihapus.`
+                  : `Akun kasir ${cashierName} sudah punya riwayat, jadi dinonaktifkan.`
               );
             } catch (error) {
               Alert.alert(
                 'Gagal',
-                error.message || 'Kasir gagal dinonaktifkan.'
+                error.message || 'Kasir gagal dihapus.'
               );
             }
           },
@@ -492,7 +493,7 @@ export default function KelolaKasirScreen() {
               style={[
                 styles.tabText,
                 activeTab === 'akun' &&
-                  styles.activeTabText,
+                styles.activeTabText,
               ]}
             >
               Daftar Akun
@@ -510,7 +511,7 @@ export default function KelolaKasirScreen() {
               style={[
                 styles.tabText,
                 activeTab === 'shift' &&
-                  styles.activeTabText,
+                styles.activeTabText,
               ]}
             >
               Monitoring Shift

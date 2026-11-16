@@ -1,3 +1,4 @@
+import { Alert } from '../utils/dialog';
 import React, { useState, useEffect } from 'react';
 import {
   Modal,
@@ -11,7 +12,6 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Image,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -423,210 +423,210 @@ export default function MenuFormModal({
                     )}
                   </View>
 
-                {/* 2. Field Harga (dengan Suffix Rp) */}
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>
-                    Harga <Text style={styles.requiredAsterisk}>*</Text>
-                  </Text>
-                  <View
-                    style={[
-                      styles.inputContainerWithSuffix,
-                      errors.harga && styles.inputErrorBorder,
-                    ]}
-                  >
-                    <Ionicons
-                      name="cash-outline"
-                      size={18}
-                      color="#78665E"
-                      style={styles.inputLeftIcon}
-                    />
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="Masukkan harga"
-                      placeholderTextColor="#A69A90"
-                      value={harga}
-                      onChangeText={(text) => setHarga(text.replace(/[^0-9]/g, ''))}
-                      onBlur={() => sentuh('harga')}
-                      keyboardType="numeric"
-                    />
-                    <View style={styles.suffixBox}>
-                      <Text style={styles.suffixText}>Rp</Text>
-                    </View>
-                  </View>
-                  {errors.harga && (
-                    <Text style={styles.errorText}>{errors.harga}</Text>
-                  )}
-                </View>
-
-                {/* 3. Field Stok (dengan Suffix pcs) */}
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>
-                    Stok <Text style={styles.requiredAsterisk}>*</Text>
-                  </Text>
-                  <View
-                    style={[
-                      styles.inputContainerWithSuffix,
-                      errors.stok && styles.inputErrorBorder,
-                    ]}
-                  >
-                    <Ionicons
-                      name="cube-outline"
-                      size={18}
-                      color="#78665E"
-                      style={styles.inputLeftIcon}
-                    />
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="Masukkan stok"
-                      placeholderTextColor="#A69A90"
-                      value={stok}
-                      onChangeText={(text) => setStok(text.replace(/[^0-9]/g, ''))}
-                      onBlur={() => sentuh('stok')}
-                      keyboardType="numeric"
-                    />
-                    <View style={styles.suffixBox}>
-                      <Text style={styles.suffixText}>pcs</Text>
-                    </View>
-                  </View>
-                  {errors.stok && (
-                    <Text style={styles.errorText}>{errors.stok}</Text>
-                  )}
-                </View>
-
-                {/* 4. Field Status (Radio Buttons: Aktif & Nonaktif) */}
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>
-                    Status <Text style={styles.requiredAsterisk}>*</Text>
-                  </Text>
-                  <View style={styles.radioRow}>
-                    {/* Radio Aktif */}
-                    <TouchableOpacity
-                      style={styles.radioOption}
-                      onPress={() => setStatus('Aktif')}
-                      activeOpacity={0.7}
-                    >
-                      <View
-                        style={[
-                          styles.radioCircle,
-                          status === 'Aktif' && styles.radioCircleSelected,
-                        ]}
-                      >
-                        {status === 'Aktif' && (
-                          <View style={styles.radioInnerDot} />
-                        )}
-                      </View>
-                      <Text
-                        style={[
-                          styles.radioLabel,
-                          status === 'Aktif' && styles.radioLabelActive,
-                        ]}
-                      >
-                        Aktif
-                      </Text>
-                    </TouchableOpacity>
-
-                    {/* Radio Nonaktif */}
-                    <TouchableOpacity
-                      style={styles.radioOption}
-                      onPress={() => setStatus('Nonaktif')}
-                      activeOpacity={0.7}
-                    >
-                      <View
-                        style={[
-                          styles.radioCircle,
-                          status === 'Nonaktif' && styles.radioCircleSelected,
-                        ]}
-                      >
-                        {status === 'Nonaktif' && (
-                          <View style={styles.radioInnerDot} />
-                        )}
-                      </View>
-                      <Text
-                        style={[
-                          styles.radioLabel,
-                          status === 'Nonaktif' && styles.radioLabelActive,
-                        ]}
-                      >
-                        Nonaktif
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* 5. Field Foto Menu (Sesuai Mockup 2 & 3) */}
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>
-                    Foto Menu <Text style={styles.requiredAsterisk}>*</Text>
-                  </Text>
-
-                  {!image ? (
-                    /* TAMPILAN TAMBAH MENU: Box Besar Dashed "Pilih Foto" */
-                    <TouchableOpacity
+                  {/* 2. Field Harga (dengan Suffix Rp) */}
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.fieldLabel}>
+                      Harga <Text style={styles.requiredAsterisk}>*</Text>
+                    </Text>
+                    <View
                       style={[
-                        styles.photoUploadBox,
-                        errors.image && styles.inputErrorBorder,
+                        styles.inputContainerWithSuffix,
+                        errors.harga && styles.inputErrorBorder,
                       ]}
-                      onPress={handlePickPhoto}
-                      activeOpacity={0.7}
                     >
-                      <View style={styles.cameraIconCircle}>
-                        <Ionicons name="camera" size={24} color="#FFFFFF" />
+                      <Ionicons
+                        name="cash-outline"
+                        size={18}
+                        color="#78665E"
+                        style={styles.inputLeftIcon}
+                      />
+                      <TextInput
+                        style={styles.textInput}
+                        placeholder="Masukkan harga"
+                        placeholderTextColor="#A69A90"
+                        value={harga}
+                        onChangeText={(text) => setHarga(text.replace(/[^0-9]/g, ''))}
+                        onBlur={() => sentuh('harga')}
+                        keyboardType="numeric"
+                      />
+                      <View style={styles.suffixBox}>
+                        <Text style={styles.suffixText}>Rp</Text>
                       </View>
-                      <Text style={styles.photoUploadTitle}>Pilih Foto</Text>
-                      <Text style={styles.photoUploadSubtitle}>
-                        JPG, PNG (maks. 2MB)
-                      </Text>
-                    </TouchableOpacity>
-                  ) : (
-                    /* TAMPILAN EDIT MENU: Thumbnail Kotak + Tombol "Ganti Foto" */
-                    <View style={styles.photoRowContainer}>
-                      <View style={styles.photoThumbnailBox}>
-                        <Image
-                          source={{ uri: image }}
-                          style={styles.photoThumbnailImage}
-                          resizeMode="cover"
-                        />
+                    </View>
+                    {errors.harga && (
+                      <Text style={styles.errorText}>{errors.harga}</Text>
+                    )}
+                  </View>
+
+                  {/* 3. Field Stok (dengan Suffix pcs) */}
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.fieldLabel}>
+                      Stok <Text style={styles.requiredAsterisk}>*</Text>
+                    </Text>
+                    <View
+                      style={[
+                        styles.inputContainerWithSuffix,
+                        errors.stok && styles.inputErrorBorder,
+                      ]}
+                    >
+                      <Ionicons
+                        name="cube-outline"
+                        size={18}
+                        color="#78665E"
+                        style={styles.inputLeftIcon}
+                      />
+                      <TextInput
+                        style={styles.textInput}
+                        placeholder="Masukkan stok"
+                        placeholderTextColor="#A69A90"
+                        value={stok}
+                        onChangeText={(text) => setStok(text.replace(/[^0-9]/g, ''))}
+                        onBlur={() => sentuh('stok')}
+                        keyboardType="numeric"
+                      />
+                      <View style={styles.suffixBox}>
+                        <Text style={styles.suffixText}>pcs</Text>
                       </View>
+                    </View>
+                    {errors.stok && (
+                      <Text style={styles.errorText}>{errors.stok}</Text>
+                    )}
+                  </View>
+
+                  {/* 4. Field Status (Radio Buttons: Aktif & Nonaktif) */}
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.fieldLabel}>
+                      Status <Text style={styles.requiredAsterisk}>*</Text>
+                    </Text>
+                    <View style={styles.radioRow}>
+                      {/* Radio Aktif */}
                       <TouchableOpacity
-                        style={styles.changePhotoBtn}
+                        style={styles.radioOption}
+                        onPress={() => setStatus('Aktif')}
+                        activeOpacity={0.7}
+                      >
+                        <View
+                          style={[
+                            styles.radioCircle,
+                            status === 'Aktif' && styles.radioCircleSelected,
+                          ]}
+                        >
+                          {status === 'Aktif' && (
+                            <View style={styles.radioInnerDot} />
+                          )}
+                        </View>
+                        <Text
+                          style={[
+                            styles.radioLabel,
+                            status === 'Aktif' && styles.radioLabelActive,
+                          ]}
+                        >
+                          Aktif
+                        </Text>
+                      </TouchableOpacity>
+
+                      {/* Radio Nonaktif */}
+                      <TouchableOpacity
+                        style={styles.radioOption}
+                        onPress={() => setStatus('Nonaktif')}
+                        activeOpacity={0.7}
+                      >
+                        <View
+                          style={[
+                            styles.radioCircle,
+                            status === 'Nonaktif' && styles.radioCircleSelected,
+                          ]}
+                        >
+                          {status === 'Nonaktif' && (
+                            <View style={styles.radioInnerDot} />
+                          )}
+                        </View>
+                        <Text
+                          style={[
+                            styles.radioLabel,
+                            status === 'Nonaktif' && styles.radioLabelActive,
+                          ]}
+                        >
+                          Nonaktif
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* 5. Field Foto Menu (Sesuai Mockup 2 & 3) */}
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.fieldLabel}>
+                      Foto Menu <Text style={styles.requiredAsterisk}>*</Text>
+                    </Text>
+
+                    {!image ? (
+                      /* TAMPILAN TAMBAH MENU: Box Besar Dashed "Pilih Foto" */
+                      <TouchableOpacity
+                        style={[
+                          styles.photoUploadBox,
+                          errors.image && styles.inputErrorBorder,
+                        ]}
                         onPress={handlePickPhoto}
                         activeOpacity={0.7}
                       >
-                        <Ionicons name="camera-outline" size={18} color="#2C1810" />
-                        <Text style={styles.changePhotoBtnText}>Ganti Foto</Text>
+                        <View style={styles.cameraIconCircle}>
+                          <Ionicons name="camera" size={24} color="#FFFFFF" />
+                        </View>
+                        <Text style={styles.photoUploadTitle}>Pilih Foto</Text>
+                        <Text style={styles.photoUploadSubtitle}>
+                          JPG, PNG (maks. 2MB)
+                        </Text>
                       </TouchableOpacity>
-                    </View>
-                  )}
+                    ) : (
+                      /* TAMPILAN EDIT MENU: Thumbnail Kotak + Tombol "Ganti Foto" */
+                      <View style={styles.photoRowContainer}>
+                        <View style={styles.photoThumbnailBox}>
+                          <Image
+                            source={{ uri: image }}
+                            style={styles.photoThumbnailImage}
+                            resizeMode="cover"
+                          />
+                        </View>
+                        <TouchableOpacity
+                          style={styles.changePhotoBtn}
+                          onPress={handlePickPhoto}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="camera-outline" size={18} color="#2C1810" />
+                          <Text style={styles.changePhotoBtnText}>Ganti Foto</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
 
-                  {errors.image && (
-                    <Text style={styles.errorText}>{errors.image}</Text>
-                  )}
+                    {errors.image && (
+                      <Text style={styles.errorText}>{errors.image}</Text>
+                    )}
+                  </View>
+                </ScrollView>
+
+                {/* Action Buttons Footer: Batal & Simpan Menu / Simpan Perubahan */}
+                <View style={styles.modalFooter}>
+                  <CustomButton
+                    title="Batal"
+                    variant="outline"
+                    onPress={onClose}
+                    style={styles.footerBtn}
+                  />
+                  <CustomButton
+                    title={isEdit ? 'Simpan Perubahan' : 'Simpan Menu'}
+                    variant="primary"
+                    loading={loading}
+                    disabled={!formValid || loading}
+                    onPress={handleSave}
+                    style={[styles.footerBtn, styles.saveBtn]}
+                  />
                 </View>
-              </ScrollView>
-
-              {/* Action Buttons Footer: Batal & Simpan Menu / Simpan Perubahan */}
-              <View style={styles.modalFooter}>
-                <CustomButton
-                  title="Batal"
-                  variant="outline"
-                  onPress={onClose}
-                  style={styles.footerBtn}
-                />
-                <CustomButton
-                  title={isEdit ? 'Simpan Perubahan' : 'Simpan Menu'}
-                  variant="primary"
-                  loading={loading}
-                  disabled={!formValid || loading}
-                  onPress={handleSave}
-                  style={[styles.footerBtn, styles.saveBtn]}
-                />
               </View>
-            </View>
-          </KeyboardAvoidingView>
-        </TouchableWithoutFeedback>
-      </View>
-    </TouchableWithoutFeedback>
-  </Modal>
+            </KeyboardAvoidingView>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
   );
 }
 

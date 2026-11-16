@@ -1,4 +1,3 @@
-
 import { supabase } from '../../lib/supabase';
 
 // =====================================================
@@ -287,7 +286,7 @@ export async function updateStock(id, values = {}) {
     }
 
     // Cari topping yang dibuat oleh trigger sinkronisasi stok.
-    const { data: topping, error: toppingError } = await supabase
+    let { data: topping, error: toppingError } = await supabase
       .from('menu_topping')
       .select('id, stok_id')
       .eq('stok_id', id)
@@ -295,10 +294,26 @@ export async function updateStock(id, values = {}) {
 
     if (toppingError) throw toppingError;
 
+    // Topping belum ada (trigger sinkronisasi belum berjalan) -> bentuk sekarang.
     if (!topping) {
-      throw new Error(
-        'Data topping belum terbentuk. Periksa trigger sinkronisasi stok_bahan ke menu_topping.'
-      );
+      const { data: dibuat, error: buatError } = await supabase
+        .from('menu_topping')
+        .insert({
+          nama: updatedStock.nama_bahan,
+          kategori: updatedStock.kategori || 'Topping',
+          harga: Number(updatedStock.harga_jual),
+          stok: 0,
+          berat: `1 ${updatedStock.satuan || 'pcs'}`,
+          status: 'aktif',
+          stok_id: id,
+        })
+        .select('id, stok_id')
+        .single();
+
+      if (buatError) {
+        throw new Error(`Gagal membentuk data topping: ${buatError.message}`);
+      }
+      topping = dibuat;
     }
 
     // Simpan resep.
