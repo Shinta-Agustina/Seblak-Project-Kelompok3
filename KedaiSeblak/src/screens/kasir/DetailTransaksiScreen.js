@@ -14,6 +14,8 @@ import { useKasir } from '../../context/KasirContext';
 import { updateTransaction, deleteTransaction } from '../../services/transaksiService';
 import { Ionicons } from '@expo/vector-icons';
 import formatCurrency from '../../utils/formatCurrency';
+import { formatNomorTransaksi } from '../../utils/nomorTransaksi';
+
 
 export default function DetailTransaksiScreen({ navigation, route }) {
   const { width } = useWindowDimensions();
@@ -71,7 +73,7 @@ export default function DetailTransaksiScreen({ navigation, route }) {
       ? transaction.details
       : [];
 
-  const orderNumber = transaction.orderNo || transaction.no || transaction.id || '-';
+  const orderNumber = formatNomorTransaksi(transaction.orderNo || transaction.no || transaction.id || '-');
   const total = Number(transaction.total || 0);
   const method = transaction.method || transaction.metode || transaction.paymentMethod || '-';
   const isCash = ['tunai', 'cash'].includes(String(method).toLowerCase());

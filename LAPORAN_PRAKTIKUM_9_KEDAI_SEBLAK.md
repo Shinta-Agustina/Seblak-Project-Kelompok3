@@ -165,28 +165,28 @@ create policy pengeluaran_owner_all on public.pengeluaran for all to authenticat
 
 #### A.2 Tabel `menu_topping` di Table Editor Supabase
 <div align="center">
-  <img src="Cuplikan layar 2026-11-16 191330.png" width="75%" alt="Tabel menu_topping Supabase">
+  <img src="Tabel menu_topping.png" width="75%" alt="Tabel menu_topping Supabase">
 </div>
 </div>
 
 #### A.3 Tampilan Menu pada Halaman Kasir
 <div align="center">
-  <img src="bukti-menu-kasir.png" width="30%" alt="Menu pada Halaman Kasir">
+  <img src="Tampilan_Kasir.gif" width="30%" alt="Menu pada Halaman Kasir">
 </div>
 
 #### A.4 Tabel `kasir` di Table Editor Supabase
 <div align="center">
-  <img src="Cuplikan layar 2026-11-16 195419.png" width="75%" alt="Tabel Kasir Supabase">
+  <img src="Tabel_kasir.png" width="75%" alt="Tabel Kasir Supabase">
 </div>
 
 #### A.5 Tampilan Data Kasir pada Manajemen Kasir Owner
 <div align="center">
-  <img src="Screenrecording_20261116_130528.gif" width="30%" alt="Manajemen Kasir Owner">
+  <img src="Manajemen_kasir.gif" width="30%" alt="Manajemen Kasir Owner">
 </div>
 
 #### A.6 Tambah, Ubah, dan Hapus Data Kasir
 <div align="center">
-  <img src="WhatsApp Video 2026-11-16 at 19.24.45.gif" width="30%" alt="CRUD Kasir">
+  <img src="Mencoba_fungsi.gif" width="30%" alt="CRUD Kasir">
 </div>
 
 ---
@@ -195,30 +195,30 @@ create policy pengeluaran_owner_all on public.pengeluaran for all to authenticat
 
 #### B.1 Tabel `transaksi` & `detail_transaksi` di Supabase
 <div align="center">
-  <img src="Cuplikan layar 2026-11-16 200237.png" width="75%" alt="Tabel Transaksi Supabase"
+  <img src="Tabel_kasir.png" width="75%" alt="Tabel Transaksi Supabase"
 
-  <img src="![alt text](<Cuplikan layar 2026-11-16 200254.png>)" width="75%" alt="Tabel Transaksi Supabase"
-  
+  <img src="![alt text](<Tabel_detailtransaksi.png>)" width="75%" alt="Tabel Transaksi Supabase"
+
 </div>
 
 #### B.2 Penyimpanan Transaksi Setelah Pembayaran
 <div align="center">
-  <img src="bukti-simpan-transaksi.gif" width="30%" alt="Penyimpanan Transaksi">
+  <img src="Riwayat_transaksi.gif" width="30%" alt="Penyimpanan Transaksi">
 </div>
 
 #### B.3 Tampilan Riwayat Transaksi & Detail Transaksi
 <div align="center">
-  <img src="WhatsApp%20Video%202026-10-26%20at%2010.30.26.gif" width="30%" alt="Riwayat Transaksi">
+  <img src="Riwayat_transaksi.gif" width="30%" alt="Riwayat Transaksi">
 </div>
 
 #### B.4 Perubahan Status Pesanan
 <div align="center">
-  <img src="WhatsApp%20Video%202026-10-26%20at%2010.30.22.gif" width="30%" alt="Perubahan Status Pesanan">
+  <img src="Pesanan_aktif.gif" width="30%" alt="Perubahan Status Pesanan">
 </div>
 
 #### B.5 Rekap Laporan Penjualan
 <div align="center">
-  <img src="WhatsApp%20Video%202026-10-26%20at%2010.30.30.gif" width="30%" alt="Laporan Penjualan">
+  <img src="Laporan_penjualan.gif" width="30%" alt="Laporan Penjualan">
 </div>
 
 ---
@@ -227,7 +227,8 @@ create policy pengeluaran_owner_all on public.pengeluaran for all to authenticat
 
 #### C.1 Tabel `stok_bahan` & `mutasi_stok` di Supabase
 <div align="center">
-  <img src="bukti-tabel-stok-bahan.png" width="75%" alt="Tabel Stok Bahan dan Mutasi Stok Supabase">
+  <img src="Tabel_stokbahan.png" width="75%" alt="Tabel Stok Bahan dan Mutasi Stok Supabase">
+  <img src="Tabel_mutasistok.png" width="75%" alt="Tabel Stok Bahan dan Mutasi Stok Supabase">
 </div>
 
 #### C.2 Dashboard Owner (Ringkasan dari Data Cloud)
@@ -271,12 +272,12 @@ create policy pengeluaran_owner_all on public.pengeluaran for all to authenticat
 
 #### D.4 Tambah, Ubah, dan Hapus Pengeluaran dengan Foto
 <div align="center">
-  <img src="fitur%20pengeluaran.gif" width="30%" alt="CRUD Pengeluaran">
+  <img src="fitur_pengeluaran.gif" width="30%" alt="CRUD Pengeluaran">
 </div>
 
 #### D.5 Laporan Keuangan Owner (Omzet, Pengeluaran, Laba Bersih)
 <div align="center">
-  <img src="fitur%20laporan%20keuangan.gif" width="30%" alt="Laporan Keuangan Owner">
+  <img src="fitur_laporankeuangan.gif" width="30%" alt="Laporan Keuangan Owner">
 </div>
 
 #### D.6 Integrasi Pengeluaran dengan Terima Stok & Pencatatan `mutasi_stok`

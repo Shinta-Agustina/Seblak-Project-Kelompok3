@@ -15,6 +15,7 @@ export default function Sidebar({
   activeTab: activeTabProp,
   setActiveTab: setActiveTabProp,
   onLogout,
+  onClose,
 }) {
   const {
     user,
@@ -119,6 +120,11 @@ export default function Sidebar({
   const handleSelectTab = (tabId) => {
     if (setActiveTab) {
       setActiveTab(tabId);
+    }
+
+    // Pada tampilan mobile, tutup laci setelah memilih menu.
+    if (onClose) {
+      onClose();
     }
   };
 

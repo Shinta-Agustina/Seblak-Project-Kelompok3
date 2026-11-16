@@ -751,7 +751,7 @@ export default function DashboardKasirScreen({ navigation }) {
         <Sidebar isMobile={false} />
       )}
 
-      {sidebarOpen && (
+      {isMobile && sidebarOpen && (
         <View style={styles.mobileBackdrop}>
           <TouchableOpacity
             style={styles.backdropTouch}

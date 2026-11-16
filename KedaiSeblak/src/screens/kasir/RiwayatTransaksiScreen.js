@@ -1,3 +1,4 @@
+
 import { Alert } from '../../utils/dialog';
 import React, { useMemo, useState } from 'react';
 import {
@@ -14,6 +15,8 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useKasir } from '../../context/KasirContext';
 import formatCurrency from '../../utils/formatCurrency';
+import { formatNomorTransaksi } from '../../utils/nomorTransaksi';
+
 
 const METHOD_TABS = ['Semua', 'Tunai', 'Non Tunai'];
 const PAGE_SIZE = 5;
@@ -337,12 +340,13 @@ export default function RiwayatTransaksiScreen({
       trx.meja ||
       'Dine In';
 
-    const transactionNumber =
+    const transactionNumber = formatNomorTransaksi(
       trx.no ||
       trx.nomor_transaksi ||
       trx.orderNo ||
       trx.id ||
-      `#00${index + 1}`;
+      `#00${index + 1}`
+    );
 
     const transactionTime =
       trx.waktu ||
@@ -441,8 +445,9 @@ export default function RiwayatTransaksiScreen({
           style={[
             styles.td,
             {
-              width: 60,
-              fontWeight: '700',
+              width: 130,
+              fontWeight: '800',
+              fontVariant: ['tabular-nums'],
               color: '#8D7B70',
             },
           ]}
@@ -715,8 +720,8 @@ export default function RiwayatTransaksiScreen({
           <View style={styles.tableInner}>
             {!isMobile && (
               <View style={styles.tableHead}>
-                <Text style={[styles.th, { width: 60 }]}>
-                  No
+                <Text style={[styles.th, { width: 130 }]}>
+                  No. Transaksi
                 </Text>
 
                 <Text style={[styles.th, { width: 70 }]}>

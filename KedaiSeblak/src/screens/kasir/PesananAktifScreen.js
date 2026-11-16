@@ -12,6 +12,8 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useKasir } from '../../context/KasirContext';
 import formatCurrency from '../../utils/formatCurrency';
+import { formatNomorTransaksi } from '../../utils/nomorTransaksi';
+
 
 const STATUS_CONFIG = {
   Menunggu: {
@@ -319,7 +321,7 @@ export default function PesananAktifScreen({ onOpenDetail }) {
 
     return (
       <View style={styles.tableHead}>
-        <Text style={[styles.th, { width: 55 }]}>No</Text>
+        <Text style={[styles.th, { width: 130 }]}>No. Transaksi</Text>
 
         <Text style={[styles.th, { width: 65 }]}>
           Waktu
@@ -379,12 +381,13 @@ export default function PesananAktifScreen({ onOpenDetail }) {
     const orderItems = getItemNames(order);
     const isFinished = currentStatus === 'Selesai';
 
-    const orderNumber =
+    const orderNumber = formatNomorTransaksi(
       order.orderNo ||
       order.nomor_transaksi ||
       order.no ||
       order.id ||
-      `#00${index + 1}`;
+      `#00${index + 1}`
+    );
 
     const orderTime =
       order.time ||
@@ -473,8 +476,9 @@ export default function PesananAktifScreen({ onOpenDetail }) {
           style={[
             styles.td,
             {
-              width: 55,
-              fontWeight: '700',
+              width: 130,
+              fontWeight: '800',
+              fontVariant: ['tabular-nums'],
               color: '#8D7B70',
             },
           ]}
@@ -951,10 +955,10 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   wideTable: {
-    width: 700,
+    width: 775,
   },
   wideRow: {
-    width: 700,
+    width: 775,
   },
   tableHead: {
     flexDirection: 'row',
