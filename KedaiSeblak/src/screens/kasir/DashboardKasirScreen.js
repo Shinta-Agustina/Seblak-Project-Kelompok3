@@ -1,3 +1,4 @@
+import { Alert } from '../../utils/dialog';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -11,7 +12,6 @@ import {
   TextInput,
   useWindowDimensions,
   Modal,
-  Alert,
 } from 'react-native';
 
 import {

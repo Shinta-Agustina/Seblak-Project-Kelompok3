@@ -255,7 +255,7 @@ create policy pengeluaran_owner_all on public.pengeluaran for all to authenticat
 
 #### A.2 Tabel `menu_topping` di Table Editor Supabase
 <div align="center">
-  <img src="bukti-tabel-menu-topping.png" width="75%" alt="Tabel Menu Topping Supabase">
+  ![alt text](image-6.png)
 </div>
 
 #### A.3 Tampilan Menu pada Halaman Kasir
@@ -270,7 +270,7 @@ create policy pengeluaran_owner_all on public.pengeluaran for all to authenticat
 
 #### A.5 Tampilan Data Kasir pada Manajemen Kasir Owner
 <div align="center">
-  <img src="bukti-data-kasir.png" width="30%" alt="Data Kasir Owner">
+  <img src="Screenrecording_20261116_130528.gif" width="30%" alt="Manajemen Kasir Owner">
 </div>
 
 #### A.6 Tambah, Ubah, dan Hapus Data Kasir

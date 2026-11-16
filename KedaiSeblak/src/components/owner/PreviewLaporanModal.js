@@ -1,3 +1,4 @@
+import { Alert } from '../../utils/dialog';
 import React, { useState } from 'react';
 import {
   Modal,
@@ -7,7 +8,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Platform,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import formatCurrency from '../../utils/formatCurrency';

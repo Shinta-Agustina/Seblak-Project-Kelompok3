@@ -1,4 +1,4 @@
-
+import { Alert } from '../../utils/dialog';
 import React, { useEffect, useState, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -7,7 +7,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   useWindowDimensions,
-  Alert,
 } from 'react-native';
 
 import Sidebar from '../../components/Sidebar';

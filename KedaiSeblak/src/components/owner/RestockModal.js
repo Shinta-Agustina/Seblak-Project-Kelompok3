@@ -1,4 +1,5 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+﻿import { Alert } from '../../utils/dialog';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   View,
@@ -6,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -164,7 +164,7 @@ export default function RestockModal({
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={saving ? () => {} : onClose}
+      onRequestClose={saving ? () => { } : onClose}
     >
       <KeyboardAvoidingView
         style={styles.backdrop}

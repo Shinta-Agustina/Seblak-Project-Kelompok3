@@ -1,3 +1,4 @@
+import { Alert } from '../utils/dialog';
 import React from 'react';
 import {
   View,
@@ -6,7 +7,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

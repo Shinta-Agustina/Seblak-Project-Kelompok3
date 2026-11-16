@@ -1,4 +1,5 @@
 ﻿
+import { Alert } from '../../utils/dialog';
 import React, { useEffect, useState } from 'react';
 import {
   Modal,
@@ -11,7 +12,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -97,7 +97,7 @@ export default function StockFormModal({
           ['Bumbu', 'Bumbu & Kuah', 'Bahan Dasar'].includes(
             kategoriAwal
           ) ||
-          String(initialData.id || '').startsWith('STK-BAHAN-')
+            String(initialData.id || '').startsWith('STK-BAHAN-')
             ? 'Bumbu'
             : 'Topping'
         );
@@ -106,9 +106,9 @@ export default function StockFormModal({
       setJenisStok(jenisAwal);
       setKategori(
         kategoriAwal ||
-          (jenisAwal === 'Bumbu'
-            ? 'Bumbu'
-            : 'Kerupuk & Makaroni')
+        (jenisAwal === 'Bumbu'
+          ? 'Bumbu'
+          : 'Kerupuk & Makaroni')
       );
       setSatuan(initialData.satuan || 'kg');
       setSisa(String(initialData.sisa ?? ''));
@@ -379,14 +379,14 @@ export default function StockFormModal({
                     style={[
                       styles.optionButton,
                       jenisStok === jenis &&
-                        styles.optionActive,
+                      styles.optionActive,
                     ]}
                   >
                     <Text
                       style={[
                         styles.optionText,
                         jenisStok === jenis &&
-                          styles.optionTextActive,
+                        styles.optionTextActive,
                       ]}
                     >
                       {jenis}
@@ -415,14 +415,14 @@ export default function StockFormModal({
                     style={[
                       styles.categoryButton,
                       kategori === item &&
-                        styles.categoryActive,
+                      styles.categoryActive,
                     ]}
                   >
                     <Text
                       style={[
                         styles.categoryText,
                         kategori === item &&
-                          styles.categoryTextActive,
+                        styles.categoryTextActive,
                       ]}
                     >
                       {item}
@@ -449,7 +449,7 @@ export default function StockFormModal({
                       style={[
                         styles.categoryText,
                         satuan === item &&
-                          styles.categoryTextActive,
+                        styles.categoryTextActive,
                       ]}
                     >
                       {item}

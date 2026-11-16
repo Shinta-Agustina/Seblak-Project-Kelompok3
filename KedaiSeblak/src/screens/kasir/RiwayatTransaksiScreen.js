@@ -1,4 +1,4 @@
-
+import { Alert } from '../../utils/dialog';
 import React, { useMemo, useState } from 'react';
 import {
   View,
@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   Modal,
-  Alert,
 } from 'react-native';
 
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -870,7 +869,7 @@ export default function RiwayatTransaksiScreen({
           style={[
             styles.pageBtn,
             safeCurrentPage === totalPages &&
-              styles.pageBtnDisabled,
+            styles.pageBtnDisabled,
           ]}
           onPress={() =>
             setCurrentPage((page) =>
@@ -952,7 +951,7 @@ export default function RiwayatTransaksiScreen({
               style={[
                 styles.filterOptionBtn,
                 dateFilterMode === 'today' &&
-                  styles.filterOptionBtnActive,
+                styles.filterOptionBtnActive,
               ]}
               onPress={() =>
                 changeDateFilter('today')
@@ -971,7 +970,7 @@ export default function RiwayatTransaksiScreen({
                     style={[
                       styles.optionTitle,
                       dateFilterMode === 'today' &&
-                        styles.optionTitleActive,
+                      styles.optionTitleActive,
                     ]}
                   >
                     Hari Ini (Harian)
@@ -1002,7 +1001,7 @@ export default function RiwayatTransaksiScreen({
               style={[
                 styles.filterOptionBtn,
                 dateFilterMode === 'yesterday' &&
-                  styles.filterOptionBtnActive,
+                styles.filterOptionBtnActive,
               ]}
               onPress={() =>
                 changeDateFilter('yesterday')
@@ -1021,7 +1020,7 @@ export default function RiwayatTransaksiScreen({
                     style={[
                       styles.optionTitle,
                       dateFilterMode === 'yesterday' &&
-                        styles.optionTitleActive,
+                      styles.optionTitleActive,
                     ]}
                   >
                     Kemarin
@@ -1065,7 +1064,7 @@ export default function RiwayatTransaksiScreen({
               style={[
                 styles.filterOptionBtn,
                 dateFilterMode === 'all' &&
-                  styles.filterOptionBtnActive,
+                styles.filterOptionBtnActive,
               ]}
               onPress={() =>
                 changeDateFilter('all')
@@ -1077,7 +1076,7 @@ export default function RiwayatTransaksiScreen({
                   style={[
                     styles.optionTitle,
                     dateFilterMode === 'all' &&
-                      styles.optionTitleActive,
+                    styles.optionTitleActive,
                   ]}
                 >
                   Semua Riwayat Tanggal
