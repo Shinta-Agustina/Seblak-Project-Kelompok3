@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import {
   View,
@@ -8,7 +9,9 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   Modal,
+  Alert,
 } from 'react-native';
+
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useKasir } from '../../context/KasirContext';
 import formatCurrency from '../../utils/formatCurrency';
@@ -38,29 +41,50 @@ const getFormattedYesterday = () => {
 };
 
 const getTransactionDate = (transaction) => {
-  const rawDate = transaction?.date || transaction?.tanggal;
+  const rawDate =
+    transaction?.date ||
+    transaction?.tanggal ||
+    transaction?.created_at;
+
   if (!rawDate) return null;
 
   if (typeof rawDate === 'string') {
     const match = rawDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
     if (match) {
       const [, day, month, year] = match;
-      const date = new Date(Number(year), Number(month) - 1, Number(day));
+
+      const date = new Date(
+        Number(year),
+        Number(month) - 1,
+        Number(day)
+      );
+
       if (
         date.getFullYear() !== Number(year) ||
         date.getMonth() !== Number(month) - 1 ||
         date.getDate() !== Number(day)
-      ) return null;
+      ) {
+        return null;
+      }
+
       return date;
     }
   }
 
   const date = new Date(rawDate);
+
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
 const getPaymentMethod = (transaction) =>
-  String(transaction?.metode || transaction?.method || '').trim();
+  String(
+    transaction?.metode ||
+    transaction?.method ||
+    transaction?.metode_pembayaran ||
+    transaction?.paymentMethod ||
+    ''
+  ).trim();
 
 const isSameDay = (firstDate, secondDate) => {
   return (
@@ -70,10 +94,18 @@ const isSameDay = (firstDate, secondDate) => {
   );
 };
 
-export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
+export default function RiwayatTransaksiScreen({
+  onOpenReceipt,
+  onOpenDetail,
+}) {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
+
   const { transactions = [] } = useKasir();
+
+  // Mendukung kedua nama prop agar kompatibel
+  // dengan DashboardKasirScreen versi lama maupun baru.
+  const handleOpenReceipt = onOpenReceipt || onOpenDetail;
 
   const [activeMethod, setActiveMethod] = useState('Semua');
   const [currentPage, setCurrentPage] = useState(1);
@@ -81,6 +113,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
   const [dateFilterMode, setDateFilterMode] = useState('all');
 
   const today = new Date();
+
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
 
@@ -90,7 +123,11 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
   const filtered = useMemo(() => {
     return transactions.filter((transaction) => {
       const method = getPaymentMethod(transaction).toLowerCase();
-      const isCash = method === 'tunai' || method === 'cash';
+
+      const isCash =
+        method === 'tunai' ||
+        method === 'cash';
+
       const methodMatch =
         activeMethod === 'Semua' ||
         (activeMethod === 'Tunai' ? isCash : !isCash);
@@ -100,6 +137,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
       if (dateFilterMode === 'all') return true;
 
       const transactionDate = getTransactionDate(transaction);
+
       if (!transactionDate) return false;
 
       if (dateFilterMode === 'today') {
@@ -115,30 +153,49 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
   }, [transactions, activeMethod, dateFilterMode]);
 
   const totalAll = transactions.reduce(
-    (sum, transaction) => sum + Number(transaction.total || 0),
+    (sum, transaction) =>
+      sum + Number(transaction.total || transaction.total_harga || 0),
     0
   );
 
   const totalTunai = transactions
-    .filter((transaction) => ['tunai', 'cash'].includes(getPaymentMethod(transaction).toLowerCase()))
+    .filter((transaction) =>
+      ['tunai', 'cash'].includes(
+        getPaymentMethod(transaction).toLowerCase()
+      )
+    )
     .reduce(
-      (sum, transaction) => sum + Number(transaction.total || 0),
+      (sum, transaction) =>
+        sum + Number(transaction.total || transaction.total_harga || 0),
       0
     );
 
   const totalNonTunai = transactions
-    .filter((transaction) => !['tunai', 'cash'].includes(getPaymentMethod(transaction).toLowerCase()))
+    .filter((transaction) =>
+      !['tunai', 'cash'].includes(
+        getPaymentMethod(transaction).toLowerCase()
+      )
+    )
     .reduce(
-      (sum, transaction) => sum + Number(transaction.total || 0),
+      (sum, transaction) =>
+        sum + Number(transaction.total || transaction.total_harga || 0),
       0
     );
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filtered.length / PAGE_SIZE)
+  );
+
   const safeCurrentPage = Math.min(currentPage, totalPages);
 
   const paginatedItems = useMemo(() => {
     const startIndex = (safeCurrentPage - 1) * PAGE_SIZE;
-    return filtered.slice(startIndex, startIndex + PAGE_SIZE);
+
+    return filtered.slice(
+      startIndex,
+      startIndex + PAGE_SIZE
+    );
   }, [filtered, safeCurrentPage]);
 
   const changeMethod = (method) => {
@@ -152,8 +209,23 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
     setFilterModalVisible(false);
   };
 
+  // Membuka detail transaksi dan mengirim data ke DashboardKasirScreen.
   const openReceipt = (transaction) => {
-    if (!onOpenReceipt) return;
+    if (!transaction) {
+      Alert.alert(
+        'Transaksi Tidak Ditemukan',
+        'Data transaksi tidak tersedia.'
+      );
+      return;
+    }
+
+    if (typeof handleOpenReceipt !== 'function') {
+      Alert.alert(
+        'Struk Tidak Bisa Dibuka',
+        'Fungsi pembuka struk belum tersambung. Periksa pemanggilan RiwayatTransaksiScreen di DashboardKasirScreen.'
+      );
+      return;
+    }
 
     const transactionDate = getTransactionDate(transaction);
 
@@ -161,44 +233,199 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
       ? transaction.items
       : Array.isArray(transaction.details)
         ? transaction.details
-        : [];
+        : Array.isArray(transaction.detail_transaksi)
+          ? transaction.detail_transaksi
+          : [];
 
-    onOpenReceipt({
-      orderNo: transaction.orderNo || transaction.no || transaction.id || '-',
-      orderType: transaction.orderType || transaction.tableNo || transaction.meja || 'Dine In',
-      tableNo: transaction.orderType || transaction.tableNo || transaction.meja || 'Dine In',
+    if (receiptItems.length === 0) {
+      Alert.alert(
+        'Detail Pesanan Kosong',
+        'Data item transaksi tidak ditemukan.'
+      );
+      return;
+    }
+
+    const orderNo =
+      transaction.orderNo ||
+      transaction.nomor_transaksi ||
+      transaction.no ||
+      transaction.id ||
+      '-';
+
+    const orderType =
+      transaction.orderType ||
+      transaction.tipe_pesanan ||
+      transaction.tableNo ||
+      transaction.meja ||
+      'Dine In';
+
+    const total = Number(
+      transaction.total ??
+      transaction.total_harga ??
+      0
+    );
+
+    const receiptData = {
+      ...transaction,
+
+      id: transaction.id,
+
+      orderNo,
+      nomor_transaksi: orderNo,
+
+      orderType,
+      tableNo: orderType,
+
       date: transactionDate
         ? transactionDate.toLocaleDateString('id-ID')
-        : transaction.tanggal || '-',
-      time: transaction.time || transaction.waktu || '-',
+        : transaction.tanggal || transaction.date || '-',
+
+      time:
+        transaction.time ||
+        transaction.waktu ||
+        '-',
+
       items: receiptItems,
-      total: Number(transaction.total || 0),
-      method: getPaymentMethod(transaction) || '-',
-      cashPaid: Number(transaction.cashPaid ?? transaction.cashAmount ?? 0),
-      change: Number(transaction.change || 0),
-      kasir: transaction.kasir || '-',
-      kuah: transaction.kuah || 'Original',
-      pedas: transaction.pedas ?? 3,
-      catatan: transaction.catatan || '',
-      status: transaction.status || '-',
-    });
+
+      total,
+
+      method:
+        getPaymentMethod(transaction) || '-',
+
+      cashPaid: Number(
+        transaction.cashPaid ??
+        transaction.cashAmount ??
+        transaction.uang_diterima ??
+        transaction.uangDiterima ??
+        0
+      ),
+
+      change: Number(
+        transaction.change ??
+        transaction.kembalian ??
+        0
+      ),
+
+      kasir:
+        transaction.kasir ||
+        transaction.nama_kasir ||
+        '-',
+
+      kuah:
+        transaction.kuah ||
+        'Original',
+
+      pedas:
+        transaction.pedas ??
+        transaction.level_pedas ??
+        3,
+
+      catatan:
+        transaction.catatan || '',
+
+      status:
+        transaction.status || '-',
+    };
+
+    handleOpenReceipt(receiptData);
   };
 
   const renderTransaction = ({ item: trx, index }) => {
-    // Menampilkan tipe pesanan (Dine In / Takeaway)
-    const orderTypeLabel = trx.orderType || trx.tableNo || trx.meja || 'Dine In';
+    const orderTypeLabel =
+      trx.orderType ||
+      trx.tipe_pesanan ||
+      trx.tableNo ||
+      trx.meja ||
+      'Dine In';
+
+    const transactionNumber =
+      trx.no ||
+      trx.nomor_transaksi ||
+      trx.orderNo ||
+      trx.id ||
+      `#00${index + 1}`;
+
+    const transactionTime =
+      trx.waktu ||
+      trx.time ||
+      '-';
+
+    const transactionTotal = Number(
+      trx.total ||
+      trx.total_harga ||
+      0
+    );
 
     if (isMobile) {
       return (
-        <TouchableOpacity activeOpacity={0.8} onPress={() => openReceipt(trx)}
-          style={{ backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#EFE7E2', padding: 12, marginBottom: 8 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-            <Text style={{ flex: 1, fontSize: 12, fontWeight: '800', color: '#52141D' }} numberOfLines={1}>{trx.no}</Text>
-            <Text style={{ fontSize: 14, fontWeight: '800', color: '#C62828' }}>{formatCurrency(Number(trx.total || 0))}</Text>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => openReceipt(trx)}
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: '#EFE7E2',
+            padding: 12,
+            marginBottom: 8,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <Text
+              style={{
+                flex: 1,
+                fontSize: 12,
+                fontWeight: '800',
+                color: '#52141D',
+              }}
+              numberOfLines={1}
+            >
+              {transactionNumber}
+            </Text>
+
+            <Text
+              style={{
+                fontSize: 14,
+                fontWeight: '800',
+                color: '#C62828',
+              }}
+            >
+              {formatCurrency(transactionTotal)}
+            </Text>
           </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-            <Text style={{ fontSize: 11, color: '#8D7B70' }}>{trx.waktu || '-'} · {orderTypeLabel}</Text>
-            <Text style={{ fontSize: 11, color: '#4A3028', fontWeight: '600' }}>{getPaymentMethod(trx) || '-'}</Text>
+
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              marginTop: 6,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 11,
+                color: '#8D7B70',
+              }}
+            >
+              {transactionTime} · {orderTypeLabel}
+            </Text>
+
+            <Text
+              style={{
+                fontSize: 11,
+                color: '#4A3028',
+                fontWeight: '600',
+              }}
+            >
+              {getPaymentMethod(trx) || '-'}
+            </Text>
           </View>
         </TouchableOpacity>
       );
@@ -214,20 +441,36 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         <Text
           style={[
             styles.td,
-            { width: 60, fontWeight: '700', color: '#8D7B70' },
+            {
+              width: 60,
+              fontWeight: '700',
+              color: '#8D7B70',
+            },
           ]}
         >
-          {trx.no || `#00${index + 1}`}
-        </Text>
-
-        <Text style={[styles.td, { width: 70, color: '#6F5C53' }]}>
-          {trx.waktu || '-'}
+          {transactionNumber}
         </Text>
 
         <Text
           style={[
             styles.td,
-            { width: 90, fontWeight: '700', color: '#2C1810' },
+            {
+              width: 70,
+              color: '#6F5C53',
+            },
+          ]}
+        >
+          {transactionTime}
+        </Text>
+
+        <Text
+          style={[
+            styles.td,
+            {
+              width: 90,
+              fontWeight: '700',
+              color: '#2C1810',
+            },
           ]}
         >
           {orderTypeLabel}
@@ -244,25 +487,36 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
             },
           ]}
         >
-          {formatCurrency(Number(trx.total || 0))}
+          {formatCurrency(transactionTotal)}
         </Text>
 
         <Text
           style={[
             styles.td,
-            { width: 110, textAlign: 'center', color: '#4A3028' },
+            {
+              width: 110,
+              textAlign: 'center',
+              color: '#4A3028',
+            },
           ]}
         >
           {getPaymentMethod(trx) || '-'}
         </Text>
 
-        <View style={{ width: 75, alignItems: 'center' }}>
+        <View
+          style={{
+            width: 75,
+            alignItems: 'center',
+          }}
+        >
           <TouchableOpacity
             style={styles.detailBtn}
             onPress={() => openReceipt(trx)}
             activeOpacity={0.7}
           >
-            <Text style={styles.detailBtnText}>Detail</Text>
+            <Text style={styles.detailBtnText}>
+              Detail
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -276,7 +530,11 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         size={40}
         color="#BCA99D"
       />
-      <Text style={styles.emptyTitle}>Belum ada transaksi</Text>
+
+      <Text style={styles.emptyTitle}>
+        Belum ada transaksi
+      </Text>
+
       <Text style={styles.emptyDescription}>
         Tidak ada transaksi yang sesuai dengan filter yang dipilih.
       </Text>
@@ -299,7 +557,9 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
           },
         ]}
       >
-        <Text style={styles.title}>Riwayat Transaksi</Text>
+        <Text style={styles.title}>
+          Riwayat Transaksi
+        </Text>
 
         <View style={styles.dateFilterRow}>
           <TouchableOpacity
@@ -312,6 +572,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
               size={16}
               color="#C62828"
             />
+
             <Text style={styles.dateRangeText}>
               {dateFilterMode === 'today'
                 ? todayFormatted
@@ -332,7 +593,10 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
               color="#FFFFFF"
               style={{ marginRight: 4 }}
             />
-            <Text style={styles.filterBtnText}>Filter</Text>
+
+            <Text style={styles.filterBtnText}>
+              Filter
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -340,7 +604,10 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
       <View
         style={[
           styles.metricsRow,
-          isMobile && { flexDirection: 'column', gap: 10 },
+          isMobile && {
+            flexDirection: 'column',
+            gap: 10,
+          },
         ]}
       >
         <View style={styles.metricCard}>
@@ -351,8 +618,12 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
               color="#C62828"
             />
           </View>
+
           <View style={styles.metricTextGroup}>
-            <Text style={styles.metricLabel}>Total Transaksi</Text>
+            <Text style={styles.metricLabel}>
+              Total Transaksi
+            </Text>
+
             <Text style={styles.metricValue}>
               {formatCurrency(totalAll)}
             </Text>
@@ -367,8 +638,12 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
               color="#2E7D32"
             />
           </View>
+
           <View style={styles.metricTextGroup}>
-            <Text style={styles.metricLabel}>Tunai</Text>
+            <Text style={styles.metricLabel}>
+              Tunai
+            </Text>
+
             <Text style={styles.metricValue}>
               {formatCurrency(totalTunai)}
             </Text>
@@ -383,8 +658,12 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
               color="#1565C0"
             />
           </View>
+
           <View style={styles.metricTextGroup}>
-            <Text style={styles.metricLabel}>Non Tunai</Text>
+            <Text style={styles.metricLabel}>
+              Non Tunai
+            </Text>
+
             <Text style={styles.metricValue}>
               {formatCurrency(totalNonTunai)}
             </Text>
@@ -399,7 +678,10 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
           return (
             <TouchableOpacity
               key={tab}
-              style={[styles.tab, isActive && styles.tabActive]}
+              style={[
+                styles.tab,
+                isActive && styles.tabActive,
+              ]}
               onPress={() => changeMethod(tab)}
               activeOpacity={0.7}
             >
@@ -416,42 +698,73 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         })}
       </View>
 
-      <View style={[styles.tableCard, isMobile && { backgroundColor: 'transparent', borderWidth: 0, elevation: 0, shadowOpacity: 0 }]}>
+      <View
+        style={[
+          styles.tableCard,
+          isMobile && {
+            backgroundColor: 'transparent',
+            borderWidth: 0,
+            elevation: 0,
+            shadowOpacity: 0,
+          },
+        ]}
+      >
         <ScrollView
           horizontal={false}
           showsHorizontalScrollIndicator={true}
         >
-          <View style={[styles.tableInner]}>
-            {!isMobile && <View style={styles.tableHead}>
-              <Text style={[styles.th, { width: 60 }]}>No</Text>
-              <Text style={[styles.th, { width: 70 }]}>Waktu</Text>
-              {/* Kolom Meja diubah menjadi Tipe Pesanan */}
-              <Text style={[styles.th, { width: 90 }]}>Tipe</Text>
-              <Text
-                style={[
-                  styles.th,
-                  { flex: 1.5, textAlign: 'right' },
-                ]}
-              >
-                Total
-              </Text>
-              <Text
-                style={[
-                  styles.th,
-                  { width: 110, textAlign: 'center' },
-                ]}
-              >
-                Metode
-              </Text>
-              <Text
-                style={[
-                  styles.th,
-                  { width: 75, textAlign: 'center' },
-                ]}
-              >
-                Aksi
-              </Text>
-            </View>}
+          <View style={styles.tableInner}>
+            {!isMobile && (
+              <View style={styles.tableHead}>
+                <Text style={[styles.th, { width: 60 }]}>
+                  No
+                </Text>
+
+                <Text style={[styles.th, { width: 70 }]}>
+                  Waktu
+                </Text>
+
+                <Text style={[styles.th, { width: 90 }]}>
+                  Tipe
+                </Text>
+
+                <Text
+                  style={[
+                    styles.th,
+                    {
+                      flex: 1.5,
+                      textAlign: 'right',
+                    },
+                  ]}
+                >
+                  Total
+                </Text>
+
+                <Text
+                  style={[
+                    styles.th,
+                    {
+                      width: 110,
+                      textAlign: 'center',
+                    },
+                  ]}
+                >
+                  Metode
+                </Text>
+
+                <Text
+                  style={[
+                    styles.th,
+                    {
+                      width: 75,
+                      textAlign: 'center',
+                    },
+                  ]}
+                >
+                  Aksi
+                </Text>
+              </View>
+            )}
 
             <FlatList
               data={paginatedItems}
@@ -475,7 +788,9 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
             safeCurrentPage === 1 && styles.pageBtnDisabled,
           ]}
           onPress={() =>
-            setCurrentPage((page) => Math.max(1, page - 1))
+            setCurrentPage((page) =>
+              Math.max(1, page - 1)
+            )
           }
           disabled={safeCurrentPage === 1}
         >
@@ -487,16 +802,65 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         </TouchableOpacity>
 
         {(() => {
-          const set = new Set([1, totalPages, safeCurrentPage - 1, safeCurrentPage, safeCurrentPage + 1]);
-          const nums = [...set].filter((n) => n >= 1 && n <= totalPages).sort((x, y) => x - y);
-          const out = [];
-          nums.forEach((n, i) => { if (i && n - nums[i - 1] > 1) out.push('gap' + n); out.push(n); });
-          return out.map((n) => {
-            if (typeof n === 'string') return <Text key={n} style={{ color: '#8D7B70', paddingHorizontal: 2 }}>…</Text>;
+          const pageSet = new Set([
+            1,
+            totalPages,
+            safeCurrentPage - 1,
+            safeCurrentPage,
+            safeCurrentPage + 1,
+          ]);
+
+          const nums = [...pageSet]
+            .filter((n) => n >= 1 && n <= totalPages)
+            .sort((a, b) => a - b);
+
+          const output = [];
+
+          nums.forEach((n, i) => {
+            if (
+              i &&
+              n - nums[i - 1] > 1
+            ) {
+              output.push(`gap${n}`);
+            }
+
+            output.push(n);
+          });
+
+          return output.map((n) => {
+            if (typeof n === 'string') {
+              return (
+                <Text
+                  key={n}
+                  style={{
+                    color: '#8D7B70',
+                    paddingHorizontal: 2,
+                  }}
+                >
+                  …
+                </Text>
+              );
+            }
+
             const isActive = safeCurrentPage === n;
+
             return (
-              <TouchableOpacity key={n} style={[styles.pageBtn, isActive && styles.pageBtnActive]} onPress={() => setCurrentPage(n)}>
-                <Text style={[styles.pageBtnText, isActive && styles.pageBtnTextActive]}>{n}</Text>
+              <TouchableOpacity
+                key={n}
+                style={[
+                  styles.pageBtn,
+                  isActive && styles.pageBtnActive,
+                ]}
+                onPress={() => setCurrentPage(n)}
+              >
+                <Text
+                  style={[
+                    styles.pageBtnText,
+                    isActive && styles.pageBtnTextActive,
+                  ]}
+                >
+                  {n}
+                </Text>
               </TouchableOpacity>
             );
           });
@@ -506,7 +870,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
           style={[
             styles.pageBtn,
             safeCurrentPage === totalPages &&
-            styles.pageBtnDisabled,
+              styles.pageBtnDisabled,
           ]}
           onPress={() =>
             setCurrentPage((page) =>
@@ -527,12 +891,16 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
         visible={filterModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setFilterModalVisible(false)}
+        onRequestClose={() =>
+          setFilterModalVisible(false)
+        }
       >
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPress={() => setFilterModalVisible(false)}
+          onPress={() =>
+            setFilterModalVisible(false)
+          }
         >
           <View
             style={styles.modalContent}
@@ -551,13 +919,16 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
                   size={18}
                   color="#C62828"
                 />
+
                 <Text style={styles.modalTitle}>
                   Filter Riwayat Transaksi
                 </Text>
               </View>
 
               <TouchableOpacity
-                onPress={() => setFilterModalVisible(false)}
+                onPress={() =>
+                  setFilterModalVisible(false)
+                }
                 hitSlop={{
                   top: 10,
                   bottom: 10,
@@ -581,9 +952,11 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
               style={[
                 styles.filterOptionBtn,
                 dateFilterMode === 'today' &&
-                styles.filterOptionBtnActive,
+                  styles.filterOptionBtnActive,
               ]}
-              onPress={() => changeDateFilter('today')}
+              onPress={() =>
+                changeDateFilter('today')
+              }
               activeOpacity={0.7}
             >
               <View style={{ flex: 1 }}>
@@ -598,7 +971,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
                     style={[
                       styles.optionTitle,
                       dateFilterMode === 'today' &&
-                      styles.optionTitleActive,
+                        styles.optionTitleActive,
                     ]}
                   >
                     Hari Ini (Harian)
@@ -629,9 +1002,11 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
               style={[
                 styles.filterOptionBtn,
                 dateFilterMode === 'yesterday' &&
-                styles.filterOptionBtnActive,
+                  styles.filterOptionBtnActive,
               ]}
-              onPress={() => changeDateFilter('yesterday')}
+              onPress={() =>
+                changeDateFilter('yesterday')
+              }
               activeOpacity={0.7}
             >
               <View style={{ flex: 1 }}>
@@ -646,7 +1021,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
                     style={[
                       styles.optionTitle,
                       dateFilterMode === 'yesterday' &&
-                      styles.optionTitleActive,
+                        styles.optionTitleActive,
                     ]}
                   >
                     Kemarin
@@ -690,9 +1065,11 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
               style={[
                 styles.filterOptionBtn,
                 dateFilterMode === 'all' &&
-                styles.filterOptionBtnActive,
+                  styles.filterOptionBtnActive,
               ]}
-              onPress={() => changeDateFilter('all')}
+              onPress={() =>
+                changeDateFilter('all')
+              }
               activeOpacity={0.7}
             >
               <View style={{ flex: 1 }}>
@@ -700,7 +1077,7 @@ export default function RiwayatTransaksiScreen({ onOpenReceipt }) {
                   style={[
                     styles.optionTitle,
                     dateFilterMode === 'all' &&
-                    styles.optionTitleActive,
+                      styles.optionTitleActive,
                   ]}
                 >
                   Semua Riwayat Tanggal
@@ -731,26 +1108,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F5F2',
   },
+
   contentContainer: {
     padding: 20,
     paddingBottom: 40,
   },
+
   headerSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
   },
+
   title: {
     fontSize: 18,
     fontWeight: '900',
     color: '#2C1810',
   },
+
   dateFilterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
+
   dateRangeBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -762,11 +1144,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
+
   dateRangeText: {
     fontSize: 11,
     fontWeight: '600',
     color: '#4A3028',
   },
+
   filterBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -775,16 +1159,19 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     paddingHorizontal: 14,
   },
+
   filterBtnText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
+
   metricsRow: {
     flexDirection: 'row',
     gap: 14,
     marginBottom: 16,
   },
+
   metricCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -801,6 +1188,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 5,
   },
+
   metricIconCircleRed: {
     width: 36,
     height: 36,
@@ -809,6 +1197,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   metricIconCircleGreen: {
     width: 36,
     height: 36,
@@ -817,6 +1206,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   metricIconCircleBlue: {
     width: 36,
     height: 36,
@@ -825,26 +1215,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   metricTextGroup: {
     flex: 1,
     justifyContent: 'center',
   },
+
   metricLabel: {
     fontSize: 11,
     color: '#8D7B70',
     fontWeight: '600',
   },
+
   metricValue: {
     fontSize: 15,
     fontWeight: '900',
     color: '#2C1810',
     marginTop: 2,
   },
+
   tabsRow: {
     flexDirection: 'row',
     gap: 8,
     marginBottom: 14,
   },
+
   tab: {
     paddingVertical: 6,
     paddingHorizontal: 16,
@@ -853,18 +1248,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8DCD4',
   },
+
   tabActive: {
     backgroundColor: '#C62828',
     borderColor: '#C62828',
   },
+
   tabText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#7E6E67',
   },
+
   tabTextActive: {
     color: '#FFFFFF',
   },
+
   tableCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
@@ -877,9 +1276,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 6,
   },
+
   tableInner: {
     width: '100%',
   },
+
   tableHead: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -889,6 +1290,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#EFE7E2',
   },
+
   th: {
     fontSize: 11,
     fontWeight: '800',
@@ -896,6 +1298,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
+
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -904,12 +1307,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F5ECE6',
   },
+
   rowAlternate: {
     backgroundColor: '#FCFAF8',
   },
+
   td: {
     fontSize: 12,
   },
+
   detailBtn: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -918,36 +1324,42 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
   },
+
   detailBtnText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#8D7B70',
   },
+
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 28,
   },
+
   emptyTitle: {
     marginTop: 10,
     fontSize: 14,
     fontWeight: '800',
     color: '#2C1810',
   },
+
   emptyDescription: {
     marginTop: 5,
     fontSize: 12,
     color: '#8D7B70',
     textAlign: 'center',
   },
+
   paginationRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
-    flexWrap: "wrap",
+    flexWrap: 'wrap',
     marginTop: 16,
   },
+
   pageBtn: {
     width: 28,
     height: 28,
@@ -958,21 +1370,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   pageBtnActive: {
     backgroundColor: '#C62828',
     borderColor: '#C62828',
   },
+
   pageBtnDisabled: {
     opacity: 0.4,
   },
+
   pageBtnText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#6F5C53',
   },
+
   pageBtnTextActive: {
     color: '#FFFFFF',
   },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(44, 24, 16, 0.45)',
@@ -980,6 +1397,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
+
   modalContent: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -994,6 +1412,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 10,
   },
+
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1003,16 +1422,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F0E8E2',
   },
+
   modalTitle: {
     fontSize: 15,
     fontWeight: '800',
     color: '#2C1810',
   },
+
   modalSubtitle: {
     fontSize: 12,
     color: '#8D7B70',
     marginBottom: 14,
   },
+
   filterOptionBtn: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1024,23 +1446,28 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     backgroundColor: '#FAFAF8',
   },
+
   filterOptionBtnActive: {
     borderColor: '#C62828',
     backgroundColor: '#FDF4F4',
   },
+
   optionTitle: {
     fontSize: 13,
     fontWeight: '700',
     color: '#2C1810',
   },
+
   optionTitleActive: {
     color: '#C62828',
   },
+
   optionSub: {
     fontSize: 11,
     color: '#8D7B70',
     marginTop: 2,
   },
+
   badgeHarian: {
     backgroundColor: '#E8F5E9',
     paddingVertical: 2,
@@ -1049,6 +1476,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#C8E6C9',
   },
+
   badgeHarianText: {
     fontSize: 10,
     color: '#2E7D32',

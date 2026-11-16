@@ -106,18 +106,15 @@ export default function DashboardKasirScreen({ navigation }) {
   // ==========================================
 
   useEffect(() => {
-    if (paymentVisible || !pendingReceipt) {
-      return;
-    }
+    if (paymentVisible || !pendingReceipt) return;
 
-    const timer = setTimeout(() => {
-      setLastTransaction(pendingReceipt);
-      setReceiptVisible(true);
-      setPendingReceipt(null);
-      setCurrentOrderPayload(null);
-    }, 400);
-
-    return () => clearTimeout(timer);
+    // Tampilkan struk segera setelah modal pembayaran tertutup.
+    // Pesanan sudah lebih dulu disimpan dan dimasukkan ke Context
+    // oleh checkoutOrder sebelum callback ini dipanggil.
+    setLastTransaction(pendingReceipt);
+    setReceiptVisible(true);
+    setPendingReceipt(null);
+    setCurrentOrderPayload(null);
   }, [paymentVisible, pendingReceipt]);
 
   // ==========================================
@@ -785,7 +782,7 @@ export default function DashboardKasirScreen({ navigation }) {
 
         {activeTab === 'Riwayat Transaksi' && (
           <RiwayatTransaksiScreen
-            onOpenDetail={handleOpenReceiptFromHistory}
+            onOpenReceipt={handleOpenReceiptFromHistory}
           />
         )}
 
