@@ -22,7 +22,7 @@
 ## Video Flow Semua CRUD
 Drive :
 
-[SESUAIKAN: tempel tautan folder Google Drive]
+https://drive.google.com/drive/folders/1NkY0BnC75SzdP0Lm1H3p5_4QSzryTnOM?usp=sharing
 
 Youtube :
 [SESUAIKAN: tempel tautan YouTube]
