@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useKasir } from '../context/KasirContext';
-
+ 
 export default function TopHeader({ onToggleSidebar, isSidebarOpen, title, role }) {
   const { user, activeTab } = useKasir();
   const isOwner = role === 'Owner' || user?.role === 'Owner';
-
+ 
   const getPageTitle = () => {
     if (title) return title;
     switch (activeTab) {
@@ -23,17 +23,17 @@ export default function TopHeader({ onToggleSidebar, isSidebarOpen, title, role 
         return 'Kasir - Point of Sale';
     }
   };
-
+ 
   const displayRole = role || user?.role || 'Kasir';
-  const displayName = user?.name || (displayRole === 'Owner' ? 'Dewi (Owner)' : 'Siti Aisyah');
-
+  const displayName = user?.name || 'Pengguna';
+ 
   const avatarSource =
     typeof user?.avatar === 'string'
       ? { uri: user.avatar }
       : user?.avatar || (isOwner
           ? { uri: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80' }
           : require('../../assets/images/avatar-kasir.png'));
-
+ 
   return (
     <View style={styles.container}>
       {/* Left Section: Hamburger & Title */}
@@ -50,12 +50,12 @@ export default function TopHeader({ onToggleSidebar, isSidebarOpen, title, role 
             <View style={styles.burgerLine} />
           </View>
         </TouchableOpacity>
-
+ 
         <Text style={styles.pageTitle} numberOfLines={1}>
           {getPageTitle()}
         </Text>
       </View>
-
+ 
       {/* Right Section: Profil Pengguna (Kasir / Owner) */}
       <View style={[styles.profileChip, isOwner && styles.profileChipOwner]}>
         <View style={[styles.avatarContainer, isOwner && styles.avatarOwner]}>
@@ -78,7 +78,7 @@ export default function TopHeader({ onToggleSidebar, isSidebarOpen, title, role 
     </View>
   );
 }
-
+ 
 const styles = StyleSheet.create({
   container: {
     height: 60,

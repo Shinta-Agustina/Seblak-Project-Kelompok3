@@ -1,16 +1,17 @@
 {
   "expo": {
     "name": "Manajemen Kedai Seblak",
-    "slug": "Manajemen Kedai Seblak",
+    "slug": "kedai-seblak",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "Manajemen Kedai Seblak",
+    "scheme": "kedaiseblak",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
     },
-    "android": {
+"android": {
+          "package": "com.kedaiseblak.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
