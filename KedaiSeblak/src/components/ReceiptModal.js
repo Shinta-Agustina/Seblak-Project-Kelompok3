@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import formatCurrency from '../utils/formatCurrency';
+import { formatNomorTransaksi } from '../utils/nomorTransaksi';
+
 
 export default function ReceiptModal({
   visible,
@@ -19,7 +21,7 @@ export default function ReceiptModal({
   onPrint,
   onNewOrder,
 }) {
-  const orderNumber = transactionData?.orderNo || transactionData?.no || transactionData?.id || '-';
+  const orderNumber = formatNomorTransaksi(transactionData?.orderNo || transactionData?.no || transactionData?.id || '-');
   const tableNo = transactionData?.tableNo || transactionData?.meja || transactionData?.table || '-';
   const dateStr = transactionData?.date || transactionData?.tanggal || '-';
   const timeStr = transactionData?.time || transactionData?.waktu || '-';

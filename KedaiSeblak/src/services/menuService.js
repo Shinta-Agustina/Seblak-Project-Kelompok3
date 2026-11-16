@@ -14,14 +14,37 @@ const MIME_DARI_EKSTENSI = {
   gif: 'image/gif',
 };
 
+function normalisasiUrlFoto(value) {
+  if (!value) return null;
+
+  if (typeof value === 'object') {
+    value = value.uri;
+  }
+
+  if (typeof value !== 'string') return null;
+
+  let url = value.trim();
+
+  // Mengatasi URL yang tersimpan dalam format Markdown.
+  const markdown = /^!?\[[^\]]*\]\((https?:\/\/[^)]+)\)$/i.exec(url);
+
+  if (markdown) {
+    url = markdown[1];
+  }
+
+  return url || null;
+}
+
 // =====================================================
 // MAPPING DATA MENU
 // =====================================================
 
 const mapRow = (row, fotoStok = null) => {
-  // Foto dari stok menjadi sumber utama untuk Kasir.
-  // Foto menu lama hanya menjadi cadangan.
-  const foto = fotoStok || row.foto_url || null;
+  const foto =
+    normalisasiUrlFoto(fotoStok) ||
+    normalisasiUrlFoto(row.foto_url) ||
+    normalisasiUrlFoto(row.foto_item) ||
+    null;
 
   return {
     id: row.id,
@@ -204,38 +227,89 @@ export async function seedInitialMenusIfEmpty(initialItems = []) {
 // SUMBER FOTO UTAMA UNTUK KASIR
 // =====================================================
 
-async function getFotoStok(stokIds = []) {
-  const ids = [...new Set(
-    stokIds.filter(Boolean).map(String)
-  )];
+const normalisasiNama = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
 
-  if (ids.length === 0) {
-    return new Map();
-  }
+// Mengambil foto dari stok_bahan, dicocokkan berdasarkan
+// stok_id atau (jika kosong) nama bahan yang sama dengan menu.
+// Kegagalan membaca foto tidak boleh menggagalkan daftar menu.
+async function getFotoStok() {
+  const perId = new Map();
+  const perNama = new Map();
 
-  const { data, error } = await supabase
+  // 1. Ambil foto dari stok bahan.
+  const { data: stokData, error: stokError } = await supabase
     .from('stok_bahan')
-    .select('id, foto_url')
-    .in('id', ids);
+    .select('id, nama_bahan, foto_url');
 
-  if (error) {
-    console.error('Gagal mengambil foto stok:', error);
-    throw error;
+  if (stokError) {
+    console.warn(
+      'Gagal mengambil foto stok:',
+      stokError.message
+    );
+  } else {
+    (stokData || []).forEach((item) => {
+      const url = normalisasiUrlFoto(item.foto_url);
+
+      if (!url) return;
+
+      if (item.id) {
+        perId.set(String(item.id), url);
+      }
+
+      const nama = normalisasiNama(item.nama_bahan);
+
+      if (nama && !perNama.has(nama)) {
+        perNama.set(nama, url);
+      }
+    });
   }
 
-  const fotoMap = new Map();
+  // 2. Ambil foto dari riwayat pengeluaran.
+  // Foto terbaru digunakan sebagai cadangan.
+  const { data: pengeluaranData, error: pengeluaranError } =
+    await supabase
+      .from('pengeluaran')
+      .select(
+        'stok_id, nama_pengeluaran, bahan_nama, foto_item, created_at'
+      )
+      .not('foto_item', 'is', null)
+      .order('created_at', { ascending: false });
 
-  (data || []).forEach((item) => {
-    if (
-      item.foto_url &&
-      typeof item.foto_url === 'string' &&
-      item.foto_url.trim() !== ''
-    ) {
-      fotoMap.set(String(item.id), item.foto_url.trim());
-    }
-  });
+  if (pengeluaranError) {
+    console.warn(
+      'Gagal mengambil foto pengeluaran:',
+      pengeluaranError.message
+    );
+  } else {
+    (pengeluaranData || []).forEach((item) => {
+      const url = normalisasiUrlFoto(item.foto_item);
 
-  return fotoMap;
+      if (!url) return;
+
+      const stokId = item.stok_id
+        ? String(item.stok_id)
+        : null;
+
+      const nama = normalisasiNama(
+        item.bahan_nama || item.nama_pengeluaran
+      );
+
+      // Foto stok tidak ditimpa foto pengeluaran.
+      if (stokId && !perId.has(stokId)) {
+        perId.set(stokId, url);
+      }
+
+      if (nama && !perNama.has(nama)) {
+        perNama.set(nama, url);
+      }
+    });
+  }
+
+  return { perId, perNama };
 }
 
 // =====================================================
@@ -262,17 +336,13 @@ export async function getMenus({
 
   const menus = data || [];
 
-  const stokIds = menus
-    .map((item) => item.stok_id)
-    .filter(Boolean);
-
-  // Ambil foto berdasarkan stok_id dari tabel stok_bahan.
-  const fotoMap = await getFotoStok(stokIds);
+  const { perId, perNama } = await getFotoStok();
 
   const hasil = menus.map((row) => {
-    const fotoStok = row.stok_id
-      ? fotoMap.get(String(row.stok_id)) || null
-      : null;
+    const fotoStok =
+      (row.stok_id && perId.get(String(row.stok_id))) ||
+      perNama.get(normalisasiNama(row.nama)) ||
+      null;
 
     return mapRow(row, fotoStok);
   });
