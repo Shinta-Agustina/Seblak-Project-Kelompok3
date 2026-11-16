@@ -11,32 +11,32 @@ import {
   TouchableOpacity,
   TextInput,
 } from 'react-native';
-
+ 
 import {
   Ionicons,
   MaterialCommunityIcons,
 } from '@expo/vector-icons';
-
+ 
 import { useKasir } from '../../context/KasirContext';
-
+ 
 export default function LoginScreen({ onLogin }) {
   const { width } = useWindowDimensions();
   const isLargeScreen = width >= 768;
   const { login, loginGoogle } = useKasir();
-
+ 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const [errors, setErrors] = useState({});
-
+ 
   // Validasi & Pencocokan Akun Berdasarkan Global Context & Owner
   const handleLogin = async () => {
     if (loading) return;
     const cleanUsername = username.trim();
     const newErrors = {};
-    if (!cleanUsername) newErrors.username = 'Email wajib diisi.';
+    if (!cleanUsername) newErrors.username = 'Email atau username wajib diisi.';
     if (!password) newErrors.password = 'Password wajib diisi.';
     if (Object.keys(newErrors).length) { setErrors(newErrors); return; }
     setErrors({});
@@ -51,7 +51,7 @@ export default function LoginScreen({ onLogin }) {
       setLoading(false);
     }
   };
-
+ 
   const handleGoogle = async () => {
     if (loading) return;
     setErrors({});
@@ -65,7 +65,7 @@ export default function LoginScreen({ onLogin }) {
       setLoading(false);
     }
   };
-
+ 
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -89,7 +89,7 @@ export default function LoginScreen({ onLogin }) {
             style={styles.heroImage}
             resizeMode="cover"
           />
-
+ 
           <View style={styles.heroOverlay}>
             <View style={styles.heroTopBrand}>
               <View style={styles.heroLogoRow}>
@@ -100,7 +100,7 @@ export default function LoginScreen({ onLogin }) {
                     color="#FFFFFF"
                   />
                 </View>
-
+ 
                 <View>
                   <Text style={styles.heroBrandName}>
                     Seblak Prasmanan
@@ -111,14 +111,14 @@ export default function LoginScreen({ onLogin }) {
                 </View>
               </View>
             </View>
-
+ 
             <View style={styles.heroTaglineBox}>
               <Text style={styles.heroTagline}>
                 Rasa pedas,{"\n"}
                 selalu jadi cerita!
               </Text>
             </View>
-
+ 
             <View style={styles.heroFooter}>
               <MaterialCommunityIcons
                 name="bowl-mix"
@@ -132,7 +132,7 @@ export default function LoginScreen({ onLogin }) {
             </View>
           </View>
         </View>
-
+ 
         {/* Form Login */}
         <View
           style={[
@@ -149,13 +149,13 @@ export default function LoginScreen({ onLogin }) {
               <View style={styles.cardHeader}>
                 <Text style={styles.title}>Selamat Datang</Text>
                 <Text style={styles.subtitle}>
-                  Masuk menggunakan email dan password akun Kasir atau Owner
+                  Masuk dengan email atau username akun Kasir atau Owner
                 </Text>
               </View>
-
+ 
               <View style={styles.formGroup}>
                 {/* Username */}
-                <Text style={styles.inputLabel}>Email Akun Supabase</Text>
+                <Text style={styles.inputLabel}>Email atau Username</Text>
                 <View
                   style={[
                     styles.inputBox,
@@ -175,16 +175,16 @@ export default function LoginScreen({ onLogin }) {
                     }
                     style={styles.inputIcon}
                   />
-
+ 
                   <TextInput
                     style={styles.textInput}
-                    placeholder="contoh: owner@kedaiseblak.com"
+                    placeholder="email atau username, mis. siti"
                     placeholderTextColor="#B0A097"
                     value={username}
                     onChangeText={(value) => {
                       setUsername(value);
                       const v = value.trim();
-                      const msg = !v ? 'Email wajib diisi.'
+                      const msg = !v ? 'Email atau username wajib diisi.'
                         : (v.includes('@') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) ? 'Format email tidak valid.' : '';
                       setErrors((prev) => ({ ...prev, username: msg, form: '' }));
                     }}
@@ -195,11 +195,11 @@ export default function LoginScreen({ onLogin }) {
                     returnKeyType="next"
                   />
                 </View>
-
+ 
                 {errors.username ? (
                   <Text style={styles.errorText}>{errors.username}</Text>
                 ) : null}
-
+ 
                 {/* Password */}
                 <Text style={[styles.inputLabel, { marginTop: 14 }]}>
                   Password
@@ -223,7 +223,7 @@ export default function LoginScreen({ onLogin }) {
                     }
                     style={styles.inputIcon}
                   />
-
+ 
                   <TextInput
                     style={styles.textInput}
                     placeholder="Masukkan password"
@@ -242,7 +242,7 @@ export default function LoginScreen({ onLogin }) {
                     returnKeyType="done"
                     onSubmitEditing={handleLogin}
                   />
-
+ 
                   <TouchableOpacity
                     onPress={() => setShowPassword((prev) => !prev)}
                     style={styles.eyeBtn}
@@ -255,11 +255,11 @@ export default function LoginScreen({ onLogin }) {
                     />
                   </TouchableOpacity>
                 </View>
-
+ 
                 {errors.password ? (
                   <Text style={styles.errorText}>{errors.password}</Text>
                 ) : null}
-
+ 
                 {/* Error Login */}
                 {errors.form ? (
                   <View style={styles.formErrorBox}>
@@ -267,7 +267,7 @@ export default function LoginScreen({ onLogin }) {
                     <Text style={styles.formErrorText}>{errors.form}</Text>
                   </View>
                 ) : null}
-
+ 
                 {/* Tombol Masuk */}
                 <TouchableOpacity
                   style={[styles.submitButton, loading && styles.submitButtonDisabled]}
@@ -284,7 +284,7 @@ export default function LoginScreen({ onLogin }) {
                     </View>
                   )}
                 </TouchableOpacity>
-
+ 
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 14, gap: 8 }}>
                   <View style={{ flex: 1, height: 1, backgroundColor: '#EFE7E2' }} />
                   <Text style={{ color: '#8D7B70', fontSize: 11 }}>atau</Text>
@@ -299,7 +299,7 @@ export default function LoginScreen({ onLogin }) {
                   <Ionicons name="logo-google" size={18} color="#DB4437" />
                   <Text style={{ color: '#2C1810', fontWeight: '700', fontSize: 13 }}>Masuk dengan Google</Text>
                 </TouchableOpacity>
-
+ 
                 {/* Informasi Akses */}
                 <View style={styles.noticeBox}>
                   <Ionicons name="shield-checkmark" size={13} color="#8D7B70" />
@@ -307,14 +307,14 @@ export default function LoginScreen({ onLogin }) {
                     Sistem mendeteksi hak akses secara otomatis
                   </Text>
                 </View>
-
+ 
                 <View style={styles.noticeBox}>
                   <Ionicons name="information-circle-outline" size={13} color="#8D7B70" />
                   <Text style={styles.noticeText}>
-                    Akun dibuat melalui Supabase Authentication. Role Owner/Kasir ditentukan dari profil database.
+                    Akun kasir didaftarkan oleh Owner. Login Google hanya untuk email yang sudah terdaftar.
                   </Text>
                 </View>
-
+ 
               </View>
             </View>
           </ScrollView>
@@ -323,7 +323,7 @@ export default function LoginScreen({ onLogin }) {
     </KeyboardAvoidingView>
   );
 }
-
+ 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1E0F0A' },
   mainLayout: { flex: 1 },
