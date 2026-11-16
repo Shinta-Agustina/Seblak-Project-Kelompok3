@@ -352,7 +352,17 @@ export async function createExpense(values, userId) {
 // UPDATE: EDIT PENGELUARAN
 // =====================================================
 
+
 export async function updateExpense(id, values) {
+  // Ambil jumlah dan harga satuan saat ini sebagai nilai cadangan.
+  const { data: current, error: fetchError } = await supabase
+    .from('pengeluaran')
+    .select('jumlah, harga_satuan')
+    .eq('id', id)
+    .single();
+
+  if (fetchError) throw fetchError;
+
   const patch = {
     updated_at: new Date().toISOString(),
   };
@@ -365,55 +375,6 @@ export async function updateExpense(id, values) {
     patch.kategori = values.kategori;
   }
 
-  const jumlah = values.jumlah !== undefined
-    ? parseJumlah(values.jumlah)
-    : null;
-
-  if (jumlah !== null) {
-    if (jumlah <= 0) {
-      throw new Error('Jumlah pembelian harus lebih besar dari 0.');
-    }
-
-    patch.jumlah = jumlah;
-  }
-
-  // Total tidak di-update secara langsung.
-  // Harga satuan dihitung dari total / jumlah.
-  const totalDiedit =
-    values.total !== undefined ||
-    values.nominal !== undefined;
-
-  if (totalDiedit) {
-    const total = parseNominalPembelian(
-      values.total ?? values.nominal
-    );
-
-    let jumlahUntukHitung = jumlah;
-
-    if (jumlahUntukHitung === null) {
-      const { data: dataLama, error: errorLama } = await supabase
-        .from('pengeluaran')
-        .select('jumlah')
-        .eq('id', id)
-        .single();
-
-      if (errorLama) throw errorLama;
-
-      jumlahUntukHitung = Number(dataLama.jumlah);
-    }
-
-    patch.harga_satuan = hitungHargaSatuan(
-      total,
-      jumlahUntukHitung
-    );
-  } else if (values.harga_satuan !== undefined) {
-    patch.harga_satuan = Number(values.harga_satuan);
-
-    if (patch.harga_satuan <= 0) {
-      throw new Error('Harga satuan harus lebih besar dari 0.');
-    }
-  }
-
   if (values.catatan !== undefined) {
     patch.catatan = values.catatan;
   }
@@ -424,15 +385,60 @@ export async function updateExpense(id, values) {
     patch.tanggal = tanggal;
   }
 
-  // Jika nama berubah, perbarui hubungan stok berdasarkan nama baru.
-  if (values.nama !== undefined) {
-    patch.stok_id = await cariStokId(values.nama);
+  // Gunakan nilai baru jika dikirim, jika tidak gunakan nilai database.
+  const jumlahFinal =
+    values.jumlah !== undefined
+      ? Number(values.jumlah)
+      : Number(current.jumlah);
+
+  const hargaFinal =
+    values.harga_satuan !== undefined
+      ? Number(values.harga_satuan)
+      : Number(current.harga_satuan);
+
+  if (!Number.isFinite(jumlahFinal) || jumlahFinal <= 0) {
+    throw new Error('Jumlah pembelian harus lebih dari 0.');
   }
 
-  Object.assign(
-    patch,
-    await kolomTambahan(values)
-  );
+  if (!Number.isFinite(hargaFinal) || hargaFinal < 0) {
+    throw new Error('Harga satuan tidak valid.');
+  }
+
+  if (values.jumlah !== undefined) {
+    patch.jumlah = jumlahFinal;
+  }
+
+  if (values.harga_satuan !== undefined) {
+    patch.harga_satuan = hargaFinal;
+  }
+
+  // TOTAL ADALAH KOLOM BIASA, JADI WAJIB DIPERBARUI.
+  if (
+    values.total !== undefined ||
+    values.nominal !== undefined
+  ) {
+    const nilaiTotal = values.total ?? values.nominal;
+
+    const totalAngka =
+      typeof nilaiTotal === 'number'
+        ? nilaiTotal
+        : Number(
+          String(nilaiTotal).replace(/[^\d-]/g, '')
+        );
+
+    if (!Number.isFinite(totalAngka) || totalAngka <= 0) {
+      throw new Error('Total pembelian tidak valid.');
+    }
+
+    patch.total = totalAngka;
+  } else if (
+    values.jumlah !== undefined ||
+    values.harga_satuan !== undefined
+  ) {
+    patch.total = jumlahFinal * hargaFinal;
+  }
+
+  Object.assign(patch, await kolomTambahan(values));
 
   const { data, error } = await supabase
     .from('pengeluaran')
