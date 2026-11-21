@@ -18,6 +18,10 @@
   3. **Dewi Ikrimah:** Dashboard dan Stok — Dashboard Owner, Tampilan Penjualan, Stok Bahan Baku, Penambahan Stok, & Riwayat Stok
   4. **Faija Kulla Azmina:** Pengeluaran dan Laporan Keuangan — CRUD Pengeluaran dengan Foto Item & Foto Struk (Cloud Storage), Laporan Keuangan Owner, & Integrasi Pengeluaran dengan Terima Stok
 
+## 1: Pengluaran ##
+
+![alt text](<Cuplikan layar 2026-11-21 210028.png>)
+
 ### Uji 1: Catat Pengeluaran ###
 ![alt text](iPhone-14-PRO-localhost-3wlcj446br3xpq.gif)
 
@@ -27,18 +31,38 @@
 ### Uji 3: Delete Pengeluaran ###
 ![alt text](<WhatsApp Video 2026-11-16 at 19.24.45.gif>)
 
+## 2: Stok bahan ##
+
+![alt text](image-8.png)
+
 ### Uji 4: Update Stok Bahan ###
 ![alt text](iPhone-14-PRO-localhost-__4hg9xof1qxul-1.gif)
+
+## 3: Transaksi Pembelian ##
+
+![alt text](image-9.png)
 
 ### Uji 5: Create Transaksi Pembelian ###
 ![alt text](iPhone-14-PRO-localhost-hwaoli_55ja158.gif)
 
+## 4: Pesanan Aktif ##
+
+![alt text](image-10.png)
+
 ### Uji 6: Read Pesanan Aktif ###
 ![alt text](iPhone-14-PRO-localhost-rnnh-9p2ljjhc_.gif)
+
+## 5: Riwayat Transaksi ##
+
+![alt text](image-11.png)
 
 ### Uji 7: Read Riwayat Transaksi ###
 
 ![alt text](RIWAYAT.gif)
+
+## 6: Kasir ##
+
+![alt text](image-12.png)
 
 ### Uji 8: Create Kasir ###
 
