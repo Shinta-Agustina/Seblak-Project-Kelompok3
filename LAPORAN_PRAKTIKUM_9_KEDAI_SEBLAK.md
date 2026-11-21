@@ -38,13 +38,19 @@
 
 ### Uji 7: Read Riwayat Transaksi ###
 
+![alt text](RIWAYAT.gif)
 
 ### Uji 8: Create Kasir ###
 
+![alt text](<CREATE KASIR.gif>)
 
 ### Uji 9: Update Kasir ###
 
+![alt text](<UPDATE KASIR.gif>)
+
 ### Uji 10: Delete Kasir ###
+
+![alt text](<DELETE KASIR.gif>)
 
 ### 2.5 Tabel `pengeluaran` (Modul Pengeluaran dan Laporan Keuangan — Faija)
 ```sql
