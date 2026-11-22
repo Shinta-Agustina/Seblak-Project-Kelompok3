@@ -23,7 +23,7 @@ import {
   MaterialCommunityIcons,
 } from '@expo/vector-icons';
 
-import { useKasir } from '../../context/KasirContext';
+import { useAuth } from '../../context/AuthContext';
 
 import {
   updateCashierPassword,
@@ -48,12 +48,12 @@ const formatRupiah = (angka) =>
 
 export default function KelolaKasirScreen() {
   const {
-    cashiers,
+    cashiers = [],
     addCashier,
     updateCashier,
     deleteCashier,
     user,
-  } = useKasir();
+  } = useAuth();
 
   const { width, height } = useWindowDimensions();
 
@@ -72,11 +72,11 @@ export default function KelolaKasirScreen() {
 
   const [saving, setSaving] = useState(false);
 
-  const totalKasir = cashiers.length;
+  const totalKasir = (cashiers || []).length;
 
-  const totalAktif = cashiers.filter(
+  const totalAktif = (cashiers || []).filter(
     (item) =>
-      String(item.status || 'aktif').toLowerCase() === 'aktif'
+      String(item?.status || 'aktif').toLowerCase() === 'aktif'
   ).length;
 
   const totalNonaktif = totalKasir - totalAktif;
@@ -85,9 +85,9 @@ export default function KelolaKasirScreen() {
   const filteredKasir = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
 
-    if (!keyword) return cashiers;
+    if (!keyword) return cashiers || [];
 
-    return cashiers.filter((item) => {
+    return (cashiers || []).filter((item) => {
       const nama = String(
         item.nama || item.name || ''
       ).toLowerCase();

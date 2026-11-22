@@ -1,10 +1,17 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { useAuth } from '../context/AuthContext';
 import { useKasir } from '../context/KasirContext';
  
 export default function TopHeader({ onToggleSidebar, isSidebarOpen, title, role }) {
-  const { user, activeTab } = useKasir();
-  const isOwner = role === 'Owner' || user?.role === 'Owner';
+  const { user: authUser, profile } = useAuth();
+  const { activeTab } = useKasir();
+
+  const userRole = profile?.role
+    ? (String(profile.role).toLowerCase() === 'owner' ? 'Owner' : 'Kasir')
+    : (role || authUser?.role || 'Kasir');
+
+  const isOwner = userRole === 'Owner';
  
   const getPageTitle = () => {
     if (title) return title;
@@ -24,13 +31,13 @@ export default function TopHeader({ onToggleSidebar, isSidebarOpen, title, role 
     }
   };
  
-  const displayRole = role || user?.role || 'Kasir';
-  const displayName = user?.name || 'Pengguna';
+  const displayRole = userRole;
+  const displayName = profile?.nama || authUser?.nama || authUser?.name || 'Pengguna';
  
   const avatarSource =
-    typeof user?.avatar === 'string'
-      ? { uri: user.avatar }
-      : user?.avatar || (isOwner
+    typeof authUser?.avatar === 'string'
+      ? { uri: authUser.avatar }
+      : authUser?.avatar || (isOwner
           ? { uri: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80' }
           : require('../../assets/images/avatar-kasir.png'));
  

@@ -10,8 +10,8 @@
     "ios": {
       "icon": "./assets/expo.icon"
     },
-"android": {
-          "package": "com.kedaiseblak.app",
+    "android": {
+      "package": "com.kedaiseblak.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -36,7 +36,9 @@
       ],
       "expo-sharing",
       "@react-native-community/datetimepicker",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-router",
+      "expo-web-browser"
     ],
     "experiments": {
       "reactCompiler": true

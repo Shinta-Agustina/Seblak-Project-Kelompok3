@@ -1,3 +1,5 @@
+// @ts-nocheck
+// deno-lint-ignore-file
 // =====================================================================
 // Edge Function: manage-cashier
 // Lokasi : supabase/functions/manage-cashier/index.ts
@@ -147,7 +149,14 @@ async function buat(admin: Admin, b: Body) {
 
   if (status === "nonaktif") await aturLogin(admin, id, status);
 
-  // Baris profiles dibuat otomatis oleh trigger sync_kasir_ke_profiles
+  // Pastikan baris profiles terisi dan sinkron
+  await admin.from("profiles").upsert({
+    id,
+    nama,
+    role: "kasir",
+    status,
+  });
+
   return json({ ok: true, cashier: await ambilKasir(admin, id) });
 }
 

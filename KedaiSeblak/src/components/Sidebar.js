@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useAuth } from '../context/AuthContext';
 import { useKasir } from '../context/KasirContext';
 
 export default function Sidebar({
@@ -17,11 +18,10 @@ export default function Sidebar({
   onLogout,
   onClose,
 }) {
+  const { user: authUser, profile, logout: authLogout } = useAuth();
   const {
-    user,
     activeTab: contextActiveTab,
     setActiveTab: contextSetActiveTab,
-    logout: contextLogout,
     orders,
   } = useKasir();
 
@@ -30,7 +30,8 @@ export default function Sidebar({
   const isOwner =
     role === 'owner' ||
     role === 'Owner' ||
-    user?.role === 'Owner';
+    String(profile?.role || '').toLowerCase() === 'owner' ||
+    String(authUser?.role || '').toLowerCase() === 'owner';
 
   const activeTab =
     activeTabProp !== undefined
@@ -43,8 +44,8 @@ export default function Sidebar({
   const logout =
     onLogout ||
     (() => {
-      if (contextLogout) {
-        contextLogout();
+      if (authLogout) {
+        authLogout();
       }
     });
 
