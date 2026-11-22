@@ -35,12 +35,56 @@ alter table public.profiles enable row level security;
 drop policy if exists profiles_read_self_or_owner on public.profiles;
 create policy profiles_read_self_or_owner on public.profiles
 for select to authenticated using (id = auth.uid() or public.is_owner());
+
 drop policy if exists profiles_owner_insert on public.profiles;
-create policy profiles_owner_insert on public.profiles
-for insert to authenticated with check (public.is_owner());
+drop policy if exists profiles_insert_self_or_owner on public.profiles;
+create policy profiles_insert_self_or_owner on public.profiles
+for insert to authenticated with check (id = auth.uid() or public.is_owner());
+
 drop policy if exists profiles_owner_update on public.profiles;
-create policy profiles_owner_update on public.profiles
-for update to authenticated using (public.is_owner()) with check (public.is_owner());
+drop policy if exists profiles_update_self_or_owner on public.profiles;
+create policy profiles_update_self_or_owner on public.profiles
+for update to authenticated using (id = auth.uid() or public.is_owner()) with check (id = auth.uid() or public.is_owner());
+
+-- Trigger otomatis untuk membuat profil saat user baru terdaftar di auth.users (email atau Google)
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer
+set search_path = public
+as $$
+declare
+  v_nama text;
+  v_role text;
+begin
+  v_nama := coalesce(
+    new.raw_user_meta_data->>'nama',
+    new.raw_user_meta_data->>'full_name',
+    new.raw_user_meta_data->>'name',
+    split_part(new.email, '@', 1)
+  );
+
+  if new.raw_user_meta_data->>'role' = 'owner'
+     or new.raw_user_meta_data->>'peran' = 'owner'
+     or new.email = 'dewi@kedaiseblak.com'
+     or not exists (select 1 from public.profiles where role = 'owner') then
+    v_role := 'owner';
+  else
+    v_role := coalesce(new.raw_user_meta_data->>'role', 'kasir');
+  end if;
+
+  insert into public.profiles (id, nama, role, status)
+  values (new.id, v_nama, v_role, 'aktif')
+  on conflict (id) do update
+  set nama = excluded.nama,
+      status = 'aktif';
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
 
 -- Buat user terlebih dahulu melalui Authentication > Users.
 -- Lalu isi profilnya, contoh:
@@ -100,6 +144,27 @@ drop policy if exists kasir_owner_update on public.kasir;
 create policy kasir_owner_update on public.kasir for update to authenticated using (public.is_owner()) with check (public.is_owner());
 drop policy if exists kasir_owner_delete on public.kasir;
 create policy kasir_owner_delete on public.kasir for delete to authenticated using (public.is_owner());
+
+-- Sinkronisasi kasir ke tabel profiles
+create or replace function public.sync_kasir_ke_profiles() returns trigger
+language plpgsql security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, nama, role, status)
+  values (new.id, new.nama, 'kasir', new.status)
+  on conflict (id) do update
+    set nama = excluded.nama,
+        status = excluded.status
+    where public.profiles.role = 'kasir';
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_sync_kasir_profiles on public.kasir;
+create trigger trg_sync_kasir_profiles
+  after insert or update on public.kasir
+  for each row execute function public.sync_kasir_ke_profiles();
 
 
 -- ===== 03_transaksi.sql =====

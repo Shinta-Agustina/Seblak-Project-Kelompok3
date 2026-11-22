@@ -8,13 +8,7 @@ import React, {
 } from 'react';
 
 import { supabase } from '../lib/supabase';
-
-import {
-  signIn,
-  signInWithGoogle,
-  signOut,
-  getCurrentSession,
-} from '../services/Authservice';
+import { useAuth } from './AuthContext';
 
 import { getMenus } from '../services/menuService';
 import { getCashiers } from '../services/kasirService';
@@ -186,14 +180,15 @@ const mapTransaction = (row) => {
 
 export function KasirProvider({ children }) {
   // =========================================
-  // STATE USER DAN NAVIGASI
+  // INTEGRASI AUTH DARI AUTHCONTEXT
   // =========================================
 
-  const [user, setUser] = useState(null);
+  const auth = useAuth();
+  const { user } = auth;
 
-  const [activeTab, setActiveTab] = useState('Kasir');
-
-  const [initializing, setInitializing] = useState(true);
+  const [activeTab, setActiveTab] = useState(
+    user?.role === 'Owner' ? 'dashboard' : 'Kasir'
+  );
 
   // =========================================
   // STATE DATA
@@ -232,192 +227,61 @@ export function KasirProvider({ children }) {
   // =====================================================
 
   const loadReferenceData = async () => {
-    const [menus, staff, sales] = await Promise.all([
-      getMenus(),
-      getCashiers(),
-      getTransactions({ limit: 200 }),
-    ]);
+    try {
+      const [menus, staff, sales] = await Promise.all([
+        getMenus(),
+        getCashiers(),
+        getTransactions({ limit: 200 }),
+      ]);
 
-    setMenuItems(Array.isArray(menus) ? menus : []);
+      setMenuItems(Array.isArray(menus) ? menus : []);
 
-    const mappedCashiers = (Array.isArray(staff) ? staff : [])
-      .map(mapCashier);
+      const mappedCashiers = (Array.isArray(staff) ? staff : [])
+        .map(mapCashier);
 
-    setCashiers(mappedCashiers);
+      setCashiers(mappedCashiers);
 
-    const mappedTransactions = (
-      Array.isArray(sales) ? sales : []
-    ).map(mapTransaction);
+      const mappedTransactions = (
+        Array.isArray(sales) ? sales : []
+      ).map(mapTransaction);
 
-    setTransactions(mappedTransactions);
+      setTransactions(mappedTransactions);
 
-    const mappedOrders = mappedTransactions.filter(
-      (transaction) =>
-        ORDER_LIST_STATUSES.includes(
-          transaction.orderStatus
-        )
-    );
-
-    setOrders(mappedOrders);
-
-    // Data ini dikembalikan agar bisa digunakan
-    // untuk mencari ID kasir saat login.
-    return {
-      transactions: mappedTransactions,
-      cashiers: mappedCashiers,
-    };
-  };
-
-  // =====================================================
-  // MENERAPKAN SESSION LOGIN
-  // =====================================================
-
-  const applySession = async (sessionData) => {
-    if (!sessionData) {
-      setUser(null);
-      return;
-    }
-
-    const { user: authUser, profile } = sessionData;
-
-    const normalizedRole =
-      profile.role === 'owner' ? 'Owner' : 'Kasir';
-
-    // Muat data referensi terlebih dahulu.
-    const referenceData = await loadReferenceData();
-
-    // Email akun kasir dibuat dengan format:
-    // username@kedaiseblak.com
-    const emailUsername = String(authUser.email || '')
-      .trim()
-      .toLowerCase()
-      .split('@')[0];
-
-    // Cari ID kasir dari tabel public.kasir.
-    const cashierRecord = normalizedRole === 'Kasir'
-      ? (referenceData?.cashiers || []).find((cashier) => {
-        const username = String(
-          cashier.username || cashier.email || ''
-        )
-          .trim()
-          .toLowerCase();
-
-        return (
-          username === emailUsername ||
-          username === String(authUser.email || '')
-            .trim()
-            .toLowerCase()
-        );
-      })
-      : null;
-
-    setUser({
-      // ID akun Supabase Auth.
-      id: authUser.id,
-
-      // ID dari tabel kasir.
-      // Ini yang digunakan untuk kolom transaksi.kasir_id.
-      kasirId: cashierRecord?.id || null,
-
-      email: authUser.email,
-      name: profile.nama,
-      nama: profile.nama,
-      role: normalizedRole,
-    });
-
-    setActiveTab(
-      normalizedRole === 'Owner' ? 'dashboard' : 'Kasir'
-    );
-  };
-
-  // =====================================================
-  // PEMULIHAN SESSION DAN AUTH LISTENER
-  // =====================================================
-
-  useEffect(() => {
-    let mounted = true;
-
-    getCurrentSession()
-      .then(async (session) => {
-        if (mounted && session) {
-          await applySession(session);
-        }
-      })
-      .catch((error) => {
-        console.warn(
-          'Pemulihan sesi Supabase gagal:',
-          error.message
-        );
-      })
-      .finally(() => {
-        if (mounted) {
-          setInitializing(false);
-        }
-      });
-
-    const { data: listener } =
-      supabase.auth.onAuthStateChange(
-        (_event, session) => {
-          if (!session && mounted) {
-            setUser(null);
-            setMenuItems([]);
-            setCashiers([]);
-            setOrders([]);
-            setTransactions([]);
-          }
-        }
+      const mappedOrders = mappedTransactions.filter(
+        (transaction) =>
+          ORDER_LIST_STATUSES.includes(
+            transaction.orderStatus
+          )
       );
 
-    return () => {
-      mounted = false;
-      listener.subscription.unsubscribe();
-    };
-  }, []);
+      setOrders(mappedOrders);
 
-  // =====================================================
-  // LOGIN
-  // =====================================================
-
-  const login = async (email, password) => {
-    const result = await signIn(email, password);
-
-    await applySession(result);
-
-    return result.profile;
-  };
-
-  // =====================================================
-  // LOGIN GOOGLE
-  // =====================================================
-
-  const loginGoogle = async () => {
-    const result = await signInWithGoogle();
-
-    if (!result) {
-      return null;
+      return {
+        transactions: mappedTransactions,
+        cashiers: mappedCashiers,
+      };
+    } catch (err) {
+      console.warn('Gagal memuat data referensi:', err.message);
+      return { transactions: [], cashiers: [] };
     }
-
-    await applySession(result);
-
-    return result.profile;
   };
 
-  // =====================================================
-  // LOGOUT
-  // =====================================================
-
-  const logout = async () => {
-    await signOut();
-
-    setUser(null);
-    setCart([]);
-    setOrders([]);
-    setTransactions([]);
-    setMenuItems([]);
-    setCashiers([]);
-
-    setActiveTab('Kasir');
-  };
+  // Reaksi saat user login atau logout dari AuthContext
+  useEffect(() => {
+    if (user) {
+      setActiveTab(user.role === 'Owner' ? 'dashboard' : 'Kasir');
+      loadReferenceData().catch((err) =>
+        console.warn('Gagal memuat data saat user aktif:', err.message)
+      );
+    } else {
+      setActiveTab('Kasir');
+      setCart([]);
+      setOrders([]);
+      setTransactions([]);
+      setMenuItems([]);
+      setCashiers([]);
+    }
+  }, [user?.id, user?.role]);
 
   // =====================================================
   // MENAMBAHKAN ITEM KE KERANJANG
@@ -753,72 +617,16 @@ export function KasirProvider({ children }) {
   const refreshData = loadReferenceData;
 
   // =====================================================
-  // TAMBAH KASIR
+  // MANAJEMEN KASIR & AUTH (DIDELEGASIKAN KE AUTHCONTEXT)
   // =====================================================
 
-  const addCashier = async (values) => {
-    const { createCashierAccount } = await import(
-      '../services/kasirService'
-    );
-
-    const row = await createCashierAccount(values);
-
-    setCashiers((previousCashiers) => [
-      ...previousCashiers.filter(
-        (item) => String(item.id) !== String(row.id)
-      ),
-      mapCashier(row),
-    ]);
-
-    return row;
-  };
-
-  // =====================================================
-  // EDIT KASIR
-  // =====================================================
-
-  const updateCashier = async (id, values) => {
-    const { updateCashier: update } = await import(
-      '../services/kasirService'
-    );
-
-    const row = await update(id, values);
-
-    setCashiers((previousCashiers) =>
-      previousCashiers.map((item) =>
-        String(item.id) === String(id)
-          ? {
-            ...item,
-            ...mapCashier(row),
-          }
-          : item
-      )
-    );
-
-    return row;
-  };
-
-  // =====================================================
-  // HAPUS / NONAKTIFKAN KASIR
-  // =====================================================
-
-  const deleteCashier = async (id) => {
-    const { deleteCashier: remove } = await import(
-      '../services/kasirService'
-    );
-
-    const hasil = await remove(id); // 'dihapus' | 'nonaktif'
-
-    setCashiers((previousCashiers) =>
-      hasil === 'dihapus'
-        ? previousCashiers.filter((item) => String(item.id) !== String(id))
-        : previousCashiers.map((item) =>
-          String(item.id) === String(id) ? { ...item, status: 'nonaktif' } : item
-        )
-    );
-
-    return hasil;
-  };
+  const addCashier = auth.addCashier;
+  const updateCashier = auth.updateCashier;
+  const deleteCashier = auth.deleteCashier;
+  const login = auth.login;
+  const loginGoogle = auth.loginGoogle;
+  const logout = auth.logout;
+  const initializing = auth.initializing;
 
   // =====================================================
   // VALUE CONTEXT
@@ -827,6 +635,7 @@ export function KasirProvider({ children }) {
   const value = useMemo(
     () => ({
       user,
+      profile: auth.profile,
       login,
       loginGoogle,
       logout,
@@ -837,7 +646,7 @@ export function KasirProvider({ children }) {
       activeTab,
       setActiveTab,
 
-      cashiers,
+      cashiers: auth.cashiers && auth.cashiers.length > 0 ? auth.cashiers : cashiers,
       addCashier,
       updateCashier,
       deleteCashier,
@@ -881,7 +690,15 @@ export function KasirProvider({ children }) {
 
     [
       user,
-      initializing,
+      auth.profile,
+      auth.cashiers,
+      auth.addCashier,
+      auth.updateCashier,
+      auth.deleteCashier,
+      auth.login,
+      auth.loginGoogle,
+      auth.logout,
+      auth.initializing,
       activeTab,
       cashiers,
       menuItems,

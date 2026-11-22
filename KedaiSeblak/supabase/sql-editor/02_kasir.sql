@@ -19,3 +19,24 @@ drop policy if exists kasir_owner_update on public.kasir;
 create policy kasir_owner_update on public.kasir for update to authenticated using (public.is_owner()) with check (public.is_owner());
 drop policy if exists kasir_owner_delete on public.kasir;
 create policy kasir_owner_delete on public.kasir for delete to authenticated using (public.is_owner());
+
+-- Sinkronisasi kasir ke tabel profiles
+create or replace function public.sync_kasir_ke_profiles() returns trigger
+language plpgsql security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, nama, role, status)
+  values (new.id, new.nama, 'kasir', new.status)
+  on conflict (id) do update
+    set nama = excluded.nama,
+        status = excluded.status
+    where public.profiles.role = 'kasir';
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_sync_kasir_profiles on public.kasir;
+create trigger trg_sync_kasir_profiles
+  after insert or update on public.kasir
+  for each row execute function public.sync_kasir_ke_profiles();
