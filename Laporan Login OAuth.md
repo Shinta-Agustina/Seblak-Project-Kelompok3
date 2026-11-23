@@ -277,7 +277,7 @@ b. Login Owner
 
 6.6 Pengujian status kasir Nonaktif dan logout
 
-a. Nonaktifkan akun kasir 
+a. Nonaktifkan akun kasir dan logout
 
 ![alt text](<nonaktifkan kasir.gif>)
 
