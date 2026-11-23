@@ -110,6 +110,7 @@ const mapCashier = (cashier) => ({
 // PEMETAAN DATA TRANSAKSI DARI SUPABASE
 // =====================================================
 
+
 const mapTransaction = (row) => {
   const items = (row.detail_transaksi || []).map((detail) => ({
     id: detail.menu_id,
@@ -122,7 +123,10 @@ const mapTransaction = (row) => {
     subtotal: Number(detail.subtotal || 0),
   }));
 
-  const paymentStatus = row.status || 'Belum Bayar';
+  // Status pembayaran dan status pengerjaan harus terpisah.
+  const paymentStatus = String(
+    row.status || 'Belum Bayar'
+  ).trim();
 
   const orderStatus = normalizeOrderStatus(
     row.status_pesanan
@@ -130,11 +134,13 @@ const mapTransaction = (row) => {
 
   return {
     id: row.id,
-
+    kasirId: row.kasir_id,
+    namaKasir: row.nama_kasir,
     orderNo: row.nomor_transaksi,
     no: row.nomor_transaksi,
 
     date: tanggalLokal(row.created_at),
+    tanggal: tanggalLokal(row.created_at),
     waktu: jamLokal(row.created_at),
     time: jamLokal(row.created_at),
     createdAt: row.created_at,
@@ -154,6 +160,7 @@ const mapTransaction = (row) => {
 
     metode: row.metode_pembayaran,
     method: row.metode_pembayaran,
+    paymentMethod: row.metode_pembayaran,
 
     cashPaid: Number(row.uang_diterima || 0),
     change: Number(row.kembalian || 0),
@@ -164,15 +171,20 @@ const mapTransaction = (row) => {
     pedas: row.level_pedas,
     catatan: row.catatan,
 
+    // STATUS PEMBAYARAN
     paymentStatus,
+    statusPembayaran: paymentStatus,
 
+    // STATUS PENGERJAAN PESANAN
     orderStatus,
     statusPesanan: orderStatus,
     status_pesanan: orderStatus,
 
+    // Pertahankan untuk kompatibilitas halaman lama.
     status: orderStatus,
   };
 };
+
 
 // =====================================================
 // PROVIDER

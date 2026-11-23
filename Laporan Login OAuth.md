@@ -237,9 +237,11 @@ Masukkan screenshot atau GIF sesuai bukti yang berhasil direkam. Bagian ini meng
 6.1 Setup Supabase, tabel profiles, dan RLS — [tempel bukti]
 
 a. Tabel Profiles
+
 ![alt text](image-13.png)
 
 b. RLS
+
 ![alt text](image-14.png)
 
 6.2 Login email-password — [tempel bukti]
@@ -263,9 +265,13 @@ b. Login Owner
 
 
 
-6.4 Dashboard owner dan kasir — [tempel bukti]
+6.4 Dashboard owner dan kasir 
 
-6.5 Owner mendaftarkan kasir — [tempel bukti]
+![alt text](<dashboard kasir.gif>)
+
+![alt text](<dashboard owner.gif>)
+
+6.5 Owner mendaftarkan kasir 
 
 ![alt text](<Mendaftarkan kasir-1.gif>)
 
