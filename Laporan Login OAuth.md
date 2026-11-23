@@ -278,6 +278,7 @@ b. Login Owner
 6.6 Pengujian status kasir Nonaktif dan logout
 
 ![alt text](<nonaktifkan kasir.gif>)
+![alt text](<login kasir sudah nonaktif.gif>)
 
 7. Catatan dan Keterbatasan
 
