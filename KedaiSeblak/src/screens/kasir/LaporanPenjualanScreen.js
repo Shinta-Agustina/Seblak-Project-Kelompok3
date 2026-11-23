@@ -56,33 +56,128 @@ const getFormattedToday = () => {
 export default function LaporanPenjualanHarian() {
     const { width } = useWindowDimensions();
     const isMobile = width < 768;
-    const { transactions: semuaTransaksi, user } = useKasir();
-    const isOwner = user?.role === 'Owner';
 
-    // Laporan "harian" memakai hari kerja terakhir yang punya transaksi lunas
-    // (hari ini bila sudah ada transaksi), bukan seluruh riwayat.
+    const { transactions: semuaTransaksi, user } = useKasir();
+
+    const isOwner =
+        String(user?.role || '').trim().toLowerCase() === 'owner';
+
+    // Tanggal hari ini berdasarkan waktu lokal perangkat.
     const hariIniKey = (() => {
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     })();
-    const lunas = (semuaTransaksi || []).filter((t) => t.status === 'Lunas' && t.date);
+
+    const transaksiSesuaiUser = semuaTransaksi || [];
+
+    // Ambil status pembayaran, bukan status pengerjaan pesanan.
+    const isPaidTransaction = (t) => {
+        const statusPembayaran = String(
+            t.paymentStatus ??
+            t.statusPembayaran ??
+            t.status_pembayaran ??
+            ''
+        ).trim().toLowerCase();
+
+        return [
+            'lunas',
+            'paid',
+            'sudah dibayar',
+        ].includes(statusPembayaran);
+    };
+
+    // Ambil tanggal transaksi.
+    const getTransactionDate = (t) => {
+        const value = t.date || t.tanggal || t.createdAt || t.created_at;
+
+        if (!value) return '';
+
+        // Jika sudah berupa YYYY-MM-DD, gunakan langsung.
+        const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+        if (match) return match[1];
+
+        const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) return '';
+
+        return [
+            date.getFullYear(),
+            String(date.getMonth() + 1).padStart(2, '0'),
+            String(date.getDate()).padStart(2, '0'),
+        ].join('-');
+    };
+
+    // Hanya transaksi yang pembayarannya sudah lunas.
+    const lunas = transaksiSesuaiUser
+        .filter((t) => isPaidTransaction(t))
+        .map((t) => ({
+            ...t,
+            date: getTransactionDate(t),
+        }))
+        .filter((t) => t.date);
+
+    // Cari hari terakhir yang memiliki transaksi lunas.
     const tanggalAcuanKey = lunas.reduce(
-        (acc, t) => (t.date <= hariIniKey && t.date > acc ? t.date : acc),
+        (acc, t) =>
+            t.date <= hariIniKey && t.date > acc
+                ? t.date
+                : acc,
         ''
     ) || hariIniKey;
-    const transactions = lunas.filter((t) => t.date === tanggalAcuanKey);
+
+    // Tampilkan transaksi pada tanggal tersebut.
+    const transactions = lunas.filter(
+        (t) => t.date === tanggalAcuanKey
+    );
+
+    // DEBUG LAPORAN PENJUALAN
+    console.log('DEBUG LAPORAN PENJUALAN:', {
+        role: user?.role,
+        userId: user?.id,
+        kasirId: user?.kasirId,
+
+        jumlahSemuaTransaksi: semuaTransaksi?.length || 0,
+
+        contohTransaksi: (semuaTransaksi || []).slice(0, 3).map((t) => ({
+            id: t.id,
+            kasirId: t.kasirId,
+            kasir: t.kasir,
+            total: t.total,
+            paymentStatus: t.paymentStatus,
+            statusPembayaran: t.statusPembayaran,
+            status: t.status,
+            date: t.date,
+        })),
+
+        jumlahTransaksiLunas: lunas.length,
+        tanggalAcuan: tanggalAcuanKey,
+        jumlahTransaksiLaporan: transactions.length,
+    });
+
     const adalahHariIni = tanggalAcuanKey === hariIniKey;
-    const labelHari = adalahHariIni ? 'Hari Ini' : 'Hari Kerja Terakhir';
+    const labelHari = adalahHariIni
+        ? 'Hari Ini'
+        : 'Hari Kerja Terakhir';
+
     const todayFormatted = (() => {
         const [y, m, d] = tanggalAcuanKey.split('-').map(Number);
         const tgl = new Date(y, m - 1, d);
+
         try {
-            return new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(tgl);
+            return new Intl.DateTimeFormat('id-ID', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+            }).format(tgl);
         } catch (e) {
             return tanggalAcuanKey;
         }
     })();
-    const namaKasirBertugas = transactions[0]?.kasir || user?.name || '-';
+
+    const namaKasirBertugas =
+        transactions[0]?.kasir || user?.name || '-';
+
 
     const totalOmzet = transactions.reduce((acc, t) => acc + (t.total || 0), 0);
     const totalTunai = transactions

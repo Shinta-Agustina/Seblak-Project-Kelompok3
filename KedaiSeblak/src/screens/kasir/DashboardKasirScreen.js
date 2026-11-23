@@ -1110,11 +1110,13 @@ export default function DashboardKasirScreen({ navigation }) {
                           setMobileCartOpen(false)
                         }
                       >
+
                         <Ionicons
-                          name="close"
-                          size={22}
-                          color="#666666"
+                          name="chevron-down"
+                          size={24}
+                          color="#6B625D"
                         />
+
                       </TouchableOpacity>
                     </View>
 
@@ -1366,6 +1368,7 @@ const styles = StyleSheet.create({
   },
   orderPanel: {
     flex: 1,
+    minHeight: 0,
     flexDirection: 'column',
     backgroundColor: '#FFFFFF',
     padding: 16,
@@ -1480,7 +1483,7 @@ const styles = StyleSheet.create({
   },
   orderItemsScroll: {
     flex: 1,
-    minHeight: 120,
+    minHeight: 0,
   },
   emptyCartBox: {
     alignItems: 'center',
@@ -1699,13 +1702,18 @@ const styles = StyleSheet.create({
   mobileModalBackdrop: {
     ...StyleSheet.absoluteFillObject,
   },
+
   mobileModalContent: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    height: '85%',
     maxHeight: '85%',
-    paddingBottom: 20,
+    width: '100%',
+    paddingBottom: Platform.OS === 'web' ? 20 : 28,
+    overflow: 'hidden',
   },
+
   mobileSheetHeader: {
     alignItems: 'center',
     paddingTop: 8,
@@ -1722,7 +1730,11 @@ const styles = StyleSheet.create({
   sheetCloseBtn: {
     position: 'absolute',
     right: 12,
-    top: 6,
-    padding: 4,
+    top: 4,
+    width: 42,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
 });
