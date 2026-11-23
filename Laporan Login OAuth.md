@@ -248,11 +248,11 @@ b. RLS
 
 a. Login Kasir 
 
-![alt text](<Login kasir via email.gif>)
+![alt text](<login kasir via email (2).gif>)
 
 b. Login Owner 
 
-![alt text](<Login owner via email.gif>)
+![alt text](<login owner via email (2).gif>)
 
 
 6.3 Login Google melalui Expo Go — [tempel bukti]
