@@ -263,7 +263,7 @@ a. Login Kasir
 
 b. Login Owner 
 
-
+![alt text](<login owner.gif>)
 
 6.4 Dashboard owner dan kasir 
 
@@ -275,7 +275,9 @@ b. Login Owner
 
 ![alt text](<Mendaftarkan kasir-1.gif>)
 
-6.6 Pengujian status kasir Nonaktif dan logout — [tempel bukti]
+6.6 Pengujian status kasir Nonaktif dan logout
+
+![alt text](<nonaktifkan kasir.gif>)
 
 7. Catatan dan Keterbatasan
 
