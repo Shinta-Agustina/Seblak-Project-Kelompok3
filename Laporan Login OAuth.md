@@ -244,10 +244,19 @@ b. RLS
 
 6.2 Login email-password — [tempel bukti]
 
+a. Login Kasir 
+
+![alt text](<Login kasir via email.gif>)
+
+b. Login Owner 
+
+![alt text](<Login owner via email.gif>)
+
 
 6.3 Login Google melalui Expo Go — [tempel bukti]
 
 a. Login Kasir 
+
 ![alt text](<Login Kasir via Google.gif>)
 
 b. Login Owner 
@@ -257,6 +266,8 @@ b. Login Owner
 6.4 Dashboard owner dan kasir — [tempel bukti]
 
 6.5 Owner mendaftarkan kasir — [tempel bukti]
+
+![alt text](<Mendaftarkan kasir-1.gif>)
 
 6.6 Pengujian status kasir Nonaktif dan logout — [tempel bukti]
 
