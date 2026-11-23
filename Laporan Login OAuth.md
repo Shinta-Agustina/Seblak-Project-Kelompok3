@@ -242,7 +242,7 @@ Masukkan screenshot atau GIF sesuai bukti yang berhasil direkam. Bagian ini meng
 
 6.4 Dashboard owner dan kasir — [tempel bukti]
 
-6.5 Owner mendaftarkan kasir — [tempel bukti]
+6.5 Owner mendaftarkan kasir — ![alt text](<Mendaftarkan kasir.gif>)
 
 6.6 Pengujian status kasir Nonaktif dan logout — [tempel bukti]
 
